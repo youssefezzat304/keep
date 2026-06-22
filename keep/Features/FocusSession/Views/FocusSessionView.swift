@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  FocusSessionView.swift
 //  keep
 //
 //  Created by Youssef Abdelrahim on 20.06.26.
@@ -7,18 +7,23 @@
 
 import SwiftUI
 
-struct ContentView: View {
+struct FocusSessionView: View {
     var body: some View {
         VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+            ActiveTargetHeader()
+            
+            TimerWorkspaceCard()
+            
+            HStack {
+                MusicPlayerCard()
+                
+                TasksCard()
+            }
         }
         .padding()
     }
 }
 
 #Preview {
-    ContentView()
+    FocusSessionView()
 }
