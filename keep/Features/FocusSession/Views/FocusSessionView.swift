@@ -28,7 +28,7 @@ struct FocusSessionView: View {
             .frame(maxWidth:1000)
         }
         .padding()
-        .frame(minWidth: 700, minHeight: 500)
+        .frame(minWidth: 700, maxWidth: 1100, minHeight: 500)
     }
 }
 

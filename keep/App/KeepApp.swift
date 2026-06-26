@@ -11,9 +11,8 @@ import SwiftUI
 struct keepApp: App {
     var body: some Scene {
         WindowGroup {
-            FocusSessionView()
+            AppShellView()
         }
         .defaultSize(width: 900, height: 800)
-        .windowResizability(.contentSize)
     }
 }
