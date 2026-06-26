@@ -9,6 +9,15 @@ import SwiftUI
 
 struct MusicPlayerCard: View {
     var body: some View {
-        Text("MusicPlayerCard")
+        VStack {
+            Text("Music player")
+            
+            // TODO: buttons
+        }
+        .cardStyle(backgroundColor: .red)
     }
+}
+
+#Preview {
+    MusicPlayerCard()
 }

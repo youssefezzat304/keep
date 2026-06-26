@@ -13,5 +13,7 @@ struct keepApp: App {
         WindowGroup {
             FocusSessionView()
         }
+        .defaultSize(width: 900, height: 800)
+        .windowResizability(.contentSize)
     }
 }

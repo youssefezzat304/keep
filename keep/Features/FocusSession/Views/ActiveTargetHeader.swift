@@ -18,6 +18,7 @@ struct ActiveTargetHeader: View {
             }
         }
         .padding()
+        .frame(minWidth:100, maxWidth:1000, minHeight:50, maxHeight:50)
     }
 }
 

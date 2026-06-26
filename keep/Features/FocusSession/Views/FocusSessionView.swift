@@ -12,15 +12,23 @@ struct FocusSessionView: View {
         VStack {
             ActiveTargetHeader()
             
+            Spacer()
+            
             TimerWorkspaceCard()
+            
+            Spacer()
             
             HStack {
                 MusicPlayerCard()
                 
+                Spacer()
+                
                 TasksCard()
             }
+            .frame(maxWidth:1000)
         }
         .padding()
+        .frame(minWidth: 700, minHeight: 500)
     }
 }
 

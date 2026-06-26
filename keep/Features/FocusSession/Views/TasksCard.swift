@@ -9,6 +9,15 @@ import SwiftUI
 
 struct TasksCard: View {
     var body: some View {
-        Text("Tasks Card")
+        VStack {
+            Text("Tasks")
+            
+            // TODO: Input space
+        }
+        .cardStyle(backgroundColor: .blue)
     }
+}
+
+#Preview {
+    TasksCard()
 }
