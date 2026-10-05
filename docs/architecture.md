@@ -4,21 +4,21 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-The application is a first visual draft with one application target. Timers record project time into an editable, locally saved Timesheet. Timer and project state are shared across the app’s windows; task-list and task-name drafts remain window-local. Music streams public lofi tracks from Audius through native AVPlayer, with app-shared playback and volume state.
+The application is a first visual draft with one application target. Timers record project time into an editable, locally saved Timesheet. Timers, projects, saved daily tasks, and music are shared across the app’s windows; task-day selection, input drafts, and task-name drafts remain window-local. Music streams public lofi tracks from Audius through native AVPlayer, with app-shared playback and volume state.
 
 | Area | Implemented today | Not implemented |
 | --- | --- | --- |
-| App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or task drafts across launches |
+| App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or unfinished task input across launches |
 | Navigation | Selectable Focus and Timesheet tabs; shell-owned selection; disabled Stats and Settings controls | Stats/Settings destinations |
 | Timesheet | Live project/day seconds, computed totals, seven-day grid, week navigation, manual edits, weekly row removal with Undo, Add project, and local saving | Detailed session log, calendar/list alternatives, sync |
 | Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; separate editable task name | Project renaming/deletion and task-level time records |
 | Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
 | Flow timer | Elapsed time, independent controls, and recording priority over Pomodoro | Detailed session history or a completion limit |
 | Music | Audius lofi discovery/streaming via AVPlayer; play/pause, previous/next, volume/mute, loading/buffering, Retry, and track attribution over bundled cozy artwork | Offline audio, accounts/gated tracks, saved queue/preferences |
-| Tasks | Lined list with example tasks, completion toggles, add/delete controls, and internal scrolling | Persistence, reordering, project association |
+| Tasks | Saved per-day lists; previous/next, date picker, Today; completion/add/delete and internal scrolling | Reordering, recurrence, project association |
 | Design system | Semantic color assets, `KeepTheme`, reusable action button, flexible card modifier | Dark theme |
 
-Both timers may run at the same time, with independent controls. Flow overrides Pomodoro for recording; overlapping time is counted once. Project/day totals and manual edits survive relaunch; timers restart idle. Example tasks and task names remain editable drafts that are not saved.
+Both timers may run at the same time, with independent controls. Flow overrides Pomodoro for recording; overlapping time is counted once. Project/day totals and manual edits survive relaunch; timers restart idle. Daily task lists and completion states survive relaunch; task names and unfinished input remain unsaved drafts. The live task store starts empty; examples appear only in previews.
 
 ## 2. Repository structure
 
@@ -31,7 +31,7 @@ docs/
 keep.xcodeproj/                     Xcode project and application target
 keep/
   App/
-    KeepApp.swift                  @main entry point, shared workspace/music, WindowGroup
+    KeepApp.swift                  @main entry point, shared workspace/music/tasks, WindowGroup
     WorkspaceApplicationDelegate.swift  Recording flush and music shutdown on termination
     AppShellView.swift             Navigation and focus-workspace composition
   DesignSystem/
@@ -50,8 +50,11 @@ keep/
     FocusProject.swift             Shared project catalog and Codable metadata
   Features/
     FocusSession/
-      Models/                      FocusTimer timing/cycles, PomodoroSettings, and FocusTask data
+      Models/                      FocusTimer timing/cycles and PomodoroSettings
       Views/                       Focus workspace, timer/settings popover, and supporting panels
+    Tasks/
+      Models/                      FocusTask, civil-day selection, DailyTaskStore, TaskPersistence
+      Views/                       TasksCard, day navigation, and date-picker popover
     Music/
       Models/                      MusicTrack, playback/failure states, MusicPlayerModel
       Services/                    AudiusClient and native AVMusicPlayback adapter
@@ -64,6 +67,7 @@ keep/
 tests/FocusTimerChecks.swift        Standalone deterministic timing checks
 tests/WorkspaceChecks.swift         Recording, editing, calendar, and persistence checks
 tests/MusicPlayerChecks.swift       Playback state, cancellation, and HTTP contract checks
+tests/DailyTaskChecks.swift         Daily navigation, task isolation, and local persistence checks
 reference/                         Local, Git-ignored visual references
 ```
 
@@ -90,7 +94,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
                 └── TasksCard
 ```
 
-`TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns only the task-name draft and task collection; it reads the shared project selection and timers.
+`TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns only the task-name draft; it reads shared projects/timers and composes the music and daily-task feature views.
 
 `AppShellView` owns `WorkspaceTab` selection and supplies Focus/Timesheet action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab has a separate, mounted ScrollView in the same fixed viewport; the inactive tab is invisible and hidden from hit testing and accessibility. This preserves drafts and each tab's scroll position without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
 
@@ -101,6 +105,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 | `App` | Launch, shared model assembly, window composition, tab selection, and termination flush | Feature timing calculations and provider-specific logic |
 | `Features/FocusSession` | Focus UI and session-specific state, actions, and rules | Generic styles and unrelated feature behavior |
 | `Models` | Shared project metadata and coordination of timer recording with the ledger | View layout and provider integrations |
+| `Features/Tasks` | Per-day tasks, civil-date navigation, local persistence, task-card UI | Timer recording, music state, and project assignment |
 | `Features/Music` | Audius read-only discovery, stream resolution, AVPlayer lifecycle, playback state, and card UI | Timer recording, persistence, credentials, and provider writes |
 | `Features/Timesheet` | Numeric ledger, calendar/duration helpers, local saving, editable UI, and preview fixtures | Independent timer mutation and overlapping recorders |
 | `DesignSystem` | Reusable presentation, control styles, layout conventions, and theme tokens | Session state, persistence, provider calls, and feature actions |
@@ -112,7 +117,7 @@ There is no established MVVM layer, repository abstraction, service container, o
 
 ## 5. State and data ownership
 
-`KeepApp` creates one `@State` reference to the observable, main-actor `WorkspaceModel` and passes it into every window. It owns two `FocusTimer` values, the selected project, the numeric ledger, and one update task. Shells own tab selection; Focus views own task-name and task-list drafts. Previews construct models without persistence and cannot write live history.
+`KeepApp` creates one `@State` reference to the observable, main-actor `WorkspaceModel` and passes it into every window. It owns two `FocusTimer` values, the selected project, the numeric ledger, and one update task. Shells own tab selection; Focus views own task-name drafts, and each TasksCard owns its day selection/input drafts. Previews construct models without persistence and cannot write live history.
 
 `FocusTimer` is a value type using `ContinuousClock.Instant` plus accumulated elapsed seconds. Timer display refreshes are separate from timing truth. The workspace accepts injected clock instants and dates for deterministic checks.
 
@@ -137,11 +142,17 @@ Implemented timer and recording semantics:
 
 The trailing × removes a project's entries for the displayed week through `WorkspaceModel.removeTimesheetProject`. It settles recording before removal and saves immediately, preserving other projects, other weeks, catalog metadata, selection, and timer state. A running timer can create the row again with subsequent time. The model keeps one in-memory `TimesheetRemoval` for Undo across tabs/windows; Undo settles again and adds back removed time alongside newly recorded/edited values, then saves. Undo history is not restored after quitting. `TimesheetView` shows the removal/Undo notice and explains continued recording when applicable.
 
-`TimesheetPersistence` JSON-encodes the ledger, custom catalog, and optional `PomodoroSettings` into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog and default timer settings, retaining their entries. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, task drafts, and selection are not persisted.
+`TimesheetPersistence` JSON-encodes the ledger, custom catalog, and optional `PomodoroSettings` into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog and default timer settings, retaining their entries. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, task-name/input drafts, and project selection are not persisted. Daily task lists use their own persistence below.
 
 `ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. The dialog offers 30 named color swatches, a selection checkmark, keyboard focus, and native Create/Cancel shortcuts. Cancel discards drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project and returns focus to the task field; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
 
-`TasksCard` owns draft input/focus only; its list remains in the Focus view. A row's × removes that task by ID; completion counts update from the remaining list. Blank ruled rows fill the available list area, and the add field stays at the card's bottom. Task changes remain window-local drafts. There are no notification permissions, databases, or credentials.
+`KeepApp` owns one observable `DailyTaskStore`, passed through AppShellView/FocusSessionView to TasksCard. Task changes are shared across windows independently of timer recording and music. `FocusTask` has a stable Codable UUID, title, and completion state; `TaskArchive` maps Gregorian `yyyy-MM-dd` civil-date keys to task arrays. The live store starts empty, with example tasks confined to previews.
+
+Each `TasksCard` owns `TaskDaySelection`, a date-picker draft, focus, and unfinished input keyed by day. Previous/next arrows use calendar day arithmetic rather than 24-hour offsets. Clicking the date opens a native graphical DatePicker with a typed date field; Show tasks selects the specific past/future date. Today returns to the current day; following Today crosses midnight automatically through the workspace's existing day refresh, while a browsed date stays pinned. Selecting another day preserves that day's input draft and resets list scrolling. Civil-date keys keep saved plans on their original dates across timezone changes; the task calendar follows the supplied calendar's timezone while retaining Gregorian keys.
+
+Adding, checking, or deleting a task targets the rendered day and stable task ID, so delayed callbacks cannot change another day's task. Each day's remaining count is derived from its own list. Blank ruled rows fill the available list area, and the add field stays at the card's bottom. There is no automatic carry-forward, recurrence, project link, or timer effect.
+
+`TaskPersistence` JSON-encodes the complete archive into UserDefaults under `keep.tasks.v1` after every task mutation. It is separate from the Timesheet key and leaves existing time/catalog/settings data intact. Invalid JSON, invalid civil dates, blank task titles, or duplicate IDs within a day block edits and show Retry, preserving unreadable data. Save failures retain in-memory changes and offer a save retry. Task lists/completion survive relaunch; selected day resets to Today and input drafts are not saved. Previous unsaved prototype tasks have no persisted data to migrate. Previews use stores without persistence. There are no notification permissions, databases, or credentials.
 
 `KeepApp` also owns one observable, main-actor `MusicPlayerModel`, passed through each shell and Focus view. It is independent of timer recording, persists across tab/window changes while the app runs, and stops at app termination. No playback, queue, or volume state is restored across launches. Previews stay idle and make no network calls until Play.
 
@@ -247,6 +258,15 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 
 The music checks use injected catalog/playback fixtures and an isolated URLProtocol session; they do not play sound or request live Audius data. They cover loading versus actual playing, pause/resume, volume clamping, stalled playback, queue navigation/completion, cancellation, stale item callbacks, bounded unavailable-track fallback, retry, shutdown, safe URLs, access filtering, and HTTP error mapping. Live service verification is a separate opt-in developer check; silence AVPlayer by setting volume to zero when probing on a user's Mac.
 
+Run the daily-task checks:
+
+```sh
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Features/Tasks/Models/*.swift tests/DailyTaskChecks.swift \
+  -o /tmp/keep-daily-task-checks
+/tmp/keep-daily-task-checks
+```
+
 On 2026-10-05, the unsigned Debug build, 45 timing checks, and 180 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, weekly row removal/Undo during recording, preserved other weeks/projects, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
 
 Native offscreen renders of running/completed/break Focus states, empty/live/populated Timesheets at default, wide, and narrow sizes, and the entry editor were inspected. Live popover interaction, keyboard navigation, VoiceOver, release signing, and audible sound remain unverified; computer-use permission was unavailable for live UI checks.
@@ -258,6 +278,8 @@ Default/custom Pomodoro settings, long-break completion/running states, wrapped 
 Growing support cards and task delete controls were inspected at 1710 × 1080, 1920 × 1400, 1000 × 872, 700 × 1700, and 680 × 650 content sizes. Timesheet remove controls and Undo were inspected at wide/default/minimum sizes. Live click/keyboard interaction remains unverified.
 
 Audius integration verification on 2026-10-05: unsigned Debug and local ad hoc signed Debug builds passed; generated entitlements retain App Sandbox and include `com.apple.security.network.client`. The 47 music checks and 180 workspace regression checks passed. Live API discovery returned 29 accessible tracks, and a separate sandboxed native harness reached AVPlayer Playing, paused, and resumed at volume zero. This validates actual streaming and native playback state without testing audible output. Idle/playing/loading/error cards and default/wide/narrow workspace layouts were inspected in native offscreen renders. Live music-button/slider interaction, keyboard/VoiceOver, and audible sound remain unverified.
+
+Daily-task verification on 2026-10-05: unsigned Debug build and 56 daily-task checks passed, including independent dates, past/future jumps, Today/midnight behavior, 23/25-hour DST navigation, leap/invalid dates, pinned civil dates across timezone changes, stable UUIDs, per-day completion/deletion, corrupt-load protection/Retry, and separate-process persistence. The existing 180 workspace and 47 music checks also passed. Native offscreen today/past/tomorrow/future-empty/load-error cards, date picker, narrow card, and default/wide/minimum window layouts were inspected. Live date-popover/input/keyboard/VoiceOver interaction remains unverified.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

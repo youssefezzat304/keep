@@ -8,11 +8,13 @@ enum WorkspaceTab {
 struct AppShellView: View {
     @State private var workspace: WorkspaceModel
     @State private var music: MusicPlayerModel
+    @State private var tasks: DailyTaskStore
     @State private var selectedTab: WorkspaceTab
 
-    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel()) {
+    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore = DailyTaskStore()) {
         _workspace = State(initialValue: workspace)
         _music = State(initialValue: music)
+        _tasks = State(initialValue: tasks)
         _selectedTab = State(initialValue: initialTab)
     }
 
@@ -40,7 +42,7 @@ struct AppShellView: View {
                 ZStack(alignment: .top) {
                     GeometryReader { viewport in
                         ScrollView {
-                            FocusSessionView(workspace: workspace, music: music, isCompact: geometry.size.width < 820, minimumHeight: viewport.size.height)
+                            FocusSessionView(workspace: workspace, music: music, tasks: tasks, isCompact: geometry.size.width < 820, minimumHeight: viewport.size.height)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
                     }

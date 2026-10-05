@@ -3,12 +3,12 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have delete controls. Music now streams public Audius lofi tracks through AVPlayer with loading/error recovery and volume controls.
+- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music now streams public Audius lofi tracks through AVPlayer with loading/error recovery and volume controls.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. Standalone timer/workspace/music checks are available.
+- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. Standalone timer/workspace/music/task checks are available.
 - 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
-- 2026-10-05 [CODE] Timers/project selection/ledger are app-shared; timer runtime and window-local task drafts are not restored on relaunch. Next feature is UNCONFIRMED.
+- 2026-10-05 [CODE] Timers/project selection/ledger, music, and saved daily tasks are app-shared; timer runtime, task-day selection, and window-local input/task-name drafts are not restored on relaunch. Next feature is UNCONFIRMED.
 
 ## [DECISIONS]
 
@@ -68,7 +68,7 @@ Make the Pomodoro icon clickable and open a popover to choose focus duration, sh
 
 2026-10-05 [CODE] Defaults are 25/5/15 minutes and four completed focus intervals. Save validates and persists settings locally; current running/paused intervals keep their original duration, and future intervals use the saved settings. Idle countdowns update immediately. Breaks remain manually started, as previously requested. Focus completion advances the cycle once; short breaks retain progress, a started long break or Reset clears it, and skipped long breaks remain due. Cycle runtime resets on relaunch. Both break types remain excluded from Pomodoro recording; Flow priority is preserved.
 
-### D012 ACTIVE — 2026-10-05 [USER]
+### D012 PARTIALLY SUPERSEDED BY D014 — 2026-10-05 [USER]
 
 Extend the music and tasks cards to the bottom on larger/full-screen windows. Make tasks deletable and add an × to remove Timesheet rows, matching the reference.
 
@@ -79,6 +79,12 @@ Extend the music and tasks cards to the bottom on larger/full-screen windows. Ma
 Integrate Audius lofi music through native Apple AVPlayer, with play/pause, volume, loading, and connection-error states. D004's cozy artwork/frosted controls and D005's light palette remain; disabled music playback is superseded.
 
 2026-10-05 [CODE] One app-owned music model shares playback across tabs/windows independently of timers. Play discovers public, accessible lofi tracks and resolves temporary signed HTTPS streams without credentials; no startup autoplay/network call. Previous/next and track completion navigate/wrap the queue while retaining paused intent. UI displays title/artist and Audius attribution, volume/mute, actual playing/buffering, and actionable Retry. Unavailable stream lookups skip stale metadata within a bounded queue. Generation checks, cancellation, timeouts, and termination cleanup protect playback lifecycle. Sandbox outgoing network access is enabled in both build configurations; no microphone access or external SDK is added. Queue, playback, and volume remain runtime-only.
+
+### D014 ACTIVE — 2026-10-05 [USER]
+
+Allow reviewing tasks for past/specific days and navigating forward to plan tasks beforehand.
+
+2026-10-05 [CODE] Added previous/next day arrows, a native date-picker popover, and Today. Lists/completion states are independent by civil day and saved locally in `keep.tasks.v1` through one app-owned DailyTaskStore. Each window owns its selected day and unfinished input per day. Today follows midnight; browsed dates remain pinned, and calendar arithmetic handles DST. Task mutations capture the rendered day and stable ID; deleting/checking cannot affect another date. Live lists start empty; prototype examples are preview-only. Invalid saved tasks block edits and offer Retry without overwriting data. This supersedes D012's window-local task-list lifetime; task × controls and growing cards remain.
 
 ## [PROGRESS]
 
@@ -94,7 +100,7 @@ Integrate Audius lofi music through native Apple AVPlayer, with play/pause, volu
 
 ## [DISCOVERIES]
 
-- 2026-10-05 [CODE] Initial draft kept timers/tasks in each Focus view. D008 introduces one app-owned WorkspaceModel for timers, selection, and recording; task drafts remain window-local.
+- 2026-10-05 [CODE] Initial draft kept timers/tasks in each Focus view. D008 introduces one app-owned WorkspaceModel for timers, selection, and recording; D014 adds separately saved daily task lists, retaining window-local input/task-name drafts.
 - 2026-10-05 [CODE] `PrimaryButton` and `NavBar` receive caller-owned actions. `AppShellView` owns Focus/Timesheet selection and preserves mounted focus state across tab changes.
 - 2026-10-05 [CODE] Timer and supporting-card pairs stack below 820 points; tab content and task lists scroll within the fixed panel. Timer cards share presentation without sharing timing state.
 
@@ -125,7 +131,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep/App/`
 - 2026-10-05 [CODE] `keep/Models/`
 - 2026-10-05 [CODE] `keep/Features/FocusSession/`
-- 2026-10-05 [CODE] `keep/Features/Timesheet/` and `keep/Features/Music/`
+- 2026-10-05 [CODE] `keep/Features/Timesheet/`, `keep/Features/Music/`, and `keep/Features/Tasks/`
 - 2026-10-05 [CODE] `tests/`
 - 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
@@ -152,3 +158,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [TOOL] Extended-card/delete-controls unsigned Debug build and 180 workspace checks passed. Weekly deletion scope, running Flow/focus settlement, break exclusion, Undo merges, zero-time rows, and persistence verified. Native offscreen large/wide/default/minimum/tall-compact layouts and Timesheet removal/Undo inspected; live interaction remains unverified.
 
 - 2026-10-05 [TOOL] Audius unsigned Debug and local ad hoc signed Debug builds passed; sandbox/network-client entitlements inspected. Passed 47 music checks and 180 workspace regression checks. Public API search/stream resolution and native AVPlayer Playing → Pause → Resume verified in a separate sandboxed harness at zero volume. Offscreen idle/playing/loading/error cards and default/wide/narrow layouts inspected; audible output and live UI/keyboard/VoiceOver remain unverified.
+
+- 2026-10-05 [TOOL] Daily-task unsigned Debug build and 56 daily-task checks passed, including date isolation, DST/midnight navigation, leap dates, completion/deletion, protected corrupt loads, and cross-process persistence. Existing 180 workspace and 47 music checks passed. Offscreen today/past/tomorrow/future-empty/load-error tasks, date picker, narrow card, and default/wide/minimum layouts inspected; live input/popover/keyboard/VoiceOver remains unverified.

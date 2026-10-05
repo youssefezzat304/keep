@@ -3,10 +3,10 @@ import SwiftUI
 struct FocusSessionView: View {
     @Bindable var workspace: WorkspaceModel
     var music = MusicPlayerModel()
+    var tasks = DailyTaskStore()
     var isCompact = false
     var minimumHeight: CGFloat = 0
     @State private var taskName = "Your next good idea"
-    @State private var tasks = FocusTask.examples
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -36,7 +36,7 @@ struct FocusSessionView: View {
 
     @ViewBuilder private var supportingCards: some View {
         MusicPlayerCard(player: music)
-        TasksCard(tasks: $tasks)
+        TasksCard(store: tasks, today: workspace.today)
     }
 }
 
