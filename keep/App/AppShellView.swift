@@ -3,18 +3,23 @@ import SwiftUI
 enum WorkspaceTab {
     case focus
     case timesheet
+    case settings
 }
 
 struct AppShellView: View {
     @State private var workspace: WorkspaceModel
     @State private var music: MusicPlayerModel
     @State private var tasks: DailyTaskStore
+    @State private var preferences: AppPreferences
+    @State private var wallpapers: WallpaperLibrary
     @State private var selectedTab: WorkspaceTab
 
-    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore = DailyTaskStore()) {
+    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore = DailyTaskStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary()) {
         _workspace = State(initialValue: workspace)
         _music = State(initialValue: music)
         _tasks = State(initialValue: tasks)
+        _preferences = State(initialValue: preferences)
+        _wallpapers = State(initialValue: wallpapers)
         _selectedTab = State(initialValue: initialTab)
     }
 
@@ -22,9 +27,10 @@ struct AppShellView: View {
         GeometryReader { geometry in
             VStack(spacing: 24) {
                 NavBar(
-                    isTimesheetSelected: selectedTab == .timesheet,
+                    selection: selectedTab,
                     onSelectFocus: { selectedTab = .focus },
-                    onSelectTimesheet: { selectedTab = .timesheet }
+                    onSelectTimesheet: { selectedTab = .timesheet },
+                    onSelectSettings: { selectedTab = .settings }
                 )
 
                 if let message = workspace.persistenceError {
@@ -42,7 +48,7 @@ struct AppShellView: View {
                 ZStack(alignment: .top) {
                     GeometryReader { viewport in
                         ScrollView {
-                            FocusSessionView(workspace: workspace, music: music, tasks: tasks, isCompact: geometry.size.width < 820, minimumHeight: viewport.size.height)
+                            FocusSessionView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers, isCompact: geometry.size.width < 820, minimumHeight: viewport.size.height)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
                     }
@@ -57,6 +63,14 @@ struct AppShellView: View {
                     .opacity(selectedTab == .timesheet ? 1 : 0)
                     .allowsHitTesting(selectedTab == .timesheet)
                     .accessibilityHidden(selectedTab != .timesheet)
+
+                    ScrollView {
+                        SettingsView(preferences: preferences, player: music, wallpapers: wallpapers)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+                    .opacity(selectedTab == .settings ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .settings)
+                    .accessibilityHidden(selectedTab != .settings)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -74,7 +88,10 @@ struct AppShellView: View {
         .frame(minWidth: 680, minHeight: 650)
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
-        .preferredColorScheme(.light)
+        .preferredColorScheme(preferences.appearance.colorScheme)
+        .onChange(of: preferences.snapshot.wallpaperConfiguration, initial: true) { _, configuration in
+            wallpapers.configure(configuration, preferences: preferences)
+        }
         .onAppear { workspace.startUpdating() }
     }
 }
@@ -89,4 +106,8 @@ struct AppShellView: View {
 
 #Preview("Wide window") {
     AppShellView().frame(width: 1710, height: 1080)
+}
+
+#Preview("Settings") {
+    AppShellView(initialTab: .settings).frame(width: 1000, height: 900)
 }

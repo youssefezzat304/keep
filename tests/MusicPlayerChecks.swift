@@ -5,6 +5,7 @@ import Foundation
         MusicTrack(id: "first", title: "Soft light", artist: "A", permalink: nil),
         MusicTrack(id: "second", title: "Rain", artist: "B", permalink: nil)
     ]
+    var channelSearches: [String] = []
     var searches = 0
     var resolutions: [String] = []
     var error: MusicFailure?
@@ -16,6 +17,11 @@ import Foundation
         searches += 1
         if let error { throw error }
         if empty { return [] }
+        if holdSearch { return await withCheckedContinuation { pending = $0 } }
+        return tracks
+    }
+    func tracks(for channel: MusicChannel) async throws -> [MusicTrack] {
+        channelSearches.append(channel.id)
         if holdSearch { return await withCheckedContinuation { pending = $0 } }
         return tracks
     }
@@ -232,6 +238,65 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
             do { _ = try await api.lofiTracks(); expect(false, "HTTP failure") }
             catch { expect(error as? MusicFailure == expected, "Map HTTP \(status) to actionable state") }
         }
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"data":{"id":"artist12","name":"Warm loops","handle":"warmloops"}}"#.utf8)
+        let artist = try await api.resolveChannel(" https://audius.co/warmloops ")
+        expect(artist.kind == .artist && artist.resourceID == "artist12" && artist.name == "Warm loops", "Resolve an artist profile from a single resource")
+        expect(StubURLProtocol.received?.url?.path == "/v1/resolve", "Use official Audius URL resolution")
+        StubURLProtocol.body = Data(#"{"data":[{"id":"list12","playlist_name":"Rainy windows","is_private":false}]}"#.utf8)
+        let playlist = try await api.resolveChannel("https://audius.co/warmloops/playlist/rainy-windows")
+        expect(playlist.kind == .playlist && playlist.name == "Rainy windows", "Resolve a playlist from an array resource")
+        StubURLProtocol.body = Data(#"{"data":[{"id":"track12","title":"Track"}]}"#.utf8)
+        do { _ = try await api.resolveChannel("https://audius.co/warmloops/a-track"); expect(false, "Reject track as channel") }
+        catch { expect(error is ChannelFailure, "Reject a track URL as a saved channel") }
+        StubURLProtocol.body = Data(#"{"data":[{"id":"list12","playlist_name":"Private","is_private":true}]}"#.utf8)
+        do { _ = try await api.resolveChannel(playlist.url.absoluteString); expect(false, "Reject private playlist") }
+        catch { expect(error is ChannelFailure, "Reject inaccessible playlists") }
+        for link in ["http://audius.co/artist", "https://audius.co.evil.example/artist", "https://name:secret@audius.co/artist", "https://example.com/artist", "https://audius.co/"] {
+            do { _ = try await api.resolveChannel(link); expect(false, "Reject untrusted link") }
+            catch { expect(error is ChannelFailure, "Reject non-Audius or credential-bearing channel links") }
+        }
+        var artTrack = valid
+        artTrack["user"] = ["name":"Warm loops", "id":"artist12", "handle":"warmloops"]
+        artTrack["artwork"] = ["1000x1000":"http://insecure.example/art", "480x480":"https://images.example/art.jpg"]
+        StubURLProtocol.body = try JSONSerialization.data(withJSONObject: ["data":[artTrack, gated]])
+        let artistTracks = try await api.tracks(for: artist)
+        expect(StubURLProtocol.received?.url?.path == "/v1/users/artist12/tracks", "Fetch the saved artist’s public tracks")
+        expect(artistTracks.count == 1 && artistTracks.first?.artistChannel == artist, "Preserve artist metadata and stream-access filtering for channels")
+        expect(artistTracks.first?.artworkURL?.absoluteString == "https://images.example/art.jpg", "Use safe HTTPS artwork with smaller-image fallback")
+        _ = try await api.tracks(for: playlist)
+        expect(StubURLProtocol.received?.url?.path == "/v1/playlists/list12/tracks", "Fetch saved playlist tracks")
+
+        let sourceCatalog = StubCatalog(), sourceEngine = StubPlayback()
+        let sourceModel = MusicPlayerModel(catalog: sourceCatalog, playback: sourceEngine)
+        sourceModel.selectChannel(artist)
+        expect(sourceCatalog.channelSearches.isEmpty && sourceModel.state == .idle, "Selecting a saved source does not autoplay or network")
+        sourceModel.togglePlayback()
+        await settle()
+        expect(sourceCatalog.channelSearches == [artist.id] && sourceCatalog.searches == 0, "Play uses selected artist instead of default lofi discovery")
+        let replacedEvent = sourceEngine.event
+        sourceModel.selectChannel(playlist, autoplay: true)
+        await settle()
+        replacedEvent?(.playing)
+        expect(sourceModel.state == .loading && sourceModel.selectedChannel == playlist, "Old artist callbacks cannot change the new playlist state")
+        expect(sourceCatalog.channelSearches == [artist.id, playlist.id] && sourceEngine.autoplay, "Explicit saved-channel Play loads the playlist")
+        sourceModel.selectChannel(nil)
+        expect(sourceModel.queue.isEmpty && sourceModel.track == nil && !sourceModel.wantsPlayback, "Returning to all lofi releases the old source and item")
+        sourceModel.togglePlayback()
+        await settle()
+        expect(sourceCatalog.searches == 1, "Default source restores lofi discovery")
+        sourceModel.shutdown()
+
+        let sourceSlow = StubCatalog(), sourceSlowEngine = StubPlayback()
+        sourceSlow.holdSearch = true
+        let sourceRace = MusicPlayerModel(catalog: sourceSlow, playback: sourceSlowEngine)
+        sourceRace.selectChannel(artist, autoplay: true)
+        await settle()
+        sourceRace.selectChannel(playlist)
+        sourceSlow.pending?.resume(returning: sourceSlow.tracks)
+        await settle()
+        expect(sourceSlowEngine.loads == 0 && sourceRace.state == .idle && sourceRace.selectedChannel == playlist, "Canceled artist discovery cannot replace selected playlist")
+        sourceRace.shutdown()
         print("Passed \(checks) music checks")
     }
     @MainActor static func settle() async { try? await Task.sleep(for: .milliseconds(15)) }

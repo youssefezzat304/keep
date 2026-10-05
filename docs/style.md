@@ -147,7 +147,7 @@ Most cards need no shadow. Separate regions with warm surface colors, spacing, a
 
 Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid heavy dark outlines.
 
-The music card is an explicit exception to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a restrained native material with a cream overlay for this panel only. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
+The music card is an explicit exception to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Offer a restrained frosted material or native Liquid Glass with a warm paper tint for this panel only. The saved Glassiness control maps from solid paper to thinner/clearer material; it is not an arbitrary pixel blur radius. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
 
 ## 12. Buttons and controls
 
@@ -201,11 +201,18 @@ Do not add a web renderer, Tailwind, CSS tokens, or shadcn/ui to implement this 
 
 ## 18. Appearance modes
 
-The palette above defines the light appearance. The first draft explicitly uses `.preferredColorScheme(.light)` so fixed warm surfaces and text remain consistent. A dark theme is not implemented.
+Settings offers Light, Dark, and System. Light is the default and keeps the palette above; System follows macOS. Named assets supply explicit dark variants. Popovers and sheets inherit the shell’s selection.
 
-If dark appearance is supported, define explicit semantic variants in the same source of truth. Use warm espresso backgrounds, dark brown surfaces, cream ink, and muted coral/sage accents. Re-check contrast for each role; do not invert the light palette or reuse light highlight fills behind light text.
+| Semantic asset | Dark value |
+| --- | --- |
+| Background / Paper / Surface | `#211A17` / `#2C2522` / `#342C28` |
+| Foreground / SecondaryForeground / MutedForeground | `#F4ECDF` / `#D8C8B9` / `#B9A79A` |
+| MutedWarm / WarmHighlight | `#4C3E34` / `#584726` |
+| AccentColor / AccentStrong | `#864732` / `#E9A386` |
+| Sage / SageForeground / MistBlue | `#344B3A` / `#D9E8D0` / `#30484B` |
+| Border / ControlBorder / FocusRing | `#59483E` / `#AA8D76` / `#F3BD8F` |
 
-Do not leave an accidental mix of fixed light backgrounds and system-adaptive white text. Make the supported appearance behavior explicit during implementation.
+Dark appearance uses espresso surroundings, brown paper, cream ink, and muted coral/sage fills. AccentStrong becomes a light coral for readable links/actions on dark surfaces. Do not reuse light pastel panels behind cream text. The music control surface keeps sufficient warm tint over arbitrary artwork; Reduce Transparency always forces opaque paper in the active appearance.
 
 ## 19. Native macOS behavior
 

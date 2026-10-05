@@ -4,19 +4,20 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-The application is a first visual draft with one application target. Timers record project time into an editable, locally saved Timesheet. Timers, projects, saved daily tasks, and music are shared across the app’s windows; task-day selection, input drafts, and task-name drafts remain window-local. Music streams public lofi tracks from Audius through native AVPlayer, with app-shared playback and volume state.
+The application is a first visual draft with one application target. Timers record project time into an editable, locally saved Timesheet. Timers, projects, saved daily tasks, and music are shared across the app’s windows; task-day selection, input drafts, and task-name drafts remain window-local. Settings saves appearance, music wallpaper/material preferences, and Audius artist/playlist channels. Music streams public Audius tracks through native AVPlayer, with app-shared playback and runtime volume state.
 
 | Area | Implemented today | Not implemented |
 | --- | --- | --- |
 | App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or unfinished task input across launches |
-| Navigation | Selectable Focus and Timesheet tabs; shell-owned selection; disabled Stats and Settings controls | Stats/Settings destinations |
+| Navigation | Selectable Focus, Timesheet, and Settings tabs; shell-owned selection; disabled Stats | Statistics destination |
 | Timesheet | Live project/day seconds, computed totals, seven-day grid, week navigation, manual edits, weekly row removal with Undo, Add project, and local saving | Detailed session log, calendar/list alternatives, sync |
 | Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; separate editable task name | Project renaming/deletion and task-level time records |
 | Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
 | Flow timer | Elapsed time, independent controls, and recording priority over Pomodoro | Detailed session history or a completion limit |
-| Music | Audius lofi discovery/streaming via AVPlayer; play/pause, previous/next, volume/mute, loading/buffering, Retry, and track attribution over bundled cozy artwork | Offline audio, accounts/gated tracks, saved queue/preferences |
+| Music | Audius lofi and saved artist/playlist streaming via AVPlayer; transport/volume/loading/Retry; bundled, folder, or Audius artwork; configurable frosted/Liquid Glass controls | Offline audio, accounts/gated tracks, restoring queue/playback |
 | Tasks | Saved per-day lists; previous/next, date picker, Today; completion/add/delete and internal scrolling | Reordering, recurrence, project association |
-| Design system | Semantic color assets, `KeepTheme`, reusable action button, flexible card modifier | Dark theme |
+| Settings | Saved Light/Dark/System appearance, wallpaper folder/rotation/looping, glassiness, artist/playlist links | Sync, wallpaper subfolders |
+| Design system | Semantic light/dark asset variants, `KeepTheme`, reusable action button, flexible card modifier | Additional themes |
 
 Both timers may run at the same time, with independent controls. Flow overrides Pomodoro for recording; overlapping time is counted once. Project/day totals and manual edits survive relaunch; timers restart idle. Daily task lists and completion states survive relaunch; task names and unfinished input remain unsaved drafts. The live task store starts empty; examples appear only in previews.
 
@@ -31,8 +32,8 @@ docs/
 keep.xcodeproj/                     Xcode project and application target
 keep/
   App/
-    KeepApp.swift                  @main entry point, shared workspace/music/tasks, WindowGroup
-    WorkspaceApplicationDelegate.swift  Recording flush and music shutdown on termination
+    KeepApp.swift                  @main entry point, shared workspace/music/tasks/preferences/wallpapers, WindowGroup
+    WorkspaceApplicationDelegate.swift  Recording flush, music/wallpaper cleanup on termination
     AppShellView.swift             Navigation and focus-workspace composition
   DesignSystem/
     KeepTheme.swift                Semantic references to named color assets
@@ -56,18 +57,23 @@ keep/
       Models/                      FocusTask, civil-day selection, DailyTaskStore, TaskPersistence
       Views/                       TasksCard, day navigation, and date-picker popover
     Music/
-      Models/                      MusicTrack, playback/failure states, MusicPlayerModel
+      Models/                      MusicTrack, MusicChannel, MusicPlayerModel, WallpaperLibrary/cycle
       Services/                    AudiusClient and native AVMusicPlayback adapter
-      Views/                       MusicPlayerCard and accessible playback controls
+      Views/                       MusicPlayerCard, channel menu, playback controls, MusicGlassPanel
+    Settings/
+      Models/                      AppPreferences, validated SettingsArchive/SettingsPersistence
+      Views/                       SettingsView; native folder importer and channel-link editor
     Timesheet/
       Models/                      TimesheetLedger, calendar/duration helpers, local persistence
       PreviewData/                 Numeric fixtures used only by previews
       Views/                       Weekly timesheet page and seven-day table
-  Assets.xcassets/                  Named colors, CozyCorner artwork, and AppIcon
+  Assets.xcassets/                  Semantic light/dark colors, CozyCorner artwork, and AppIcon
+  keep.entitlements                App-scoped read-only wallpaper bookmarks
 tests/FocusTimerChecks.swift        Standalone deterministic timing checks
 tests/WorkspaceChecks.swift         Recording, editing, calendar, and persistence checks
 tests/MusicPlayerChecks.swift       Playback state, cancellation, and HTTP contract checks
 tests/DailyTaskChecks.swift         Daily navigation, task isolation, and local persistence checks
+tests/PreferencesChecks.swift       Settings persistence, bookmark/image loading, wallpaper cycles
 reference/                         Local, Git-ignored visual references
 ```
 
@@ -80,7 +86,8 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 └── WindowGroup
     └── AppShellView
         ├── NavBar
-        │   └── Focus and Timesheet actions; disabled Stats and Settings
+        │   └── Focus, Timesheet, and Settings actions; disabled Stats
+        ├── ScrollView → SettingsView → AppPreferences + WallpaperLibrary + MusicPlayerModel
         ├── ScrollView → TimesheetView
         │   └── TimesheetTable → TimesheetTimeCell → TimesheetEntryEditor
         └── ScrollView → FocusSessionView
@@ -96,7 +103,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 
 `TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns only the task-name draft; it reads shared projects/timers and composes the music and daily-task feature views.
 
-`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Timesheet action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab has a separate, mounted ScrollView in the same fixed viewport; the inactive tab is invisible and hidden from hit testing and accessibility. This preserves drafts and each tab's scroll position without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
+`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Timesheet/Settings action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab has a separate, mounted ScrollView in the same fixed viewport; the inactive tab is invisible and hidden from hit testing and accessibility. This preserves drafts and each tab's scroll position without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
 
 ## 4. Responsibility and dependency boundaries
 
@@ -106,7 +113,8 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 | `Features/FocusSession` | Focus UI and session-specific state, actions, and rules | Generic styles and unrelated feature behavior |
 | `Models` | Shared project metadata and coordination of timer recording with the ledger | View layout and provider integrations |
 | `Features/Tasks` | Per-day tasks, civil-date navigation, local persistence, task-card UI | Timer recording, music state, and project assignment |
-| `Features/Music` | Audius read-only discovery, stream resolution, AVPlayer lifecycle, playback state, and card UI | Timer recording, persistence, credentials, and provider writes |
+| `Features/Music` | Audius discovery/channels/artwork, stream resolution, AVPlayer lifecycle, read-only wallpaper loading/rotation, and card UI | Timer recording, archive ownership, credentials, and provider writes |
+| `Features/Settings` | App-owned appearance/music preferences, validated archive, Settings UI | Timer/task archives, audio runtime, and image decoding |
 | `Features/Timesheet` | Numeric ledger, calendar/duration helpers, local saving, editable UI, and preview fixtures | Independent timer mutation and overlapping recorders |
 | `DesignSystem` | Reusable presentation, control styles, layout conventions, and theme tokens | Session state, persistence, provider calls, and feature actions |
 | `Assets.xcassets` | Named colors and bundled visual resources | Domain behavior and credentials |
@@ -154,7 +162,7 @@ Adding, checking, or deleting a task targets the rendered day and stable task ID
 
 `TaskPersistence` JSON-encodes the complete archive into UserDefaults under `keep.tasks.v1` after every task mutation. It is separate from the Timesheet key and leaves existing time/catalog/settings data intact. Invalid JSON, invalid civil dates, blank task titles, or duplicate IDs within a day block edits and show Retry, preserving unreadable data. Save failures retain in-memory changes and offer a save retry. Task lists/completion survive relaunch; selected day resets to Today and input drafts are not saved. Previous unsaved prototype tasks have no persisted data to migrate. Previews use stores without persistence. There are no notification permissions, databases, or credentials.
 
-`KeepApp` also owns one observable, main-actor `MusicPlayerModel`, passed through each shell and Focus view. It is independent of timer recording, persists across tab/window changes while the app runs, and stops at app termination. No playback, queue, or volume state is restored across launches. Previews stay idle and make no network calls until Play.
+`KeepApp` also owns one observable, main-actor `MusicPlayerModel`, passed through each shell and Focus view. It is independent of timer recording, persists across tab/window changes while the app runs, and stops at app termination. No playback, queue, or volume state is restored across launches; a saved channel selection is restored without loading audio. Previews stay idle and make no network calls until Play.
 
 Music behavior and external boundary (verified against the [Audius REST reference](https://api.audius.co/v1) and [Apple AVPlayer documentation](https://developer.apple.com/documentation/avfoundation/avplayer) on 2026-10-05):
 
@@ -164,11 +172,21 @@ Music behavior and external boundary (verified against the [Audius REST referenc
 - State is explicit: idle, loading, playing, paused, or failed with actionable text. Pause cancels discovery/stream resolution; item and request identities prevent delayed callbacks from restarting canceled/replaced audio. Requests have 20-second timeouts; active loading/buffering has a 30-second watchdog and Retry. App shutdown cancels tasks, removes observers, and releases the current item.
 - `MusicCatalog` and `MusicPlayback` protocols allow deterministic network/player fixtures. No third-party package, backend, write endpoint, credentials, microphone permission, or offline downloading is introduced. Audius remains an external service; availability and rate limits can vary.
 
+Settings and wallpaper ownership:
+
+- `KeepApp` owns one `AppPreferences` and one `WallpaperLibrary`, shared across windows independently of timer/task stores. Settings selection uses the same mounted viewport as Focus and Timesheet. Default appearance remains Light; System passes no color-scheme override and follows macOS. Sheets/popovers inherit the selected appearance. Named assets define dark variants.
+- `SettingsPersistence` stores a validated Codable archive in `keep.preferences.v1`: appearance, wallpaper source, read-only folder bookmark/display name, order/interval/automatic rotation/loop, material/glassiness, saved channel metadata, and selected channel ID. Updates save immediately; invalid loads disable editing and preserve the original data with Retry. No signed audio URLs or image bytes enter this archive. Playback/volume/drafts remain runtime-only.
+- Native `fileImporter` chooses a folder. `WallpaperLibrary` creates/resolves app-scoped read-only security bookmarks, refreshes stale bookmarks, and balances scoped access. Folder scans and ImageIO thumbnail decoding run off the main actor, skip hidden files/symlinks/subfolders, and bound thumbnails to 2048 pixels. Cancellation and generation checks reject stale folder/image results. Missing folders, empty lists, or unreadable images show actionable Settings errors and retain the bundled visual fallback.
+- The app owns a single rotation task regardless of the number of windows. Folder rotation defaults to automatic, sequential, every minute, and looping. Intervals are 30 seconds, 1, 5, or 15 minutes. Shuffle visits each image once per cycle and avoids an immediate repeat between cycles. Turning looping off stops on the final image; manual Next can begin another cycle. Changing configuration cancels/restarts the applicable load/rotation; shutdown cancels both tasks.
+- Wallpaper sources are bundled Cozy corner, My folder, and current Audius track artwork. `MusicTrack` carries validated HTTPS artwork and optional artist-channel metadata; `AsyncImage` uses the current track artwork only when that source is selected, falling back to Cozy corner while loading or on failure. Artwork advances with tracks; folder rotation options apply only to folder images.
+- The player’s channel menu lists saved artists/playlists plus All lofi, and can save the current artist. Settings resolves pasted HTTPS Audius links via `/v1/resolve`, accepts only public artist/playlist resources, deduplicates by kind/resource ID, and offers Play/removal. Playback loads `/users/{id}/tracks` or `/playlists/{id}/tracks` through the existing access filters and native player. Source changes release the old queue/item and fence canceled callbacks. Choosing a source never autoplays; Settings Play explicitly starts/resumes it. The selected saved source reopens without networking/autoplay; removing it returns to All lofi.
+- `MusicGlassPanel` confines materials to the music controls. Glassiness 0 gives opaque paper; Frosted maps higher values to thinner native materials and less paper tint. Liquid Glass uses native `glassEffect` regular/clear variants with a warm tint. The slider adjusts this visual mapping, not an undocumented pixel blur radius. Reduce Transparency always forces opaque paper.
+
 Project management, task-level session history, additional music providers, and notifications remain scoped future work. See `docs/decisions.md`.
 
 ## 6. Visual implementation and layout constraints
 
-`docs/style.md` owns the cozy editorial palette. Named color assets are the source of truth; `KeepTheme` provides shared semantic references. The first draft explicitly uses light appearance to keep fixed warm surfaces and foregrounds consistent.
+`docs/style.md` owns the cozy editorial palette. Named color assets are the source of truth; `KeepTheme` provides shared semantic references. Light uses the original cozy palette; Dark uses espresso/brown surfaces and cream ink. Settings selects Light, Dark, or System through the root color-scheme preference.
 
 The shell places a cream workspace over peach surroundings. Pomodoro focus uses terracotta, its break uses butter yellow, and flow uses sage. Tasks use an ivory ruled-list treatment. The music artwork is a bundled asset in `keep/Assets.xcassets/CozyCorner.imageset/`; its generation prompt and provenance are in `docs/music-artwork.md`.
 
@@ -183,7 +201,7 @@ Layout and accessibility behavior:
 - The shell passes the Focus tab's available viewport height into its content as a minimum height. Music and task cards have a 288-point minimum and grow together into the remaining space above the footer on taller windows. On short windows the content keeps its natural minimum height and scrolls; compact layouts retain stacked cards. The music artwork fills its card without changing aspect ratio, while its controls stay at the bottom. Task lists scroll internally.
 - Timer digits use stable widths and scale down to fit their column. Running/stopped/completed states have explicit text.
 - Primary actions, timer settings/reset/break controls, and editable time cells have visible keyboard-focus rings; inputs expose labels and focus boundaries. Editors use native Save/Cancel shortcuts. Completion controls place the break button on a separate row when needed.
-- The music panel uses native material with a warm translucent overlay, an explicit user-requested exception to flat styling. Reduce Transparency replaces it with opaque paper.
+- The music panel offers frosted material or native Liquid Glass with adjustable glassiness, an explicit user-requested exception to flat styling. Reduce Transparency replaces either with opaque paper.
 
 Offscreen native renders were inspected at 1000 × 872 and 900 × 772 content sizes, plus a full-height 700-point-wide layout. Live interaction, keyboard navigation, VoiceOver, and actual material compositing in an onscreen window remain unverified because computer-use permissions were unavailable.
 
@@ -204,13 +222,14 @@ The checked-in project currently declares:
 | Build configurations | Debug and Release |
 | App Sandbox | Enabled |
 | User-selected file access | Read-only |
+| Folder bookmarks | `com.apple.security.files.bookmarks.app-scope` via `keep/keep.entitlements` in Debug/Release |
 | Outgoing network connections | Enabled in Debug and Release for Audius API/audio hosts |
 | Info.plist | Generated by Xcode |
 | Third-party package products | None |
 
 The language-mode setting does not identify the installed Swift compiler. Project metadata does not prove SDK availability or that a build succeeds on a given machine. Check the installed toolchain when compatibility matters.
 
-There is no Xcode test target, configured lint/format tool, third-party persistence framework, backend, or third-party music SDK. AVFoundation handles audio and Foundation URLSession handles Audius HTTPS requests. Foundation UserDefaults provides local storage; timer/recording/music checks run through standalone Swift harnesses. Sandbox settings do not imply that a file-import feature exists; adding capabilities requires a concrete feature need.
+There is no Xcode test target, configured lint/format tool, third-party persistence framework, backend, or third-party music SDK. AVFoundation handles audio and Foundation URLSession handles Audius HTTPS requests. Foundation UserDefaults provides local storage; timer/recording/music checks run through standalone Swift harnesses. The native wallpaper importer uses read-only selected-folder access and app-scoped bookmarks; it adds no filesystem write permission.
 
 ## 8. Development and verification
 
@@ -252,11 +271,11 @@ Run the focused music checks:
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
   keep/Features/Music/Models/*.swift keep/Features/Music/Services/*.swift \
-  tests/MusicPlayerChecks.swift -o /tmp/keep-music-checks
+  keep/Features/Settings/Models/*.swift tests/MusicPlayerChecks.swift -o /tmp/keep-music-checks
 /tmp/keep-music-checks
 ```
 
-The music checks use injected catalog/playback fixtures and an isolated URLProtocol session; they do not play sound or request live Audius data. They cover loading versus actual playing, pause/resume, volume clamping, stalled playback, queue navigation/completion, cancellation, stale item callbacks, bounded unavailable-track fallback, retry, shutdown, safe URLs, access filtering, and HTTP error mapping. Live service verification is a separate opt-in developer check; silence AVPlayer by setting volume to zero when probing on a user's Mac.
+The music checks use injected catalog/playback fixtures and an isolated URLProtocol session; they do not play sound or request live Audius data. They cover loading versus actual playing, pause/resume, volume clamping, stalled playback, queue navigation/completion, cancellation, stale item callbacks, bounded unavailable-track fallback, retry, shutdown, safe URLs, access filtering, HTTP error mapping, profile/playlist resolution, artwork fallback URLs, source changes, and canceled channel discovery. Live service verification is a separate opt-in developer check; silence AVPlayer by setting volume to zero when probing on a user's Mac.
 
 Run the daily-task checks:
 
@@ -265,6 +284,17 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   keep/Features/Tasks/Models/*.swift tests/DailyTaskChecks.swift \
   -o /tmp/keep-daily-task-checks
 /tmp/keep-daily-task-checks
+```
+
+Run settings and wallpaper checks (isolated preferences and temporary image folders):
+
+```sh
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Features/Settings/Models/*.swift \
+  keep/Features/Music/Models/MusicChannel.swift \
+  keep/Features/Music/Models/WallpaperLibrary.swift \
+  tests/PreferencesChecks.swift -o /tmp/keep-preferences-checks
+/tmp/keep-preferences-checks
 ```
 
 On 2026-10-05, the unsigned Debug build, 45 timing checks, and 180 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, weekly row removal/Undo during recording, preserved other weeks/projects, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
@@ -280,6 +310,8 @@ Growing support cards and task delete controls were inspected at 1710 × 1080, 1
 Audius integration verification on 2026-10-05: unsigned Debug and local ad hoc signed Debug builds passed; generated entitlements retain App Sandbox and include `com.apple.security.network.client`. The 47 music checks and 180 workspace regression checks passed. Live API discovery returned 29 accessible tracks, and a separate sandboxed native harness reached AVPlayer Playing, paused, and resumed at volume zero. This validates actual streaming and native playback state without testing audible output. Idle/playing/loading/error cards and default/wide/narrow workspace layouts were inspected in native offscreen renders. Live music-button/slider interaction, keyboard/VoiceOver, and audible sound remain unverified.
 
 Daily-task verification on 2026-10-05: unsigned Debug build and 56 daily-task checks passed, including independent dates, past/future jumps, Today/midnight behavior, 23/25-hour DST navigation, leap/invalid dates, pinned civil dates across timezone changes, stable UUIDs, per-day completion/deletion, corrupt-load protection/Retry, and separate-process persistence. The existing 180 workspace and 47 music checks also passed. Native offscreen today/past/tomorrow/future-empty/load-error cards, date picker, narrow card, and default/wide/minimum window layouts were inspected. Live date-popover/input/keyboard/VoiceOver interaction remains unverified.
+
+Settings verification on 2026-10-05: unsigned and local ad hoc signed Debug builds passed; the signed app retains sandbox/network/read-only access and adds app-scoped bookmarks. Passed 68 music, 63 preferences/wallpaper, 180 workspace, and 56 daily-task checks. Preferences include separate-process saving/reloading; wallpaper checks load real temporary images and restore a bookmark, exclude hidden/symlink files, stop or loop cycles, and handle a missing folder. A separate sandboxed harness resolved a real artist and playlist, fetched accessible tracks/artwork metadata, and verified native Play/Pause/Resume for both at zero volume. Native offscreen Settings at default/minimum widths, full settings content, dark Focus/Timesheet/Pomodoro settings, and solid/frosted music controls were inspected. Live folder-import/menu/keyboard/VoiceOver interaction and Liquid Glass onscreen compositing remain unverified; Liquid Glass does not render reliably in the offscreen bitmap harness.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

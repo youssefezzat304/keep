@@ -117,7 +117,6 @@ struct ProjectPicker: View {
         .frame(width: 340)
         .foregroundStyle(KeepTheme.ink)
         .background(KeepTheme.paper)
-        .preferredColorScheme(.light)
         .onAppear { searchFocused = true }
     }
 

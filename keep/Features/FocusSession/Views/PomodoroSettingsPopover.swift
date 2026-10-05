@@ -69,7 +69,6 @@ struct PomodoroSettingsPopover: View {
         .frame(width: 350)
         .foregroundStyle(KeepTheme.ink)
         .background(KeepTheme.paper)
-        .preferredColorScheme(.light)
     }
 
     private func settingRow(_ title: String, value: Binding<String>, range: ClosedRange<Int>, unit: String) -> some View {

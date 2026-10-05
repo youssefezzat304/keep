@@ -3,12 +3,12 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music now streams public Audius lofi tracks through AVPlayer with loading/error recovery and volume controls.
+- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved artists/playlists through AVPlayer. Settings saves Light/Dark/System appearance, folder/Audius wallpapers, rotation, glassiness, and artist/playlist channels.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
 - 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. Standalone timer/workspace/music/task checks are available.
 - 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
-- 2026-10-05 [CODE] Timers/project selection/ledger, music, and saved daily tasks are app-shared; timer runtime, task-day selection, and window-local input/task-name drafts are not restored on relaunch. Next feature is UNCONFIRMED.
+- 2026-10-05 [CODE] Timers/project selection/ledger, music, and saved daily tasks are app-shared; appearance/music preferences and channel selection persist; timer/music runtime, task-day selection, and window-local input/task-name drafts are not restored on relaunch. Next feature is UNCONFIRMED.
 
 ## [DECISIONS]
 
@@ -30,7 +30,7 @@ For the first draft, Stop preserves time, Continue resumes it, and Reset starts 
 
 The music area previews later lofi/ambient playback with cozy artwork and controls floating on a blurry card. This panel is an exception to the flat visual language; actual audio remains out of scope.
 
-### D005 PARTIALLY SUPERSEDED BY D013 — 2026-10-05 [CODE]
+### D005 PARTIALLY SUPERSEDED BY D013 AND D015 — 2026-10-05 [CODE]
 
 Use explicit light appearance for the first palette implementation. Keep Stats, Settings, and music playback controls disabled rather than implying unfinished functionality works.
 
@@ -86,6 +86,12 @@ Allow reviewing tasks for past/specific days and navigating forward to plan task
 
 2026-10-05 [CODE] Added previous/next day arrows, a native date-picker popover, and Today. Lists/completion states are independent by civil day and saved locally in `keep.tasks.v1` through one app-owned DailyTaskStore. Each window owns its selected day and unfinished input per day. Today follows midnight; browsed dates remain pinned, and calendar arithmetic handles DST. Task mutations capture the rendered day and stable ID; deleting/checking cannot affect another date. Live lists start empty; prototype examples are preview-only. Invalid saved tasks block edits and offer Retry without overwriting data. This supersedes D012's window-local task-list lifetime; task × controls and growing cards remain.
 
+### D015 ACTIVE — 2026-10-05 [USER]
+
+Activate Settings with Light/Dark/System appearance; select a wallpaper folder, configure wallpaper looping, display Audius artwork, and control music-card glassiness. Save Audius channels for quick access, supporting both artist profiles and playlists.
+
+2026-10-05 [CODE] A separate app-owned validated `keep.preferences.v1` archive saves appearance, wallpaper/material preferences, read-only folder bookmarks, channels, and selected source. Semantic asset dark variants and inherited popover appearance replace the forced light shell. One app-owned wallpaper library scans/decodes off the main actor and rotates sequentially or without-repeat shuffle at 30 seconds/1/5/15 minutes; automatic rotation and looping can be disabled, and manual Next can restart a cycle. Bundled artwork remains the fallback. The current track’s HTTPS Audius artwork changes with tracks. Frosted/native Liquid Glass controls map glassiness to material/tint; Reduce Transparency forces solid paper. Settings resolves public Audius profile/playlist links; the player menu recalls saved sources and saves the current artist. Selection/restoration never autoplays; explicit Play uses the chosen source. Corrupt preference loads protect existing data and offer Retry. Debug/Release add app-scoped bookmarks while retaining sandbox/read-only/network capabilities. D005’s forced light appearance/disabled Settings are superseded; Stats remains disabled.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -101,7 +107,7 @@ Allow reviewing tasks for past/specific days and navigating forward to plan task
 ## [DISCOVERIES]
 
 - 2026-10-05 [CODE] Initial draft kept timers/tasks in each Focus view. D008 introduces one app-owned WorkspaceModel for timers, selection, and recording; D014 adds separately saved daily task lists, retaining window-local input/task-name drafts.
-- 2026-10-05 [CODE] `PrimaryButton` and `NavBar` receive caller-owned actions. `AppShellView` owns Focus/Timesheet selection and preserves mounted focus state across tab changes.
+- 2026-10-05 [CODE] `PrimaryButton` and `NavBar` receive caller-owned actions. `AppShellView` owns Focus/Timesheet/Settings selection and preserves mounted focus state across tab changes.
 - 2026-10-05 [CODE] Timer and supporting-card pairs stack below 820 points; tab content and task lists scroll within the fixed panel. Timer cards share presentation without sharing timing state.
 
 ## [OUTCOMES]
@@ -120,7 +126,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 
 - 2026-10-05 [CODE] UNCONFIRMED: detailed session history, restoring timer runtime, automatic interval starts, and future notifications. Current focus/break/sleep/relaunch behavior is documented in D008, D011, and architecture.
 - 2026-10-05 [CODE] UNCONFIRMED: project renaming/deletion, task-level time records, and future storage migration. Project switches currently apply prospectively, and selection preserves task text.
-- 2026-10-05 [CODE] UNCONFIRMED: statistics scope, saved music preferences/offline audio, and a future dark palette. Audius streaming is implemented under D013.
+- 2026-10-05 [CODE] UNCONFIRMED: statistics scope, offline audio and account/gated playback. Appearance, music preferences, and saved channels are implemented under D015.
 
 ## [WORKING SET]
 
@@ -131,7 +137,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep/App/`
 - 2026-10-05 [CODE] `keep/Models/`
 - 2026-10-05 [CODE] `keep/Features/FocusSession/`
-- 2026-10-05 [CODE] `keep/Features/Timesheet/`, `keep/Features/Music/`, and `keep/Features/Tasks/`
+- 2026-10-05 [CODE] `keep/Features/Timesheet/`, `keep/Features/Music/`, `keep/Features/Tasks/`, and `keep/Features/Settings/`
 - 2026-10-05 [CODE] `tests/`
 - 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
@@ -160,3 +166,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [TOOL] Audius unsigned Debug and local ad hoc signed Debug builds passed; sandbox/network-client entitlements inspected. Passed 47 music checks and 180 workspace regression checks. Public API search/stream resolution and native AVPlayer Playing → Pause → Resume verified in a separate sandboxed harness at zero volume. Offscreen idle/playing/loading/error cards and default/wide/narrow layouts inspected; audible output and live UI/keyboard/VoiceOver remain unverified.
 
 - 2026-10-05 [TOOL] Daily-task unsigned Debug build and 56 daily-task checks passed, including date isolation, DST/midnight navigation, leap dates, completion/deletion, protected corrupt loads, and cross-process persistence. Existing 180 workspace and 47 music checks passed. Offscreen today/past/tomorrow/future-empty/load-error tasks, date picker, narrow card, and default/wide/minimum layouts inspected; live input/popover/keyboard/VoiceOver remains unverified.
+
+- 2026-10-05 [TOOL] Settings unsigned/ad hoc signed Debug builds passed; sandbox, network-client, selected-file read-only, and app-scoped bookmark entitlements inspected. Passed 68 music, 63 preference/wallpaper, 180 workspace, and 56 task checks, including cross-process preferences and real image/bookmark loads. Real Audius artist and playlist discovery/play/pause/resume verified in a sandboxed native harness at zero volume. Offscreen default/minimum Settings, full settings content, dark Focus/Timesheet/popover, and solid/frosted music inspected. Live folder importer/menu/keyboard/VoiceOver and onscreen Liquid Glass remain unverified; native Liquid Glass cannot be assessed through the offscreen bitmap harness.

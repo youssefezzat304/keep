@@ -4,6 +4,8 @@ struct FocusSessionView: View {
     @Bindable var workspace: WorkspaceModel
     var music = MusicPlayerModel()
     var tasks = DailyTaskStore()
+    var preferences = AppPreferences()
+    var wallpapers = WallpaperLibrary()
     var isCompact = false
     var minimumHeight: CGFloat = 0
     @State private var taskName = "Your next good idea"
@@ -35,7 +37,7 @@ struct FocusSessionView: View {
     }
 
     @ViewBuilder private var supportingCards: some View {
-        MusicPlayerCard(player: music)
+        MusicPlayerCard(player: music, preferences: preferences, wallpapers: wallpapers)
         TasksCard(store: tasks, today: workspace.today)
     }
 }

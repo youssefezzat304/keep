@@ -2,16 +2,13 @@ import SwiftUI
 
 struct MusicPlayerCard: View {
     @Bindable var player: MusicPlayerModel
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var preferences = AppPreferences()
+    var wallpapers = WallpaperLibrary()
 
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
-                Image("CozyCorner")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
+                wallpaper(width: geometry.size.width, height: geometry.size.height)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -22,7 +19,12 @@ struct MusicPlayerCard: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(KeepTheme.paper.opacity(0.95), in: Capsule())
-                        Spacer()
+                        Spacer(minLength: 4)
+                        if preferences.wallpaperSource == .folder {
+                            musicControl("photo.badge.arrow.down", label: "Next wallpaper", disabled: !wallpapers.canAdvance) { wallpapers.next() }
+                                .background(KeepTheme.paper.opacity(0.95), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                        channelMenu
                     }
                     Spacer()
                     VStack(alignment: .leading, spacing: 10) {
@@ -71,16 +73,7 @@ struct MusicPlayerCard: View {
                         }
                     }
                     .padding(16)
-                    .background {
-                        if reduceTransparency {
-                            RoundedRectangle(cornerRadius: 17).fill(KeepTheme.paper)
-                        } else {
-                            RoundedRectangle(cornerRadius: 17)
-                                .fill(.regularMaterial)
-                                .overlay { RoundedRectangle(cornerRadius: 17).fill(KeepTheme.paper.opacity(0.58)) }
-                        }
-                    }
-                    .overlay { RoundedRectangle(cornerRadius: 17).strokeBorder(KeepTheme.paper.opacity(0.7), lineWidth: 1) }
+                    .modifier(MusicGlassPanel(preferences: preferences))
                 }
                 .padding(16)
             }
@@ -89,6 +82,64 @@ struct MusicPlayerCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: 288, maxHeight: .infinity)
+    }
+
+    @ViewBuilder private func wallpaper(width: CGFloat, height: CGFloat) -> some View {
+        ZStack {
+            Image("CozyCorner").resizable().scaledToFill()
+            if preferences.wallpaperSource == .folder, let image = wallpapers.image {
+                Image(nsImage: image).resizable().scaledToFill()
+            } else if preferences.wallpaperSource == .audius, let url = player.track?.artworkURL {
+                AsyncImage(url: url) { phase in
+                    if case .success(let image) = phase { image.resizable().scaledToFill() }
+                }
+            }
+        }
+        .frame(width: width, height: height).clipped()
+    }
+
+    private var channelMenu: some View {
+        Menu {
+            Button {
+                guard player.selectedChannel != nil else { return }
+                preferences.selectChannel(nil)
+                player.selectChannel(nil)
+            } label: {
+                Label("All lofi", systemImage: player.selectedChannel == nil ? "checkmark" : "waveform")
+            }
+            if !preferences.snapshot.channels.isEmpty { Divider() }
+            ForEach(preferences.snapshot.channels) { channel in
+                Button {
+                    guard player.selectedChannel?.id != channel.id else { return }
+                    preferences.selectChannel(channel)
+                    player.selectChannel(channel)
+                } label: {
+                    Label(channel.name, systemImage: player.selectedChannel?.id == channel.id ? "checkmark" : channel.symbol)
+                }
+            }
+            if let artist = player.track?.artistChannel {
+                Divider()
+                Button {
+                    preferences.saveChannel(artist)
+                } label: {
+                    Label(preferences.snapshot.channels.contains(where: { $0.id == artist.id }) ? "Artist saved" : "Save this artist", systemImage: "bookmark")
+                }
+                .disabled(!preferences.canEdit || preferences.snapshot.channels.contains { $0.id == artist.id })
+            }
+            if preferences.snapshot.channels.isEmpty {
+                Text("Save artists & playlists in Settings")
+            }
+        } label: {
+            Label(player.selectedChannel?.name ?? "All lofi", systemImage: "bookmark")
+                .font(.system(size: 11, weight: .medium)).lineLimit(1)
+                .frame(maxWidth: 130)
+        }
+        .menuStyle(.borderlessButton).fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 9).padding(.vertical, 8)
+        .background(KeepTheme.paper.opacity(0.95), in: Capsule())
+        .disabled(!preferences.canEdit)
+        .accessibilityLabel("Music channel: \(player.selectedChannel?.name ?? "All lofi")")
+        .help("Choose a saved Audius artist or playlist")
     }
 
     @ViewBuilder private var status: some View {
@@ -113,7 +164,7 @@ struct MusicPlayerCard: View {
             .foregroundStyle(KeepTheme.secondaryInk)
             .accessibilityElement(children: .combine)
         case .idle, .paused, .playing:
-            Text(player.state == .playing ? "Playing · Lofi on Audius" : player.state == .paused ? "Paused · Take your time" : "Press play to settle in")
+            Text(player.state == .playing ? "Playing · Audius" : player.state == .paused ? "Paused · Take your time" : "Press play to settle in")
                 .font(.system(size: 12))
                 .foregroundStyle(KeepTheme.secondaryInk)
         }

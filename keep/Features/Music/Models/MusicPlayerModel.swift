@@ -6,6 +6,7 @@ final class MusicPlayerModel {
     private(set) var state: MusicPlaybackState = .idle
     private(set) var track: MusicTrack?
     private(set) var wantsPlayback = false
+    private(set) var selectedChannel: MusicChannel?
     private(set) var queue: [MusicTrack] = []
     var volume: Double = 0.5 {
         didSet {
@@ -60,6 +61,14 @@ final class MusicPlayerModel {
     func next() { if canSkip { load(at: (index + 1) % queue.count, autoplay: wantsPlayback) } }
     func previous() { if canSkip { load(at: (index + queue.count - 1) % queue.count, autoplay: wantsPlayback) } }
 
+    /// Source changes cancel both discovery and the replaced native item; they never start audio implicitly.
+    func selectChannel(_ channel: MusicChannel?, autoplay: Bool = false) {
+        shutdown()
+        selectedChannel = channel
+        queue = []; track = nil; index = 0
+        if autoplay { load(at: 0, autoplay: true) }
+    }
+
     func shutdown() {
         request?.cancel()
         loadingTimeout?.cancel()
@@ -83,11 +92,13 @@ final class MusicPlayerModel {
         state = .loading
         generation = UUID()
         let token = generation
+        let channel = selectedChannel
         if autoplay { armTimeout() }
         request = Task { [weak self, catalog] in
             do {
                 let tracks: [MusicTrack]
                 if let self, !self.queue.isEmpty { tracks = self.queue }
+                else if let channel { tracks = try await catalog.tracks(for: channel) }
                 else { tracks = try await catalog.lofiTracks() }
                 try Task.checkCancellation()
                 guard let self, self.generation == token else { return }

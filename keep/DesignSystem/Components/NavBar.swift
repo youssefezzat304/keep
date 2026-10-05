@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct NavBar: View {
-    let isTimesheetSelected: Bool
+    let selection: WorkspaceTab
     let onSelectFocus: () -> Void
     let onSelectTimesheet: () -> Void
+    let onSelectSettings: () -> Void
     @FocusState private var focusedTab: String?
 
     var body: some View {
@@ -19,10 +20,10 @@ struct NavBar: View {
 
             Spacer(minLength: 12)
 
-            tab("Focus", symbol: "sun.max", isSelected: !isTimesheetSelected, action: onSelectFocus)
-            tab("Timesheet", symbol: "calendar", isSelected: isTimesheetSelected, action: onSelectTimesheet)
+            tab("Focus", symbol: "sun.max", isSelected: selection == .focus, action: onSelectFocus)
+            tab("Timesheet", symbol: "calendar", isSelected: selection == .timesheet, action: onSelectTimesheet)
             futureDestination("Stats", symbol: "chart.bar")
-            futureDestination("Settings", symbol: "slider.horizontal.3")
+            tab("Settings", symbol: "slider.horizontal.3", isSelected: selection == .settings, action: onSelectSettings)
         }
         .foregroundStyle(KeepTheme.ink)
     }
@@ -60,6 +61,6 @@ struct NavBar: View {
 }
 
 #Preview {
-    NavBar(isTimesheetSelected: true, onSelectFocus: {}, onSelectTimesheet: {})
+    NavBar(selection: .timesheet, onSelectFocus: {}, onSelectTimesheet: {}, onSelectSettings: {})
         .padding().background(KeepTheme.paper)
 }

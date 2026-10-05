@@ -225,6 +225,10 @@ Tasks have an app-owned `DailyTaskStore` in `Features/Tasks`, separate from time
 
 Music has a separate app-owned `MusicPlayerModel` and native AVPlayer adapter in `Features/Music`. Keep playback independent of timer recording and alive across tab changes. Resolve Audius signed HTTPS stream URLs on demand, never persist/log them or add credentials for public playback. Fence canceled requests and replaced-item callbacks, derive Playing from AVPlayer state, and keep tests silent. Preserve outgoing-network sandbox access without adding microphone permission.
 
+Appearance/music settings have a separate app-owned `AppPreferences` archive in `keep.preferences.v1`. Do not merge it into timer or task persistence. Keep Light/Dark/System at the shell and use semantic asset variants; child sheets/popovers must inherit appearance. Invalid preference loads must preserve saved data and block edits.
+
+Wallpaper folders use app-scoped read-only security bookmarks, never persisted raw paths. Balance scoped access, decode images off the main actor, and cancel/fence stale loads. One app-owned `WallpaperLibrary` handles rotation across windows. Keep Reduce Transparency’s opaque music-card fallback. Saved Audius channels support artists and playlists; choosing/restoring a source must not autoplay or fetch until Play. Keep temporary stream URLs out of preference archives.
+
 Preserve the native macOS focus-workspace structure. Follow `docs/style.md` for the cozy editorial visual direction. Treat the reference images as inspiration rather than a mandate to reproduce their page structure.
 
 Do not replace established technologies or introduce speculative features as part of unrelated work.

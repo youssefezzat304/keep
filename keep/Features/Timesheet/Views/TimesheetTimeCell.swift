@@ -95,7 +95,6 @@ struct TimesheetEntryEditor: View {
         .frame(width: 320)
         .foregroundStyle(KeepTheme.ink)
         .background(KeepTheme.paper)
-        .preferredColorScheme(.light)
         .onAppear { isFocused = true }
         .onExitCommand(perform: onCancel)
     }

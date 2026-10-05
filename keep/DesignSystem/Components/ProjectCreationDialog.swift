@@ -82,7 +82,6 @@ struct ProjectCreationDialog: View {
         .frame(width: 420)
         .foregroundStyle(KeepTheme.ink)
         .background(KeepTheme.paper)
-        .preferredColorScheme(.light)
         .onAppear { nameFocused = true }
     }
 
