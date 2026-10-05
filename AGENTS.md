@@ -217,6 +217,8 @@ The final response should state what changed, where, how it was verified, and an
 
 ## 19. Current project direction
 
+The Timesheet tab is currently a UI-only draft. Keep its static fixtures in `keep/Features/Timesheet/PreviewData/` and isolated from timers, session recording, and persistence unless the user requests that integration. Treat sample entries and totals as display data, not actual history.
+
 Preserve the native macOS focus-workspace structure. Follow `docs/style.md` for the cozy editorial visual direction. Treat the reference images as inspiration rather than a mandate to reproduce their page structure.
 
 Do not replace established technologies or introduce speculative features as part of unrelated work.

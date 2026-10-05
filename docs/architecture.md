@@ -9,7 +9,8 @@ The application is a first visual draft with one application target. Timers and 
 | Area | Implemented today | Not implemented |
 | --- | --- | --- |
 | App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; scrolling shell | State shared across windows or launches |
-| Navigation | Selected Focus label; disabled Stats and Settings controls with help text | Destination views and routing |
+| Navigation | Selectable Focus and Timesheet tabs; shell-owned selection; disabled Stats and Settings controls | Stats/Settings destinations |
+| Timesheet | Read-only seven-day project grid with a static sample week, daily/project/weekly totals, and horizontal scrolling | Timer integration, history, editing, week navigation, and persistence |
 | Active target | Editable text field owned by the focus view | Project/task picker or persisted target |
 | Pomodoro | 25-minute countdown with Play, Stop/Continue, Reset, and a completion state | Break cycles, notifications, history, adjustable durations in the UI |
 | Flow timer | Elapsed time with its own Play, Stop/Continue, and Reset | Session history or a completion limit |
@@ -43,6 +44,9 @@ keep/
     FocusSession/
       Models/                      FocusTimer timing state and FocusTask data
       Views/                       Focus workspace, timer card, and supporting panels
+    Timesheet/
+      PreviewData/                 Static display fixtures, including all totals
+      Views/                       Weekly timesheet page and seven-day table
   Assets.xcassets/                  Named colors, CozyCorner artwork, and AppIcon
 tests/FocusTimerChecks.swift        Standalone deterministic timing checks
 reference/                         Local, Git-ignored visual references
@@ -57,7 +61,9 @@ keepApp
 └── WindowGroup
     └── AppShellView
         ├── NavBar
-        │   └── Focus selection; disabled Stats and Settings
+        │   └── Focus and Timesheet actions; disabled Stats and Settings
+        ├── TimesheetView
+        │   └── TimesheetTable → TimesheetMockData
         └── FocusSessionView
             ├── ActiveTargetHeader
             ├── TimerWorkspaceCard
@@ -70,14 +76,15 @@ keepApp
 
 `TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel binds its own timer to the shared `FocusTimerCard` presentation. `FocusSessionView` owns the two timers, target, and task collection.
 
-`NavBar` still presents fixed navigation labels without owning route state. Revisit its ownership or inputs when real navigation is requested. Shared `PrimaryButton` receives its action from the caller.
+`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Timesheet action closures to `NavBar`. Both root views remain mounted; inactive content has zero height and is hidden from hit testing and accessibility. This preserves focus state when switching tabs. Shared `PrimaryButton` receives its action from the caller.
 
 ## 4. Responsibility and dependency boundaries
 
 | Location | Owns | Keep outside it |
 | --- | --- | --- |
-| `App` | Launch, window composition, and future app-wide navigation or dependency assembly | Feature timing calculations and provider-specific logic |
-| `Features/FocusSession` | Focus UI and future session-specific state, actions, and rules | Generic styles and unrelated feature behavior |
+| `App` | Launch, window composition, tab selection, and future dependency assembly | Feature timing calculations and provider-specific logic |
+| `Features/FocusSession` | Focus UI and session-specific state, actions, and rules | Generic styles and unrelated feature behavior |
+| `Features/Timesheet` | Timesheet presentation and explicitly static preview fixtures | Focus timer state and session recording |
 | `DesignSystem` | Reusable presentation, control styles, layout conventions, and theme tokens | Session state, persistence, provider calls, and feature actions |
 | `Assets.xcassets` | Named colors and bundled visual resources | Domain behavior and credentials |
 
@@ -103,6 +110,8 @@ Implemented semantics:
 
 `TasksCard` owns only its draft input/focus state; task data remains in the parent. `MusicPlayerCard` owns no playback state. There are no ticking background services, observable global stores, notification requests, databases, or provider credentials.
 
+Timesheet has no business state or history model. `TimesheetMockData` contains preformatted strings for one illustrative week (28 September–4 October 2026), four projects, and all totals. It does not calculate hours, access either timer, or record sessions. Cells are read-only text; week arrows, Add project, and Copy last week are disabled visual controls. Calendar and list-view alternatives are not implemented.
+
 Task/project relationships, target switching semantics beyond editing its label, durable session history, and music sources remain open product questions. See `docs/decisions.md`.
 
 ## 6. Visual implementation and layout constraints
@@ -116,6 +125,7 @@ Layout and accessibility behavior:
 - Default window size is 1000 × 900; the root view has a 680 × 650 minimum frame.
 - The outer shell scrolls, centers the workspace, and caps it at 1100 points wide.
 - Below 820 points of window width, timer and supporting card pairs stack vertically.
+- The Timesheet table keeps a minimum width of 850 points and scrolls horizontally on narrow windows, preserving readable seven-day columns and totals. Its heading and week toolbar can stack using `ViewThatFits`.
 - The target header uses `ViewThatFits` to move the target field below the heading when needed.
 - `CardStyle` supplies padding, flexible width, and rounding without imposing fixed maximum heights.
 - Supporting cards are 288 points high. The task list scrolls within its card as content grows.
@@ -169,6 +179,8 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 ```
 
 On 2026-10-05, the unsigned Debug build and 24 deterministic timing checks passed. The build emitted an App Intents metadata warning because no AppIntents dependency is present. These results do not validate release signing, real audio, or live UI interaction.
+
+The Timesheet draft also passed an unsigned Debug build and static mock-total consistency checks; offscreen default, wide, and narrow layouts were inspected. No new business-logic tests were added for this display-only feature.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 
