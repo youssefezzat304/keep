@@ -4,7 +4,7 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-The application is a first visual draft with one application target. Timers record project time into an editable, locally saved Timesheet. Timer and project state are shared across the app’s windows; task-list and task-name drafts remain window-local. Music is a visual preview; audio and external integrations are not implemented.
+The application is a first visual draft with one application target. Timers record project time into an editable, locally saved Timesheet. Timer and project state are shared across the app’s windows; task-list and task-name drafts remain window-local. Music streams public lofi tracks from Audius through native AVPlayer, with app-shared playback and volume state.
 
 | Area | Implemented today | Not implemented |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ The application is a first visual draft with one application target. Timers reco
 | Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; separate editable task name | Project renaming/deletion and task-level time records |
 | Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
 | Flow timer | Elapsed time, independent controls, and recording priority over Pomodoro | Detailed session history or a completion limit |
-| Music | Bundled cozy illustration with a frosted controls panel; controls disabled and marked coming soon | Playback, music sources, provider integration |
+| Music | Audius lofi discovery/streaming via AVPlayer; play/pause, previous/next, volume/mute, loading/buffering, Retry, and track attribution over bundled cozy artwork | Offline audio, accounts/gated tracks, saved queue/preferences |
 | Tasks | Lined list with example tasks, completion toggles, add/delete controls, and internal scrolling | Persistence, reordering, project association |
 | Design system | Semantic color assets, `KeepTheme`, reusable action button, flexible card modifier | Dark theme |
 
@@ -31,8 +31,8 @@ docs/
 keep.xcodeproj/                     Xcode project and application target
 keep/
   App/
-    KeepApp.swift                  @main entry point, shared workspace, WindowGroup
-    WorkspaceApplicationDelegate.swift  Final recording flush on app termination
+    KeepApp.swift                  @main entry point, shared workspace/music, WindowGroup
+    WorkspaceApplicationDelegate.swift  Recording flush and music shutdown on termination
     AppShellView.swift             Navigation and focus-workspace composition
   DesignSystem/
     KeepTheme.swift                Semantic references to named color assets
@@ -52,6 +52,10 @@ keep/
     FocusSession/
       Models/                      FocusTimer timing/cycles, PomodoroSettings, and FocusTask data
       Views/                       Focus workspace, timer/settings popover, and supporting panels
+    Music/
+      Models/                      MusicTrack, playback/failure states, MusicPlayerModel
+      Services/                    AudiusClient and native AVMusicPlayback adapter
+      Views/                       MusicPlayerCard and accessible playback controls
     Timesheet/
       Models/                      TimesheetLedger, calendar/duration helpers, local persistence
       PreviewData/                 Numeric fixtures used only by previews
@@ -59,6 +63,7 @@ keep/
   Assets.xcassets/                  Named colors, CozyCorner artwork, and AppIcon
 tests/FocusTimerChecks.swift        Standalone deterministic timing checks
 tests/WorkspaceChecks.swift         Recording, editing, calendar, and persistence checks
+tests/MusicPlayerChecks.swift       Playback state, cancellation, and HTTP contract checks
 reference/                         Local, Git-ignored visual references
 ```
 
@@ -96,6 +101,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 | `App` | Launch, shared model assembly, window composition, tab selection, and termination flush | Feature timing calculations and provider-specific logic |
 | `Features/FocusSession` | Focus UI and session-specific state, actions, and rules | Generic styles and unrelated feature behavior |
 | `Models` | Shared project metadata and coordination of timer recording with the ledger | View layout and provider integrations |
+| `Features/Music` | Audius read-only discovery, stream resolution, AVPlayer lifecycle, playback state, and card UI | Timer recording, persistence, credentials, and provider writes |
 | `Features/Timesheet` | Numeric ledger, calendar/duration helpers, local saving, editable UI, and preview fixtures | Independent timer mutation and overlapping recorders |
 | `DesignSystem` | Reusable presentation, control styles, layout conventions, and theme tokens | Session state, persistence, provider calls, and feature actions |
 | `Assets.xcassets` | Named colors and bundled visual resources | Domain behavior and credentials |
@@ -135,9 +141,19 @@ The trailing × removes a project's entries for the displayed week through `Work
 
 `ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. The dialog offers 30 named color swatches, a selection checkmark, keyboard focus, and native Create/Cancel shortcuts. Cancel discards drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project and returns focus to the task field; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
 
-`TasksCard` owns draft input/focus only; its list remains in the Focus view. A row's × removes that task by ID; completion counts update from the remaining list. Blank ruled rows fill the available list area, and the add field stays at the card's bottom. Task changes remain window-local drafts. `MusicPlayerCard` has no playback state. There are no external providers, notification permissions, databases, or credentials.
+`TasksCard` owns draft input/focus only; its list remains in the Focus view. A row's × removes that task by ID; completion counts update from the remaining list. Blank ruled rows fill the available list area, and the add field stays at the card's bottom. Task changes remain window-local drafts. There are no notification permissions, databases, or credentials.
 
-Project management, task-level session history, music sources, and notifications remain scoped future work. See `docs/decisions.md`.
+`KeepApp` also owns one observable, main-actor `MusicPlayerModel`, passed through each shell and Focus view. It is independent of timer recording, persists across tab/window changes while the app runs, and stops at app termination. No playback, queue, or volume state is restored across launches. Previews stay idle and make no network calls until Play.
+
+Music behavior and external boundary (verified against the [Audius REST reference](https://api.audius.co/v1) and [Apple AVPlayer documentation](https://developer.apple.com/documentation/avfoundation/avplayer) on 2026-10-05):
+
+- `AudiusClient` uses an ephemeral URLSession without a disk cache against `https://api.audius.co/v1`, searches `tracks/search?query=lofi&limit=30&includePurchaseable=false`, and identifies requests with `app_name=Keep`. Current public read-only endpoints need no API key. Decode numeric/access flags explicitly; reject gated, unavailable, deleted, unlisted, inaccessible, duplicate, or invalid-ID tracks. Track titles/artists appear in the card with a safe Audius attribution link.
+- Resolve `tracks/{id}/stream?no_redirect=true` when selecting/retrying a track. Audius returns a temporary signed HTTPS audio URL; pass it to AVPlayer and never save/log it. Metadata can outlive audio: stream-lookup 403/404 results advance to the next candidate, bounded by the queue length. A fully unavailable queue shows an error. Network/rate-limit errors stop discovery and offer Retry.
+- `AVMusicPlayback` owns AVPlayer, item/status KVO, and end/failure notifications. Actual `timeControlStatus` drives Playing versus Loading/buffering. End advances/wraps the queue; previous/next preserve paused intent. Play resumes the current item after pause. Volume is clamped to 0–1; the card adds mute/unmute with a remembered nonzero level.
+- State is explicit: idle, loading, playing, paused, or failed with actionable text. Pause cancels discovery/stream resolution; item and request identities prevent delayed callbacks from restarting canceled/replaced audio. Requests have 20-second timeouts; active loading/buffering has a 30-second watchdog and Retry. App shutdown cancels tasks, removes observers, and releases the current item.
+- `MusicCatalog` and `MusicPlayback` protocols allow deterministic network/player fixtures. No third-party package, backend, write endpoint, credentials, microphone permission, or offline downloading is introduced. Audius remains an external service; availability and rate limits can vary.
+
+Project management, task-level session history, additional music providers, and notifications remain scoped future work. See `docs/decisions.md`.
 
 ## 6. Visual implementation and layout constraints
 
@@ -177,12 +193,13 @@ The checked-in project currently declares:
 | Build configurations | Debug and Release |
 | App Sandbox | Enabled |
 | User-selected file access | Read-only |
+| Outgoing network connections | Enabled in Debug and Release for Audius API/audio hosts |
 | Info.plist | Generated by Xcode |
 | Third-party package products | None |
 
 The language-mode setting does not identify the installed Swift compiler. Project metadata does not prove SDK availability or that a build succeeds on a given machine. Check the installed toolchain when compatibility matters.
 
-There is no Xcode test target, configured lint/format tool, third-party persistence framework, backend, or network/music integration. Foundation UserDefaults provides local storage; timer/recording checks run through standalone Swift harnesses. Sandbox settings do not imply that a file-import feature exists; adding capabilities requires a concrete feature need.
+There is no Xcode test target, configured lint/format tool, third-party persistence framework, backend, or third-party music SDK. AVFoundation handles audio and Foundation URLSession handles Audius HTTPS requests. Foundation UserDefaults provides local storage; timer/recording/music checks run through standalone Swift harnesses. Sandbox settings do not imply that a file-import feature exists; adding capabilities requires a concrete feature need.
 
 ## 8. Development and verification
 
@@ -219,15 +236,28 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-workspace-checks
 ```
 
+Run the focused music checks:
+
+```sh
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Features/Music/Models/*.swift keep/Features/Music/Services/*.swift \
+  tests/MusicPlayerChecks.swift -o /tmp/keep-music-checks
+/tmp/keep-music-checks
+```
+
+The music checks use injected catalog/playback fixtures and an isolated URLProtocol session; they do not play sound or request live Audius data. They cover loading versus actual playing, pause/resume, volume clamping, stalled playback, queue navigation/completion, cancellation, stale item callbacks, bounded unavailable-track fallback, retry, shutdown, safe URLs, access filtering, and HTTP error mapping. Live service verification is a separate opt-in developer check; silence AVPlayer by setting volume to zero when probing on a user's Mac.
+
 On 2026-10-05, the unsigned Debug build, 45 timing checks, and 180 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, weekly row removal/Undo during recording, preserved other weeks/projects, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
 
-Native offscreen renders of running/completed/break Focus states, empty/live/populated Timesheets at default, wide, and narrow sizes, and the entry editor were inspected. Live popover interaction, keyboard navigation, VoiceOver, release signing, and actual audio remain unverified; computer-use permission was unavailable for live UI checks.
+Native offscreen renders of running/completed/break Focus states, empty/live/populated Timesheets at default, wide, and narrow sizes, and the entry editor were inspected. Live popover interaction, keyboard navigation, VoiceOver, release signing, and audible sound remain unverified; computer-use permission was unavailable for live UI checks.
 
 The project-creation dialog, all 30 color swatches, the updated picker, and a newly created Timesheet row were inspected in native offscreen renders. Live popover-to-sheet transitions and keyboard interaction remain unverified.
 
 Default/custom Pomodoro settings, long-break completion/running states, wrapped controls on a narrow timer card, and the default Focus layout were inspected in native offscreen renders. Live popover interaction and keyboard navigation remain unverified.
 
 Growing support cards and task delete controls were inspected at 1710 × 1080, 1920 × 1400, 1000 × 872, 700 × 1700, and 680 × 650 content sizes. Timesheet remove controls and Undo were inspected at wide/default/minimum sizes. Live click/keyboard interaction remains unverified.
+
+Audius integration verification on 2026-10-05: unsigned Debug and local ad hoc signed Debug builds passed; generated entitlements retain App Sandbox and include `com.apple.security.network.client`. The 47 music checks and 180 workspace regression checks passed. Live API discovery returned 29 accessible tracks, and a separate sandboxed native harness reached AVPlayer Playing, paused, and resumed at volume zero. This validates actual streaming and native playback state without testing audible output. Idle/playing/loading/error cards and default/wide/narrow workspace layouts were inspected in native offscreen renders. Live music-button/slider interaction, keyboard/VoiceOver, and audible sound remain unverified.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

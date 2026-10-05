@@ -17,7 +17,7 @@ The intended core flow, based on the current interface, is:
 
 This flow describes the direction suggested by the interface, not completed functionality or a full product specification. See `docs/architecture.md` for the verified implementation state and `docs/decisions.md` for durable decisions and unresolved questions. Do not describe placeholders as working features.
 
-Detailed session history, statistics, notifications, music integrations, accounts, and sync require their own scoped work. Do not add them merely because they could be useful. Project/day time totals and manual edits now persist locally.
+Detailed session history, statistics, notifications, additional music integrations, accounts, and sync require their own scoped work. Do not add them merely because they could be useful. Project/day time totals and manual edits now persist locally.
 
 ## 2. Technology and architecture
 
@@ -220,6 +220,8 @@ The final response should state what changed, where, how it was verified, and an
 Focus and Timesheet share the app-owned `WorkspaceModel` and project catalog. Create projects through the workspace; the saved custom catalog is separate from time entries so projects can persist before their first session. Preserve loading of older records without the catalog field. Created projects, recorded project/day totals, and manual edits persist locally; timer runtime and task-list state are not restored after quitting. Keep numeric fixtures in `keep/Features/Timesheet/PreviewData/` for previews only. Never seed the live ledger with sample history or store separately calculated totals.
 
 Preserve one recorder and one persistence owner across tabs and windows. Test overlap, focus/break exclusion, edits during recording, project changes, day boundaries, and reloads when changing recording behavior. Do not reintroduce direct timer bindings that bypass settlement.
+
+Music has a separate app-owned `MusicPlayerModel` and native AVPlayer adapter in `Features/Music`. Keep playback independent of timer recording and alive across tab changes. Resolve Audius signed HTTPS stream URLs on demand, never persist/log them or add credentials for public playback. Fence canceled requests and replaced-item callbacks, derive Playing from AVPlayer state, and keep tests silent. Preserve outgoing-network sandbox access without adding microphone permission.
 
 Preserve the native macOS focus-workspace structure. Follow `docs/style.md` for the cozy editorial visual direction. Treat the reference images as inspiration rather than a mandate to reproduce their page structure.
 

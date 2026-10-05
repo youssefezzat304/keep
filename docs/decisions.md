@@ -3,10 +3,10 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have delete controls. Music remains a disabled playback preview.
+- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have delete controls. Music now streams public Audius lofi tracks through AVPlayer with loading/error recovery and volume controls.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. No external integrations, third-party packages, or Xcode test target; standalone timer/workspace checks are available.
+- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. Standalone timer/workspace/music checks are available.
 - 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
 - 2026-10-05 [CODE] Timers/project selection/ledger are app-shared; timer runtime and window-local task drafts are not restored on relaunch. Next feature is UNCONFIRMED.
 
@@ -26,11 +26,11 @@ Provide two independently playable/stoppable timers: Pomodoro and flow. They may
 
 For the first draft, Stop preserves time, Continue resumes it, and Reset starts fresh. Pomodoro uses 25 minutes; flow has no time limit. Timing uses `ContinuousClock`, including sleep, with state local to each window. No persistence or automatic break cycles are introduced.
 
-### D004 ACTIVE — 2026-10-05 [USER]
+### D004 PARTIALLY SUPERSEDED BY D013 — 2026-10-05 [USER]
 
 The music area previews later lofi/ambient playback with cozy artwork and controls floating on a blurry card. This panel is an exception to the flat visual language; actual audio remains out of scope.
 
-### D005 ACTIVE — 2026-10-05 [CODE]
+### D005 PARTIALLY SUPERSEDED BY D013 — 2026-10-05 [CODE]
 
 Use explicit light appearance for the first palette implementation. Keep Stats, Settings, and music playback controls disabled rather than implying unfinished functionality works.
 
@@ -74,6 +74,12 @@ Extend the music and tasks cards to the bottom on larger/full-screen windows. Ma
 
 2026-10-05 [CODE] Support cards grow from a 288-point minimum to fill the space above the footer, with scrolling for short windows. Task × buttons remove window-local drafts. Timesheet × buttons remove the project's entries in the displayed week after settling recording, save immediately, and offer one-step Undo. Catalog projects and other weeks remain intact. Timers continue recording subsequent time; Undo adds removed history back alongside that new time. Undo history lasts for the current app run.
 
+### D013 ACTIVE — 2026-10-05 [USER]
+
+Integrate Audius lofi music through native Apple AVPlayer, with play/pause, volume, loading, and connection-error states. D004's cozy artwork/frosted controls and D005's light palette remain; disabled music playback is superseded.
+
+2026-10-05 [CODE] One app-owned music model shares playback across tabs/windows independently of timers. Play discovers public, accessible lofi tracks and resolves temporary signed HTTPS streams without credentials; no startup autoplay/network call. Previous/next and track completion navigate/wrap the queue while retaining paused intent. UI displays title/artist and Audius attribution, volume/mute, actual playing/buffering, and actionable Retry. Unavailable stream lookups skip stale metadata within a bounded queue. Generation checks, cancellation, timeouts, and termination cleanup protect playback lifecycle. Sandbox outgoing network access is enabled in both build configurations; no microphone access or external SDK is added. Queue, playback, and volume remain runtime-only.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -108,7 +114,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 
 - 2026-10-05 [CODE] UNCONFIRMED: detailed session history, restoring timer runtime, automatic interval starts, and future notifications. Current focus/break/sleep/relaunch behavior is documented in D008, D011, and architecture.
 - 2026-10-05 [CODE] UNCONFIRMED: project renaming/deletion, task-level time records, and future storage migration. Project switches currently apply prospectively, and selection preserves task text.
-- 2026-10-05 [CODE] UNCONFIRMED: music source/provider, statistics scope, and a future dark palette.
+- 2026-10-05 [CODE] UNCONFIRMED: statistics scope, saved music preferences/offline audio, and a future dark palette. Audius streaming is implemented under D013.
 
 ## [WORKING SET]
 
@@ -119,7 +125,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep/App/`
 - 2026-10-05 [CODE] `keep/Models/`
 - 2026-10-05 [CODE] `keep/Features/FocusSession/`
-- 2026-10-05 [CODE] `keep/Features/Timesheet/`
+- 2026-10-05 [CODE] `keep/Features/Timesheet/` and `keep/Features/Music/`
 - 2026-10-05 [CODE] `tests/`
 - 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
@@ -144,3 +150,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [TOOL] Pomodoro settings unsigned Debug build, 45 timer checks, and 157 workspace checks passed. Configurable short/long break cycles, retained active durations, focus-only recording, saved settings, legacy records, and separate-process reloads verified. Offscreen settings and long-break layouts inspected, including narrow controls; live popover interaction remains unverified.
 
 - 2026-10-05 [TOOL] Extended-card/delete-controls unsigned Debug build and 180 workspace checks passed. Weekly deletion scope, running Flow/focus settlement, break exclusion, Undo merges, zero-time rows, and persistence verified. Native offscreen large/wide/default/minimum/tall-compact layouts and Timesheet removal/Undo inspected; live interaction remains unverified.
+
+- 2026-10-05 [TOOL] Audius unsigned Debug and local ad hoc signed Debug builds passed; sandbox/network-client entitlements inspected. Passed 47 music checks and 180 workspace regression checks. Public API search/stream resolution and native AVPlayer Playing → Pause → Resume verified in a separate sandboxed harness at zero volume. Offscreen idle/playing/loading/error cards and default/wide/narrow layouts inspected; audible output and live UI/keyboard/VoiceOver remain unverified.

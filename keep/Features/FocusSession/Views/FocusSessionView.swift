@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FocusSessionView: View {
     @Bindable var workspace: WorkspaceModel
+    var music = MusicPlayerModel()
     var isCompact = false
     var minimumHeight: CGFloat = 0
     @State private var taskName = "Your next good idea"
@@ -34,7 +35,7 @@ struct FocusSessionView: View {
     }
 
     @ViewBuilder private var supportingCards: some View {
-        MusicPlayerCard()
+        MusicPlayerCard(player: music)
         TasksCard(tasks: $tasks)
     }
 }
