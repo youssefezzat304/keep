@@ -2,7 +2,7 @@ import SwiftUI
 
 enum WorkspaceTab {
     case focus
-    case timesheet
+    case dashboard
     case settings
 }
 
@@ -29,7 +29,7 @@ struct AppShellView: View {
                 NavBar(
                     selection: selectedTab,
                     onSelectFocus: { selectedTab = .focus },
-                    onSelectTimesheet: { selectedTab = .timesheet },
+                    onSelectDashboard: { selectedTab = .dashboard },
                     onSelectSettings: { selectedTab = .settings }
                 )
 
@@ -56,13 +56,10 @@ struct AppShellView: View {
                     .allowsHitTesting(selectedTab == .focus)
                     .accessibilityHidden(selectedTab != .focus)
 
-                    ScrollView {
-                        TimesheetView(workspace: workspace)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                    }
-                    .opacity(selectedTab == .timesheet ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .timesheet)
-                    .accessibilityHidden(selectedTab != .timesheet)
+                    DashboardView(workspace: workspace)
+                        .opacity(selectedTab == .dashboard ? 1 : 0)
+                        .allowsHitTesting(selectedTab == .dashboard)
+                        .accessibilityHidden(selectedTab != .dashboard)
 
                     ScrollView {
                         SettingsView(preferences: preferences, player: music, wallpapers: wallpapers)
@@ -103,8 +100,8 @@ struct AppShellView: View {
     AppShellView().frame(width: 1000, height: 900)
 }
 
-#Preview("Timesheet") {
-    AppShellView(initialTab: .timesheet, workspace: TimesheetPreviewData.workspace()).frame(width: 1000, height: 900)
+#Preview("Dashboard") {
+    AppShellView(initialTab: .dashboard, workspace: TimesheetPreviewData.workspace()).frame(width: 1000, height: 900)
 }
 
 #Preview("Wide window") {

@@ -217,7 +217,9 @@ The final response should state what changed, where, how it was verified, and an
 
 ## 19. Current project direction
 
-Focus and Timesheet share the app-owned `WorkspaceModel` and project catalog. Create projects through the workspace; the saved custom catalog is separate from time entries so projects can persist before their first session. Preserve loading of older records without the catalog field. Created projects, recorded project/day totals, and manual edits persist locally; timer runtime and input drafts are not restored after quitting. Keep numeric fixtures in `keep/Features/Timesheet/PreviewData/` for previews only. Never seed the live ledger with sample history or store separately calculated totals.
+Focus and Dashboard’s Timesheet share the app-owned `WorkspaceModel` and project catalog. Create projects through the workspace; the saved custom catalog is separate from time entries so projects can persist before their first session. Preserve loading of older records without the catalog field. Created projects, recorded project/day totals, and manual edits persist locally; timer runtime and input drafts are not restored after quitting. Keep numeric fixtures in `keep/Features/Timesheet/PreviewData/` for previews only. Never seed the live ledger with sample history or store separately calculated totals.
+
+Dashboard owns its shared browsed week and Timesheet / Calendar selection; keep these view states window-local and preserve the fixed shell viewport. The Calendar is an explicitly approved visual draft: use labeled sample sessions from `keep/Features/Dashboard/PreviewData/`, never infer session timestamps from daily totals or write the samples into saved history. Real session recording and calendar editing require separate scoped work.
 
 Preserve one recorder and one owner of Timesheet persistence across tabs and windows. Test overlap, focus/break exclusion, edits during recording, project changes, day boundaries, and reloads when changing recording behavior. Do not reintroduce direct timer bindings that bypass settlement.
 

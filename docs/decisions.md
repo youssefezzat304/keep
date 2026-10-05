@@ -3,10 +3,10 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved artists/playlists through AVPlayer. Settings saves Light/Dark/System appearance, folder/Audius wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork.
+- 2026-10-05 [CODE] Current state: Dashboard contains the saved editable Timesheet and a labeled weekly Calendar visual draft. Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved artists/playlists through AVPlayer. Settings saves Light/Dark/System appearance, folder/Audius wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. Standalone timer/workspace/music/task checks are available.
+- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. The daily-task standalone checks remain checked in; earlier timer/workspace/music/preferences check sources have been removed.
 - 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
 - 2026-10-05 [CODE] Timers/project selection/ledger, music, and saved daily tasks are app-shared; appearance/music preferences and channel selection persist; timer/music runtime, task-day selection, and window-local input/task-name drafts are not restored on relaunch. Next feature is UNCONFIRMED.
 
@@ -34,7 +34,7 @@ The music area previews later lofi/ambient playback with cozy artwork and contro
 
 Use explicit light appearance for the first palette implementation. Keep Stats, Settings, and music playback controls disabled rather than implying unfinished functionality works.
 
-### D006 SUPERSEDED BY D008 — 2026-10-05 [USER]
+### D006 SUPERSEDED BY D008 AND D018 — 2026-10-05 [USER]
 
 Build only the Timesheet tab for now using mock project data. Show seven days, hours, and totals; introduce no timesheet business logic or connection to timers. Calendar and list-view alternatives are outside this task.
 
@@ -104,6 +104,12 @@ Restyle the task date picker and Settings controls to match Keep, center Setting
 
 2026-10-05 [CODE] Settings now shares a centered 900-point column, rounded paper menu buttons/inputs, selected appearance buttons, native switches, and a live player preview in the glass section. The calendar uses styled SwiftUI date buttons in a native popover, month arrows, a Today dot/action, and a validated YYYY-MM-DD jump field. Calendar arithmetic respects the first weekday, leap dates, and DST; day buttons support arrow focus navigation. `MusicGlassPanel` aligns an explicit copy of the player image with the transport and continuously reduces blur/paper opacity toward clear; an appearance-specific wash protects legibility, and Reduce Transparency stays opaque. Liquid Glass uses the clear native finish. This supersedes D014’s default graphical DatePicker and D015’s material-thickness/tint mapping; saved settings and task-day behavior remain unchanged.
 
+### D018 ACTIVE — 2026-10-05 [USER]
+
+Rename the top-level Timesheet tab to Dashboard, add a Timesheet / Calendar switch, and build a weekly Calendar in Keep’s cozy style. Both views live inside Dashboard. The user chose a visual draft with sample sessions rather than adding session recording.
+
+2026-10-05 [CODE] Dashboard owns shared week navigation and mounted Timesheet/Calendar viewports. Timesheet retains saved daily totals, edits, project creation, removal, and Undo. Calendar displays a labeled sample week with seven weekday/date headers, sample daily/week totals, a scrollable 24-hour grid, project-colored task blocks, hour zoom, and read-only sample details. The weekday sample pattern repeats when browsing weeks and never enters the ledger. Real session timestamps, calendar editing, and timer/calendar integration remain outside this scope. This supersedes D006’s exclusion of Calendar as a navigation alternative; the recorded ledger remains aggregate-only.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -149,7 +155,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep/App/`
 - 2026-10-05 [CODE] `keep/Models/`
 - 2026-10-05 [CODE] `keep/Features/FocusSession/`
-- 2026-10-05 [CODE] `keep/Features/Timesheet/`, `keep/Features/Music/`, `keep/Features/Tasks/`, and `keep/Features/Settings/`
+- 2026-10-05 [CODE] `keep/Features/Dashboard/`, `keep/Features/Timesheet/`, `keep/Features/Music/`, `keep/Features/Tasks/`, and `keep/Features/Settings/`
 - 2026-10-05 [CODE] `tests/`
 - 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
@@ -184,3 +190,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [TOOL] Artwork backdrop unsigned Debug build, 74 preferences/wallpaper checks, and 68 music checks passed. Shared image loading/reuse, URL/source changes, HTTP/decoding failure fallback, and cancellation verified. Native offscreen default/wide/minimum, light/dark, all-tab, folder-artwork, and isolated wash renders inspected; live interaction remains unverified.
 
 - 2026-10-05 [TOOL] Calendar/Settings/glass refinement: unsigned Debug build, 68 daily-task and 74 preferences/wallpaper checks passed. Inspected native light/dark calendars, centered default/wide/minimum/full Settings, and solid/mid/clear music controls. Isolated live preview verified material-menu/appearance selection, actual artwork blur/transparency changes, date-button selection, invalid date blocking, and future/historical task-day selection. No user archives were changed and no audio was played. Popover keyboard/VoiceOver and system Reduce Transparency switching remain unverified.
+
+- 2026-10-05 [TOOL] Dashboard unsigned Debug build passed. Inspected native default/wide/minimum Calendar, dark Calendar, and populated Timesheet renders. Isolated live preview verified view switching, shared week navigation/This week, retained Calendar selection/week across Focus, sample details, zoom, and edited Timesheet totals. Inactive-view controls are absent from the accessibility tree. No live user data was changed or audio played; full keyboard/VoiceOver remain unverified. Calendar uses labeled sample sessions only.

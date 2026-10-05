@@ -3,7 +3,7 @@ import SwiftUI
 struct NavBar: View {
     let selection: WorkspaceTab
     let onSelectFocus: () -> Void
-    let onSelectTimesheet: () -> Void
+    let onSelectDashboard: () -> Void
     let onSelectSettings: () -> Void
     @FocusState private var focusedTab: String?
 
@@ -21,7 +21,7 @@ struct NavBar: View {
             Spacer(minLength: 12)
 
             tab("Focus", symbol: "sun.max", isSelected: selection == .focus, action: onSelectFocus)
-            tab("Timesheet", symbol: "calendar", isSelected: selection == .timesheet, action: onSelectTimesheet)
+            tab("Dashboard", symbol: "square.grid.2x2", isSelected: selection == .dashboard, action: onSelectDashboard)
             futureDestination("Stats", symbol: "chart.bar")
             tab("Settings", symbol: "slider.horizontal.3", isSelected: selection == .settings, action: onSelectSettings)
         }
@@ -61,6 +61,6 @@ struct NavBar: View {
 }
 
 #Preview {
-    NavBar(selection: .timesheet, onSelectFocus: {}, onSelectTimesheet: {}, onSelectSettings: {})
+    NavBar(selection: .dashboard, onSelectFocus: {}, onSelectDashboard: {}, onSelectSettings: {})
         .padding().background(KeepTheme.paper)
 }

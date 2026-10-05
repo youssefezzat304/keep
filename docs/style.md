@@ -163,6 +163,8 @@ Use native `Button`, `Toggle`, text fields, and other controls for behavior and 
 
 Settings uses a centered column, rounded paper menu buttons and fields, terracotta selected appearance choices, and native switches. Use the same warm buttons in the task calendar: roomy weekday/date cells, a terracotta selection, a Today dot, and muted adjacent-month dates. Keep the calendar inside a native popover while styling its contents in SwiftUI. Avoid the default graphical date-picker chrome.
 
+Dashboard uses a compact Timesheet / Calendar switch with rounded paper surroundings and terracotta selection. The weekly Calendar keeps cream hour-grid surfaces, fine warm rules, subtly shaded weekends, and a terracotta Today marker. Session blocks use soft project-color fills, readable ink, a narrow colored edge, and restrained task/project/duration text. Keep the weekday headers visible above the scrolling timeline; clearly label sample sessions while the Calendar remains a visual draft.
+
 Avoid glossy fills, oversized shadows, and subtle color changes as the only indication of interaction. Make pointer targets comfortable, generally around 36–44 points high for primary controls.
 
 ## 13. Selection, tasks, and session emphasis
