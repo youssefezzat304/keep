@@ -1,32 +1,58 @@
 import SwiftUI
 
+/// Samples the artwork at the controls' actual position, rather than the window's material backdrop.
 struct MusicGlassPanel: ViewModifier {
     var preferences: AppPreferences
+    var wallpapers: WallpaperLibrary
+    var artworkSize: CGSize
+    var inset: CGFloat = 16
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
 
     @ViewBuilder func body(content: Content) -> some View {
         if reduceTransparency || preferences.glassiness == 0 {
             content.background(KeepTheme.paper, in: shape)
-        } else if preferences.glassStyle == .liquid {
-            content.glassEffect(
-                (preferences.glassiness > 0.65 ? Glass.clear : Glass.regular)
-                    .tint(KeepTheme.paper.opacity(1 - preferences.glassiness * 0.45)), in: shape)
+                .overlay { shape.strokeBorder(KeepTheme.border, lineWidth: 1) }
         } else {
-            content.background {
-                shape.fill(material)
-                    .overlay { shape.fill(KeepTheme.paper.opacity(0.9 - preferences.glassiness * 0.7)) }
-            }
-            .overlay { shape.strokeBorder(KeepTheme.border.opacity(0.7), lineWidth: 1) }
+            content
+                .background {
+                    GeometryReader { panel in
+                        MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
+                            .frame(width: artworkSize.width, height: artworkSize.height)
+                            // The transport is inset from the bottom of the full artwork card.
+                            .offset(x: -inset, y: panel.size.height + inset - artworkSize.height)
+                            .blur(radius: 24 * (1 - preferences.glassiness), opaque: true)
+                            .frame(width: panel.size.width, height: panel.size.height, alignment: .topLeading)
+                            .overlay {
+                                KeepTheme.paper.opacity(1 - preferences.glassiness)
+                            }
+                            .overlay {
+                                LinearGradient(colors: [KeepTheme.paper.opacity(colorScheme == .dark ? 0.55 : 0.12),
+                                                        KeepTheme.paper.opacity(colorScheme == .dark ? 0.68 : 0.3)],
+                                               startPoint: .top, endPoint: .bottom)
+                            }
+                    }
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+                .modifier(MusicGlassFinish(isLiquid: preferences.glassStyle == .liquid, shape: shape))
         }
     }
 
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 17) }
-    private var material: Material {
-        switch preferences.glassiness {
-        case ..<0.25: .thickMaterial
-        case ..<0.5: .regularMaterial
-        case ..<0.75: .thinMaterial
-        default: .ultraThinMaterial
+}
+
+private struct MusicGlassFinish: ViewModifier {
+    let isLiquid: Bool
+    let shape: RoundedRectangle
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if isLiquid {
+            // The clear variant keeps the explicitly aligned artwork visible.
+            content.glassEffect(.clear, in: shape)
+        } else {
+            content.overlay { shape.strokeBorder(KeepTheme.paper.opacity(0.65), lineWidth: 1) }
         }
     }
 }

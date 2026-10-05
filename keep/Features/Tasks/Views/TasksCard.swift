@@ -193,38 +193,6 @@ struct TasksCard: View {
     }
 }
 
-struct TaskDatePicker: View {
-    @State var date: Date
-    let calendar: Calendar
-    let onChoose: (Date) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Choose a day").font(.system(size: 20, design: .serif))
-            DatePicker("Task day", selection: $date, displayedComponents: [.date])
-                .datePickerStyle(.graphical)
-                .labelsHidden()
-                .accessibilityLabel("Task day")
-                .frame(maxWidth: .infinity, alignment: .center)
-            DatePicker("Date", selection: $date, displayedComponents: [.date])
-                .datePickerStyle(.field)
-                .accessibilityLabel("Type a specific task date")
-            HStack {
-                Spacer()
-                Button("Show tasks") { onChoose(date) }
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(18)
-        .frame(width: 300)
-        .background(KeepTheme.surface)
-        .foregroundStyle(KeepTheme.ink)
-        .tint(KeepTheme.accentStrong)
-        .environment(\.calendar, calendar)
-        .environment(\.timeZone, calendar.timeZone)
-    }
-}
-
 private struct TaskDateButtonStyle: ButtonStyle {
     @State private var hovered = false
 

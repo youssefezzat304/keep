@@ -46,6 +46,28 @@ import Foundation
         tokyo.timeZone = japan
         expect(TaskDay.id(for: selection.date(today: today, calendar: tokyo), calendar: tokyo) == "2031-07-18", "Selected civil date survives timezone changes")
 
+        var mondayCalendar = calendar
+        mondayCalendar.firstWeekday = 2
+        let october = TaskMonthGrid(month: today, calendar: mondayCalendar)
+        expect(october.weekdays.first == mondayCalendar.shortStandaloneWeekdaySymbols[1], "Week headings begin on the configured first weekday")
+        expect(october.days.count == 42 && Set(october.days.map { TaskDay.id(for: $0, calendar: calendar) }).count == 42, "Calendar has six distinct full weeks")
+        expect(TaskDay.id(for: october.days[0], calendar: calendar) == "2026-09-28", "October grid aligns Monday before the first")
+        expect(TaskDay.id(for: october.days[3], calendar: calendar) == "2026-10-01", "October first falls under Thursday")
+        expect(october.days.filter { october.contains($0) }.count == 31, "October shows every day once")
+        let leap = TaskMonthGrid(month: date(2024, 2, 15, calendar: calendar), calendar: mondayCalendar)
+        expect(leap.days.filter { leap.contains($0) }.count == 29, "Calendar includes February leap day")
+        expect(TaskDay.id(for: leap.moving(by: 1), calendar: calendar) == "2024-03-01", "Changing month starts at first day without skipping a shorter month")
+        let december = TaskMonthGrid(month: date(2026, 12, 31, calendar: calendar), calendar: mondayCalendar)
+        expect(TaskDay.id(for: december.moving(by: 1), calendar: calendar) == "2027-01-01", "Month navigation crosses into next year")
+        expect(TaskDay.id(for: december.moving(by: -1), calendar: calendar) == "2026-11-01", "Month navigation does not overflow from the 31st")
+        var sundayCalendar = calendar
+        sundayCalendar.firstWeekday = 1
+        let sundayGrid = TaskMonthGrid(month: today, calendar: sundayCalendar)
+        expect(TaskDay.id(for: sundayGrid.days[0], calendar: calendar) == "2026-09-27", "Sunday-first locale aligns the grid correctly")
+        let dstGrid = TaskMonthGrid(month: date(2026, 3, 15, calendar: calendar), calendar: mondayCalendar)
+        expect(dstGrid.days.map { TaskDay.id(for: $0, calendar: calendar) }.contains("2026-03-29"), "Grid includes the DST transition date")
+        expect(dstGrid.days.filter { dstGrid.contains($0) }.count == 31, "DST does not duplicate or omit a calendar day")
+
         let suite = "keep.tests.tasks.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { fatalError("Preferences") }
         defaults.removePersistentDomain(forName: suite)

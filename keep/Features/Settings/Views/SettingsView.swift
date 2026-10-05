@@ -33,18 +33,14 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {
                     settingRow("Dark mode", detail: "System follows your Mac’s appearance.") {
-                        Picker("Dark mode", selection: $preferences.appearance) {
-                            ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
-                        }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 240)
+                        appearanceChoices
                     }
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
                     settingRow("Wallpaper", detail: "Your backdrop for a slower afternoon.") {
-                        Picker("Wallpaper source", selection: $preferences.wallpaperSource) {
-                            ForEach(WallpaperSource.allCases) { Text($0.title).tag($0) }
-                        }.labelsHidden().frame(width: 190)
+                        KeepSelectionMenu(label: "Wallpaper source", selection: $preferences.wallpaperSource,
+                                          options: WallpaperSource.allCases, title: { $0.title }).frame(width: 190)
                     }
 
                     Divider().overlay(KeepTheme.border)
@@ -80,21 +76,21 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Toggle("Rotate wallpapers automatically", isOn: $preferences.automaticallyRotate)
                         settingRow("Order") {
-                            Picker("Wallpaper order", selection: $preferences.wallpaperOrder) {
-                                ForEach(WallpaperOrder.allCases) { Text($0.title).tag($0) }
-                            }.labelsHidden().frame(width: 160)
+                            KeepSelectionMenu(label: "Wallpaper order", selection: $preferences.wallpaperOrder,
+                                              options: WallpaperOrder.allCases, title: { $0.title }).frame(width: 160)
                         }
                         settingRow("Change every") {
-                            Picker("Wallpaper rotation interval", selection: $preferences.rotationSeconds) {
-                                ForEach(SettingsArchive.rotationIntervals, id: \.self) { seconds in
-                                    Text(seconds == 30 ? "30 seconds" : "\(seconds / 60) minute\(seconds == 60 ? "" : "s")").tag(seconds)
-                                }
-                            }.labelsHidden().frame(width: 160)
+                            KeepSelectionMenu(label: "Wallpaper rotation interval", selection: $preferences.rotationSeconds,
+                                              options: SettingsArchive.rotationIntervals, title: { seconds in
+                                seconds == 30 ? "30 seconds" : "\(seconds / 60) minute\(seconds == 60 ? "" : "s")"
+                            }).frame(width: 160)
                         }.disabled(!preferences.automaticallyRotate)
                         Toggle("Loop after the last wallpaper", isOn: $preferences.loopWallpapers)
                             .disabled(!preferences.automaticallyRotate)
                     }
                     .font(.system(size: 13))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                     .disabled(preferences.wallpaperSource != .folder)
 
                     if preferences.wallpaperSource == .audius {
@@ -106,9 +102,8 @@ struct SettingsView: View {
 
                 section("A little glass", symbol: "rectangle.on.rectangle") {
                     settingRow("Card material") {
-                        Picker("Music card material", selection: $preferences.glassStyle) {
-                            ForEach(MusicGlassStyle.allCases) { Text($0.title).tag($0) }
-                        }.labelsHidden().frame(width: 190)
+                        KeepSelectionMenu(label: "Music card material", selection: $preferences.glassStyle,
+                                          options: MusicGlassStyle.allCases, title: { $0.title }).frame(width: 190)
                     }
                     HStack {
                         Text("Glassiness").font(.system(size: 13, weight: .medium))
@@ -124,18 +119,23 @@ struct SettingsView: View {
                         Spacer()
                         Text("Clear glass")
                     }.font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
-                    helper("Adjusts material thickness and the warm tint over the image. Reduce Transparency on your Mac always uses solid paper.")
+                    helper("Slide toward clear glass to reveal sharper artwork through the controls. Reduce Transparency on your Mac always uses solid paper.")
+                    MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
+                        .frame(height: 288)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Music card preview")
                 }
 
                 section("Saved Audius channels", symbol: "bookmark") {
                     helper("Save an artist profile or playlist link, then find it in the player’s channel menu. Audio starts only when you press Play.")
                     HStack(spacing: 10) {
                         TextField("Paste an Audius artist or playlist link…", text: $channelURL)
-                            .textFieldStyle(.roundedBorder)
+                            .modifier(KeepInputStyle())
                             .accessibilityLabel("Audius artist or playlist link")
                             .onSubmit { addChannel() }
                         if addingChannel { ProgressView().controlSize(.small).accessibilityLabel("Saving Audius channel") }
                         Button("Save channel") { addChannel() }
+                            .buttonStyle(KeepButtonStyle(emphasis: .primary))
                             .disabled(addingChannel || channelURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                     if let channelError { Text(channelError).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong) }
@@ -167,8 +167,10 @@ struct SettingsView: View {
                 }
             }
             .disabled(!preferences.canEdit)
-            .frame(maxWidth: 900, alignment: .leading)
         }
+        .frame(maxWidth: 900, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .buttonStyle(KeepButtonStyle())
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
         .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
@@ -181,6 +183,26 @@ struct SettingsView: View {
         .onDisappear { channelRequest?.cancel() }
     }
 
+    private var appearanceChoices: some View {
+        HStack(spacing: 4) {
+            ForEach(AppAppearance.allCases) { appearance in
+                Button { preferences.appearance = appearance } label: {
+                    HStack(spacing: 5) {
+                        if preferences.appearance == appearance {
+                            Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold))
+                        }
+                        Text(appearance.title)
+                    }
+                }
+                .buttonStyle(KeepButtonStyle(emphasis: preferences.appearance == appearance ? .primary : .quiet))
+                .accessibilityLabel("\(appearance.title) appearance")
+                .accessibilityAddTraits(preferences.appearance == appearance ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 14))
+    }
+
     private func section<Content: View>(_ title: String, symbol: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             Label(title, systemImage: symbol).font(.system(size: 23, design: .serif))
@@ -191,13 +213,22 @@ struct SettingsView: View {
         .overlay { RoundedRectangle(cornerRadius: KeepTheme.cardRadius).strokeBorder(KeepTheme.border, lineWidth: 1) }
     }
     private func settingRow<Content: View>(_ title: String, detail: String? = nil, @ViewBuilder content: () -> Content) -> some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(title).font(.system(size: 13, weight: .medium))
-                if let detail { helper(detail) }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                settingLabel(title, detail: detail)
+                Spacer(minLength: 8)
+                content().fixedSize(horizontal: true, vertical: false)
             }
-            Spacer(minLength: 8)
-            content()
+            VStack(alignment: .leading, spacing: 12) {
+                settingLabel(title, detail: detail)
+                content()
+            }
+        }
+    }
+    private func settingLabel(_ title: String, detail: String?) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title).font(.system(size: 13, weight: .medium))
+            if let detail { helper(detail) }
         }
     }
     private func helper(_ text: String) -> some View {

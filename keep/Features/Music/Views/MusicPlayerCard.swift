@@ -73,7 +73,7 @@ struct MusicPlayerCard: View {
                         }
                     }
                     .padding(16)
-                    .modifier(MusicGlassPanel(preferences: preferences))
+                    .modifier(MusicGlassPanel(preferences: preferences, wallpapers: wallpapers, artworkSize: geometry.size))
                 }
                 .padding(16)
             }

@@ -147,7 +147,7 @@ Most cards need no shadow. Separate regions with warm surface colors, spacing, a
 
 Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid heavy dark outlines.
 
-The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Offer a restrained frosted material or native Liquid Glass with a warm paper tint for this panel only. The saved Glassiness control maps from solid paper to thinner/clearer material; it is not an arbitrary pixel blur radius. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
+The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a crop of the actual player artwork behind its controls, aligned with the image beneath, rather than a native material that picks up the outer window backdrop. Glassiness runs from solid paper to clear artwork by reducing both blur and paper opacity continuously; retain an appearance-specific readability wash, stronger in Dark so cream text remains readable over bright images. Liquid Glass adds Apple’s clear glass treatment over the artwork-backed panel. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
 
 The window backdrop uses the same selected image and fallback as the player. Blur it enough that objects and edges disappear; clamp image edges before blurring to avoid blank window edges. Generate a small blurred texture off the main actor and scale it smoothly to fill the window. Light appearance adds a subtle paper wash, while Dark adds an espresso tint. Keep panel margins and opaque semantic surfaces unchanged.
 
@@ -160,6 +160,8 @@ The window backdrop uses the same selected image and fallback as the player. Blu
 - Provide visible hover, pressed, selected, disabled, and keyboard-focus states.
 
 Use native `Button`, `Toggle`, text fields, and other controls for behavior and accessibility. If a custom `ButtonStyle` is needed, centralize it in the design system and preserve keyboard operation and focus feedback.
+
+Settings uses a centered column, rounded paper menu buttons and fields, terracotta selected appearance choices, and native switches. Use the same warm buttons in the task calendar: roomy weekday/date cells, a terracotta selection, a Today dot, and muted adjacent-month dates. Keep the calendar inside a native popover while styling its contents in SwiftUI. Avoid the default graphical date-picker chrome.
 
 Avoid glossy fills, oversized shadows, and subtle color changes as the only indication of interaction. Make pointer targets comfortable, generally around 36–44 points high for primary controls.
 
