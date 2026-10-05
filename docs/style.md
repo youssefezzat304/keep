@@ -10,7 +10,7 @@ Keywords: **cozy · warm · editorial · autumnal · calm · tactile · understa
 
 Let typography, warm neutrals, deliberate spacing, and restrained accent colors carry the identity. The active focus target and timer should be easy to find; tasks and music should feel supportive rather than compete for attention.
 
-Use broad cream surfaces, peach surroundings, and terracotta emphasis. Sage, butter yellow, and mist blue provide quiet secondary variation. Keep the interface comfortable for long focus sessions.
+Use broad cream surfaces and terracotta emphasis. The outer window backdrop takes its colors from the music artwork, heavily blurred into a soft gradient-like wash; keep the main panel opaque for readable controls. Sage, butter yellow, and mist blue provide quiet secondary variation. Keep the interface comfortable for long focus sessions.
 
 ## 2. Color palette
 
@@ -18,7 +18,7 @@ Use semantic tokens rather than independent colors in each view.
 
 | Token | Light value | Role |
 | --- | --- | --- |
-| `background` | `#F7D2B8` | Soft peach outer background, inspired by the image's surroundings |
+| `background` | `#F7D2B8` | Soft peach fallback beneath the artwork backdrop |
 | `paper` | `#FCF7EB` | Warm cream primary workspace |
 | `surface` | `#FFFCF6` | Lighter cards, fields, and transient surfaces |
 | `foreground` | `#332D29` | Warm charcoal primary ink |
@@ -147,7 +147,9 @@ Most cards need no shadow. Separate regions with warm surface colors, spacing, a
 
 Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid heavy dark outlines.
 
-The music card is an explicit exception to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Offer a restrained frosted material or native Liquid Glass with a warm paper tint for this panel only. The saved Glassiness control maps from solid paper to thinner/clearer material; it is not an arbitrary pixel blur radius. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
+The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Offer a restrained frosted material or native Liquid Glass with a warm paper tint for this panel only. The saved Glassiness control maps from solid paper to thinner/clearer material; it is not an arbitrary pixel blur radius. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
+
+The window backdrop uses the same selected image and fallback as the player. Blur it enough that objects and edges disappear; clamp image edges before blurring to avoid blank window edges. Generate a small blurred texture off the main actor and scale it smoothly to fill the window. Light appearance adds a subtle paper wash, while Dark adds an espresso tint. Keep panel margins and opaque semantic surfaces unchanged.
 
 ## 12. Buttons and controls
 

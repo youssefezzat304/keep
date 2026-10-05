@@ -35,6 +35,7 @@ keep/
     KeepApp.swift                  @main entry point, shared workspace/music/tasks/preferences/wallpapers, WindowGroup
     WorkspaceApplicationDelegate.swift  Recording flush, music/wallpaper cleanup on termination
     AppShellView.swift             Navigation and focus-workspace composition
+    ArtworkBackdrop.swift          Blurred shared music artwork behind the fixed panel
   DesignSystem/
     KeepTheme.swift                Semantic references to named color assets
     FocusProjectStyle.swift        Shared project-to-theme presentation mapping
@@ -58,8 +59,8 @@ keep/
       Views/                       TasksCard, day navigation, and date-picker popover
     Music/
       Models/                      MusicTrack, MusicChannel, MusicPlayerModel, WallpaperLibrary/cycle
-      Services/                    AudiusClient and native AVMusicPlayback adapter
-      Views/                       MusicPlayerCard, channel menu, playback controls, MusicGlassPanel
+      Services/                    AudiusClient, AVMusicPlayback adapter, and Core Image ArtworkWash
+      Views/                       MusicPlayerCard, shared MusicArtworkView, channel menu, MusicGlassPanel
     Settings/
       Models/                      AppPreferences, validated SettingsArchive/SettingsPersistence
       Views/                       SettingsView; native folder importer and channel-link editor
@@ -178,7 +179,7 @@ Settings and wallpaper ownership:
 - `SettingsPersistence` stores a validated Codable archive in `keep.preferences.v1`: appearance, wallpaper source, read-only folder bookmark/display name, order/interval/automatic rotation/loop, material/glassiness, saved channel metadata, and selected channel ID. Updates save immediately; invalid loads disable editing and preserve the original data with Retry. No signed audio URLs or image bytes enter this archive. Playback/volume/drafts remain runtime-only.
 - Native `fileImporter` chooses a folder. `WallpaperLibrary` creates/resolves app-scoped read-only security bookmarks, refreshes stale bookmarks, and balances scoped access. Folder scans and ImageIO thumbnail decoding run off the main actor, skip hidden files/symlinks/subfolders, and bound thumbnails to 2048 pixels. Cancellation and generation checks reject stale folder/image results. Missing folders, empty lists, or unreadable images show actionable Settings errors and retain the bundled visual fallback.
 - The app owns a single rotation task regardless of the number of windows. Folder rotation defaults to automatic, sequential, every minute, and looping. Intervals are 30 seconds, 1, 5, or 15 minutes. Shuffle visits each image once per cycle and avoids an immediate repeat between cycles. Turning looping off stops on the final image; manual Next can begin another cycle. Changing configuration cancels/restarts the applicable load/rotation; shutdown cancels both tasks.
-- Wallpaper sources are bundled Cozy corner, My folder, and current Audius track artwork. `MusicTrack` carries validated HTTPS artwork and optional artist-channel metadata; `AsyncImage` uses the current track artwork only when that source is selected, falling back to Cozy corner while loading or on failure. Artwork advances with tracks; folder rotation options apply only to folder images.
+- Wallpaper sources are bundled Cozy corner, My folder, and current Audius track artwork. `MusicTrack` carries validated HTTPS artwork and optional artist-channel metadata; `WallpaperLibrary` fetches the current track artwork only when that source is selected, using an ephemeral URLSession with a 20-second timeout. It validates HTTPS URLs/statuses, rejects responses over 12 MiB, and decodes 2048-pixel thumbnails off the main actor with cancellation/generation checks. One decoded NSImage is shared across all windows; missing/failed artwork falls back to Cozy corner on both surfaces. Artwork advances with tracks; folder rotation options apply only to folder images.
 - The player’s channel menu lists saved artists/playlists plus All lofi, and can save the current artist. Settings resolves pasted HTTPS Audius links via `/v1/resolve`, accepts only public artist/playlist resources, deduplicates by kind/resource ID, and offers Play/removal. Playback loads `/users/{id}/tracks` or `/playlists/{id}/tracks` through the existing access filters and native player. Source changes release the old queue/item and fence canceled callbacks. Choosing a source never autoplays; Settings Play explicitly starts/resumes it. The selected saved source reopens without networking/autoplay; removing it returns to All lofi.
 - `MusicGlassPanel` confines materials to the music controls. Glassiness 0 gives opaque paper; Frosted maps higher values to thinner native materials and less paper tint. Liquid Glass uses native `glassEffect` regular/clear variants with a warm tint. The slider adjusts this visual mapping, not an undocumented pixel blur radius. Reduce Transparency always forces opaque paper.
 
@@ -188,7 +189,7 @@ Project management, task-level session history, additional music providers, and 
 
 `docs/style.md` owns the cozy editorial palette. Named color assets are the source of truth; `KeepTheme` provides shared semantic references. Light uses the original cozy palette; Dark uses espresso/brown surfaces and cream ink. Settings selects Light, Dark, or System through the root color-scheme preference.
 
-The shell places a cream workspace over peach surroundings. Pomodoro focus uses terracotta, its break uses butter yellow, and flow uses sage. Tasks use an ivory ruled-list treatment. The music artwork is a bundled asset in `keep/Assets.xcassets/CozyCorner.imageset/`; its generation prompt and provenance are in `docs/music-artwork.md`.
+The shell places a cream workspace over a heavily blurred version of the player’s current artwork. `MusicArtworkView` shares the selected folder/Audius image or bundled CozyCorner fallback between the music card and `ArtworkBackdrop`. The wallpaper library prepares a clamped-edge, Gaussian-blurred 64 × 64 Core Image texture off the main actor alongside each decoded image, with a cached bundled fallback. The backdrop smoothly scales that small texture to fill the window and applies a light paper wash or a stronger dark tint; it needs no window-sized blur layer. It is decorative, opaque, noninteractive, and present behind every tab; artwork changes never replace the tab/content hierarchy or alter panel geometry. The semantic background asset remains the fallback and dark tint. Pomodoro focus uses terracotta, its break uses butter yellow, and flow uses sage. Tasks use an ivory ruled-list treatment. The music artwork is a bundled asset in `keep/Assets.xcassets/CozyCorner.imageset/`; its generation prompt and provenance are in `docs/music-artwork.md`.
 
 Layout and accessibility behavior:
 
@@ -293,6 +294,7 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   keep/Features/Settings/Models/*.swift \
   keep/Features/Music/Models/MusicChannel.swift \
   keep/Features/Music/Models/WallpaperLibrary.swift \
+  keep/Features/Music/Services/ArtworkWash.swift \
   tests/PreferencesChecks.swift -o /tmp/keep-preferences-checks
 /tmp/keep-preferences-checks
 ```
@@ -312,6 +314,8 @@ Audius integration verification on 2026-10-05: unsigned Debug and local ad hoc s
 Daily-task verification on 2026-10-05: unsigned Debug build and 56 daily-task checks passed, including independent dates, past/future jumps, Today/midnight behavior, 23/25-hour DST navigation, leap/invalid dates, pinned civil dates across timezone changes, stable UUIDs, per-day completion/deletion, corrupt-load protection/Retry, and separate-process persistence. The existing 180 workspace and 47 music checks also passed. Native offscreen today/past/tomorrow/future-empty/load-error cards, date picker, narrow card, and default/wide/minimum window layouts were inspected. Live date-popover/input/keyboard/VoiceOver interaction remains unverified.
 
 Settings verification on 2026-10-05: unsigned and local ad hoc signed Debug builds passed; the signed app retains sandbox/network/read-only access and adds app-scoped bookmarks. Passed 68 music, 63 preferences/wallpaper, 180 workspace, and 56 daily-task checks. Preferences include separate-process saving/reloading; wallpaper checks load real temporary images and restore a bookmark, exclude hidden/symlink files, stop or loop cycles, and handle a missing folder. A separate sandboxed harness resolved a real artist and playlist, fetched accessible tracks/artwork metadata, and verified native Play/Pause/Resume for both at zero volume. Native offscreen Settings at default/minimum widths, full settings content, dark Focus/Timesheet/Pomodoro settings, and solid/frosted music controls were inspected. Live folder-import/menu/keyboard/VoiceOver interaction and Liquid Glass onscreen compositing remain unverified; Liquid Glass does not render reliably in the offscreen bitmap harness.
+
+Artwork-backdrop verification on 2026-10-05: unsigned Debug build, 74 preference/wallpaper checks, and 68 music checks passed. Shared remote image tests cover one fetch/decoded image across repeated window configuration, source/URL changes, invalid URLs/bytes, HTTP failures, canceled results, and pixel checks that confirm smooth color mixing across a sharp image boundary. Native offscreen default/wide/minimum, light/dark, all-tab, folder-artwork, and isolated color-wash renders were inspected; live window interaction remains unverified.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

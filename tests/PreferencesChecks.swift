@@ -2,6 +2,25 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
+final class ArtworkURLProtocol: URLProtocol, @unchecked Sendable {
+    @MainActor static var body = Data()
+    @MainActor static var status = 200
+    @MainActor static var requests = 0
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        Task { @MainActor in
+            Self.requests += 1
+            guard let url = request.url,
+                  let response = HTTPURLResponse(url: url, statusCode: Self.status, httpVersion: nil, headerFields: nil) else { return }
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Self.body)
+            client?.urlProtocolDidFinishLoading(self)
+        }
+    }
+    override func stopLoading() {}
+}
+
 @main enum PreferencesChecks {
     static var checks = 0
     static func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
@@ -112,6 +131,25 @@ import UniformTypeIdentifiers
             expect(cycle.advance(loop: true, shuffled: true) != last, "New shuffled cycle avoids an immediate repeated image")
         }
 
+        guard let pattern = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 256,
+                                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw CocoaError(.coderInvalidValue)
+        }
+        pattern.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+        pattern.fill(CGRect(x: 0, y: 0, width: 32, height: 64))
+        pattern.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1))
+        pattern.fill(CGRect(x: 32, y: 0, width: 32, height: 64))
+        guard let patternImage = pattern.makeImage(),
+              let washSource = CGImageSourceCreateWithData(try ArtworkWash.render(patternImage) as CFData, nil),
+              let wash = CGImageSourceCreateImageAtIndex(washSource, 0, nil) else { throw CocoaError(.coderInvalidValue) }
+        pattern.draw(wash, in: CGRect(x: 0, y: 0, width: 64, height: 64))
+        guard let pixels = pattern.data?.assumingMemoryBound(to: UInt8.self) else { throw CocoaError(.coderInvalidValue) }
+        let left = 32 * 256 + 8 * 4, right = 32 * 256 + 56 * 4
+        let edge = 32 * 256 + 31 * 4
+        expect(pixels[left] > pixels[left + 2] && pixels[right + 2] > pixels[right], "The color wash preserves artwork hues at both sides")
+        expect(abs(Int(pixels[edge]) - Int(pixels[edge + 4])) < 15 && pixels[edge] > 50 && pixels[edge + 2] > 50,
+               "Heavy blur turns a sharp red/blue boundary into a smooth mixed-color gradient")
+
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("keep-wallpapers-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -123,6 +161,51 @@ import UniformTypeIdentifiers
         }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ArtworkURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let artworkPreferences = AppPreferences(), artworkLibrary = WallpaperLibrary(session: session)
+        guard let firstURL = URL(string: "https://images.example/first.png"),
+              let secondURL = URL(string: "https://images.example/second.png"),
+              let insecureURL = URL(string: "http://images.example/unsafe.png") else { throw CocoaError(.coderInvalidValue) }
+        ArtworkURLProtocol.body = try Data(contentsOf: folder.appendingPathComponent("one.png"))
+        artworkLibrary.setArtworkURL(firstURL)
+        artworkLibrary.configure(artworkPreferences.snapshot.wallpaperConfiguration, preferences: artworkPreferences)
+        expect(ArtworkURLProtocol.requests == 0 && artworkLibrary.image == nil, "Cozy source never fetches Audius artwork")
+        artworkPreferences.wallpaperSource = .audius
+        artworkLibrary.configure(artworkPreferences.snapshot.wallpaperConfiguration, preferences: artworkPreferences)
+        await settle(artworkLibrary)
+        expect(artworkLibrary.image != nil && ArtworkURLProtocol.requests == 1, "Decode one Audius image shared by the player and window")
+        expect(artworkLibrary.backdrop(for: .audius) != nil, "Remote artwork supplies its pre-blurred backdrop in the same load")
+        let sharedImage = artworkLibrary.image
+        artworkLibrary.setArtworkURL(firstURL)
+        artworkLibrary.configure(artworkPreferences.snapshot.wallpaperConfiguration, preferences: artworkPreferences)
+        await settle(artworkLibrary)
+        expect(artworkLibrary.image === sharedImage && ArtworkURLProtocol.requests == 1, "Repeated tab/window configuration reuses the same artwork without extra fetches")
+        artworkLibrary.setArtworkURL(secondURL)
+        await settle(artworkLibrary)
+        expect(artworkLibrary.image != nil && ArtworkURLProtocol.requests == 2, "Track artwork changes replace the shared image")
+        artworkLibrary.setArtworkURL(insecureURL)
+        expect(artworkLibrary.image == nil && !artworkLibrary.isLoading && ArtworkURLProtocol.requests == 2, "Reject insecure artwork and use the shared cozy fallback")
+        ArtworkURLProtocol.status = 503
+        artworkLibrary.setArtworkURL(firstURL)
+        await settle(artworkLibrary)
+        expect(artworkLibrary.image == nil && !artworkLibrary.isLoading, "Artwork connection failures use the same fallback on both surfaces")
+        ArtworkURLProtocol.status = 200
+        ArtworkURLProtocol.body = Data("not an image".utf8)
+        artworkLibrary.setArtworkURL(secondURL)
+        await settle(artworkLibrary)
+        expect(artworkLibrary.image == nil && !artworkLibrary.isLoading, "Invalid artwork bytes cannot become a player/background image")
+        ArtworkURLProtocol.body = try Data(contentsOf: folder.appendingPathComponent("one.png"))
+        artworkLibrary.setArtworkURL(firstURL)
+        artworkPreferences.wallpaperSource = .cozy
+        artworkLibrary.configure(artworkPreferences.snapshot.wallpaperConfiguration, preferences: artworkPreferences)
+        try? await Task.sleep(for: .milliseconds(100))
+        expect(artworkLibrary.image == nil && !artworkLibrary.isLoading, "Canceled artwork cannot overwrite a newer cozy source")
+        artworkLibrary.shutdown()
+
         try FileManager.default.copyItem(at: folder.appendingPathComponent("one.png"), to: folder.appendingPathComponent("two.png"))
         try FileManager.default.copyItem(at: folder.appendingPathComponent("one.png"), to: folder.appendingPathComponent(".hidden.png"))
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("escape.png"), withDestinationURL: folder.appendingPathComponent("one.png"))

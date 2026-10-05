@@ -8,8 +8,8 @@ struct MusicPlayerCard: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
-                wallpaper(width: geometry.size.width, height: geometry.size.height)
-                    .accessibilityHidden(true)
+                MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
 
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -82,20 +82,6 @@ struct MusicPlayerCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: 288, maxHeight: .infinity)
-    }
-
-    @ViewBuilder private func wallpaper(width: CGFloat, height: CGFloat) -> some View {
-        ZStack {
-            Image("CozyCorner").resizable().scaledToFill()
-            if preferences.wallpaperSource == .folder, let image = wallpapers.image {
-                Image(nsImage: image).resizable().scaledToFill()
-            } else if preferences.wallpaperSource == .audius, let url = player.track?.artworkURL {
-                AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase { image.resizable().scaledToFill() }
-                }
-            }
-        }
-        .frame(width: width, height: height).clipped()
     }
 
     private var channelMenu: some View {

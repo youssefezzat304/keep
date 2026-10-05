@@ -46,7 +46,13 @@ struct WallpaperCycle {
 
 @Observable
 final class WallpaperLibrary {
+    private struct DecodedArtwork: Sendable {
+        let image: Data
+        let wash: Data
+    }
     private(set) var image: NSImage?
+    private var decodedBackdrop: NSImage?
+    private var bundledBackdrop: NSImage?
     private(set) var count = 0
     private(set) var isLoading = false
     private(set) var error: String?
@@ -57,9 +63,35 @@ final class WallpaperLibrary {
     @ObservationIgnored private var cycle = WallpaperCycle()
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var rotationTask: Task<Void, Never>?
+    @ObservationIgnored private var bundledBackdropTask: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var artworkURL: URL?
+    @ObservationIgnored private let session: URLSession
 
-    var canAdvance: Bool { count > 1 && !isLoading }
+    init(session: URLSession? = nil) {
+        self.session = session ?? URLSession(configuration: .ephemeral)
+        prepareBundledBackdrop()
+    }
+
+    var canAdvance: Bool { configuration?.source == .folder && count > 1 && !isLoading }
+
+    func backdrop(for source: WallpaperSource) -> NSImage? {
+        source == .cozy || image == nil ? bundledBackdrop : decodedBackdrop
+    }
+
+    private func prepareBundledBackdrop() {
+        guard let image = NSImage(named: "CozyCorner")?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        bundledBackdropTask = Task { [weak self] in
+            let operation = Task.detached { try ArtworkWash.render(image) }
+            do {
+                let data = try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
+                try Task.checkCancellation()
+                self?.bundledBackdrop = NSImage(data: data)
+            } catch {
+                // The semantic background remains available if the bundled image cannot be decoded.
+            }
+        }
+    }
 
     func configure(_ newValue: WallpaperConfiguration, preferences: AppPreferences) {
         guard configuration != newValue else { return }
@@ -70,12 +102,49 @@ final class WallpaperLibrary {
         if newValue.source != .folder {
             loadTask?.cancel(); generation = UUID()
             image = nil; isLoading = false; error = nil
+            if newValue.source == .audius { loadArtwork() }
             return
         }
         if needsReload || files.isEmpty { loadFolder(preferences: preferences) }
         else {
             cycle.reset(count: files.count, shuffled: newValue.order == .shuffle)
             if let index = cycle.current { showImage(at: index) }
+        }
+    }
+
+    /// One decoded artwork image feeds both the player and the window, across tabs/windows.
+    func setArtworkURL(_ url: URL?) {
+        guard artworkURL != url else { return }
+        artworkURL = url
+        if configuration?.source == .audius { loadArtwork() }
+    }
+
+    private func loadArtwork() {
+        loadTask?.cancel(); generation = UUID()
+        let token = generation
+        image = nil; isLoading = false
+        guard let url = artworkURL, url.scheme == "https", let host = url.host, !host.isEmpty,
+              url.user == nil, url.password == nil else { return }
+        isLoading = true
+        loadTask = Task { [weak self, session] in
+            do {
+                let request = URLRequest(url: url, timeoutInterval: 20)
+                let (data, response) = try await session.data(for: request)
+                try Task.checkCancellation()
+                guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode),
+                      data.count <= 12 * 1024 * 1024 else { throw CocoaError(.fileReadCorruptFile) }
+                let operation = Task.detached { try Self.artworkThumbnail(data) }
+                let thumbnail = try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
+                try Task.checkCancellation()
+                guard let self, self.generation == token else { return }
+                self.image = NSImage(data: thumbnail.image)
+                self.decodedBackdrop = NSImage(data: thumbnail.wash)
+                self.isLoading = false
+            } catch {
+                guard !Task.isCancelled, let self, self.generation == token else { return }
+                // Artwork failure never affects audio; both surfaces use the cozy fallback.
+                self.image = nil; self.isLoading = false
+            }
         }
     }
 
@@ -100,7 +169,7 @@ final class WallpaperLibrary {
             showImage(at: index)
         }
     }
-    func shutdown() { loadTask?.cancel(); rotationTask?.cancel(); generation = UUID() }
+    func shutdown() { loadTask?.cancel(); rotationTask?.cancel(); bundledBackdropTask?.cancel(); generation = UUID() }
 
     private func loadFolder(preferences: AppPreferences) {
         loadTask?.cancel(); rotationTask?.cancel(); generation = UUID()
@@ -160,8 +229,9 @@ final class WallpaperLibrary {
                 let data = try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
                 try Task.checkCancellation()
                 guard let self, self.generation == token else { return }
-                guard let image = NSImage(data: data) else { throw CocoaError(.fileReadCorruptFile) }
-                self.image = image; self.isLoading = false; self.error = nil
+                guard let image = NSImage(data: data.image) else { throw CocoaError(.fileReadCorruptFile) }
+                self.image = image; self.decodedBackdrop = NSImage(data: data.wash)
+                self.isLoading = false; self.error = nil
                 self.armRotation()
             } catch {
                 guard !Task.isCancelled, let self, self.generation == token else { return }
@@ -195,7 +265,22 @@ final class WallpaperLibrary {
         }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
     }
 
-    nonisolated private static func thumbnail(in folder: URL, candidates: [URL]) throws -> Data {
+    nonisolated private static func artworkThumbnail(_ data: Data) throws -> DecodedArtwork {
+        try Task.checkCancellation()
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { throw CocoaError(.fileReadCorruptFile) }
+        return try decode(source)
+    }
+
+    nonisolated private static func decode(_ source: CGImageSource) throws -> DecodedArtwork {
+        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 2048
+              ] as CFDictionary) else { throw CocoaError(.fileReadCorruptFile) }
+        return try DecodedArtwork(image: ArtworkWash.png(thumbnail), wash: ArtworkWash.render(thumbnail))
+    }
+
+    nonisolated private static func thumbnail(in folder: URL, candidates: [URL]) throws -> DecodedArtwork {
         let scoped = folder.startAccessingSecurityScopedResource()
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
         for url in candidates {
@@ -203,16 +288,8 @@ final class WallpaperLibrary {
             // Recheck file types after scanning; ignore files changed into symlinks.
             guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
                   values.isRegularFile == true, values.isSymbolicLink != true,
-                  let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-                  let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: 2048
-                  ] as CFDictionary) else { continue }
-            let data = NSMutableData()
-            guard let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { continue }
-            CGImageDestinationAddImage(destination, thumbnail, nil)
-            if CGImageDestinationFinalize(destination) { return data as Data }
+                  let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { continue }
+            if let decoded = try? decode(source) { return decoded }
         }
         throw CocoaError(.fileReadCorruptFile)
     }

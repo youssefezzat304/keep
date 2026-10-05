@@ -83,7 +83,7 @@ struct AppShellView: View {
                     .strokeBorder(KeepTheme.border.opacity(0.5), lineWidth: 1)
             }
             .padding(16)
-            .background(KeepTheme.background)
+            .background { ArtworkBackdrop(preferences: preferences, wallpapers: wallpapers) }
         }
         .frame(minWidth: 680, minHeight: 650)
         .foregroundStyle(KeepTheme.ink)
@@ -91,6 +91,9 @@ struct AppShellView: View {
         .preferredColorScheme(preferences.appearance.colorScheme)
         .onChange(of: preferences.snapshot.wallpaperConfiguration, initial: true) { _, configuration in
             wallpapers.configure(configuration, preferences: preferences)
+        }
+        .onChange(of: music.track?.artworkURL, initial: true) { _, url in
+            wallpapers.setArtworkURL(url)
         }
         .onAppear { workspace.startUpdating() }
     }
