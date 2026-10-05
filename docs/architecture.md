@@ -8,7 +8,7 @@ The application is a first visual draft with one application target. Timers reco
 
 | Area | Implemented today | Not implemented |
 | --- | --- | --- |
-| App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; scrolling shell; one shared workspace model | Restoring timer runtime or task drafts across launches |
+| App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or task drafts across launches |
 | Navigation | Selectable Focus and Timesheet tabs; shell-owned selection; disabled Stats and Settings controls | Stats/Settings destinations |
 | Timesheet | Live project/day seconds, computed totals, seven-day grid, week navigation, manual edits, Add project, and local saving | Detailed session log, calendar/list alternatives, sync |
 | Active target | Searchable folder picker using a shared project catalog; selection drives recording; separate editable task name | Project creation/renaming/deletion and task-level time records |
@@ -70,9 +70,9 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
     └── AppShellView
         ├── NavBar
         │   └── Focus and Timesheet actions; disabled Stats and Settings
-        ├── TimesheetView
+        ├── ScrollView → TimesheetView
         │   └── TimesheetTable → TimesheetTimeCell → TimesheetEntryEditor
-        └── FocusSessionView
+        └── ScrollView → FocusSessionView
             ├── ActiveTargetHeader
             │   └── ProjectPicker → FocusProject.defaults
             ├── TimerWorkspaceCard
@@ -85,7 +85,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 
 `TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns only the task-name draft and task collection; it reads the shared project selection and timers.
 
-`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Timesheet action closures to `NavBar`. Both root views remain mounted; inactive content has zero height and is hidden from hit testing and accessibility. This preserves focus state when switching tabs. Shared `PrimaryButton` receives its action from the caller.
+`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Timesheet action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab has a separate, mounted ScrollView in the same fixed viewport; the inactive tab is invisible and hidden from hit testing and accessibility. This preserves drafts and each tab's scroll position without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
 
 ## 4. Responsibility and dependency boundaries
 
@@ -141,7 +141,7 @@ The shell places a cream workspace over peach surroundings. Pomodoro focus uses 
 Layout and accessibility behavior:
 
 - Default window size is 1000 × 900; the root view has a 680 × 650 minimum frame.
-- The outer shell gives the workspace the available width with 16-point side margins. It centers the panel vertically when it fits in the window; taller layouts start at the top and scroll naturally. There is no fixed maximum panel width.
+- The panel fills the usable window content area with equal 16-point margins on all four sides and 24-point inner padding. Its size depends on the window, not the selected tab or content height. Navigation stays at the top; longer tab content scrolls inside the panel. There is no fixed maximum panel width.
 - Below 820 points of window width, timer and supporting card pairs stack vertically.
 - The Timesheet table keeps a minimum width of 850 points and scrolls horizontally on narrow windows, preserving readable seven-day columns and totals. Its heading and week toolbar can stack using `ViewThatFits`.
 - The target header uses `ViewThatFits` to move its project/task card below the heading when needed. Its native popover is 340 points wide with a scrollable project list; the folder button and project rows show hover and keyboard-focus feedback.
@@ -153,7 +153,7 @@ Layout and accessibility behavior:
 
 Offscreen native renders were inspected at 1000 × 872 and 900 × 772 content sizes, plus a full-height 700-point-wide layout. Live interaction, keyboard navigation, VoiceOver, and actual material compositing in an onscreen window remain unverified because computer-use permissions were unavailable.
 
-The expanded, centered shell was also inspected at 1710 × 1080 for Focus and Timesheet, at the default content size, and at 700 × 1000 and the 680 × 650 minimum size. Its unsigned Debug build passed.
+The fixed panel was inspected in native offscreen renders at 1710 × 1080, 1000 × 872, and the 680 × 650 minimum content size. Pixel measurements confirmed equal 16-point margins and matching bounds for Focus and Timesheet, including empty and populated Timesheets. Its unsigned Debug build passed. Live tab switching and scrolling remain unverified.
 
 ## 7. Build configuration and capabilities
 
