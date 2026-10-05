@@ -7,6 +7,11 @@ struct TimesheetEntry: Identifiable, Codable {
     var seconds: TimeInterval
 }
 
+struct TimesheetRemoval {
+    let project: FocusProject
+    let entries: [TimesheetEntry]
+}
+
 /// Numeric source of truth. UI strings and totals are derived, never stored separately.
 struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
@@ -61,6 +66,20 @@ struct TimesheetLedger: Codable {
             entries[index].seconds = seconds
         } else {
             entries.append(TimesheetEntry(project: project, dayID: dayID, seconds: seconds))
+        }
+    }
+
+    mutating func removeEntries(projectID: String, dayIDs: [String]) -> [TimesheetEntry] {
+        let days = Set(dayIDs)
+        let removed = entries.filter { $0.project.id == projectID && days.contains($0.dayID) }
+        entries.removeAll { $0.project.id == projectID && days.contains($0.dayID) }
+        return removed
+    }
+
+    /// Undo restores removed time while keeping any time recorded since removal.
+    mutating func restoreEntries(_ removed: [TimesheetEntry]) {
+        for entry in removed {
+            setSeconds(seconds(projectID: entry.project.id, dayID: entry.dayID) + entry.seconds, project: entry.project, dayID: entry.dayID)
         }
     }
 

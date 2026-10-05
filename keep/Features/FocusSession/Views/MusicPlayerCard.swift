@@ -79,7 +79,7 @@ struct MusicPlayerCard: View {
             .clipShape(RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 288)
+        .frame(minHeight: 288, maxHeight: .infinity)
     }
 
     private func musicControl(_ symbol: String, label: String) -> some View {

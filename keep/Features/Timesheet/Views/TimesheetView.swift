@@ -62,6 +62,26 @@ struct TimesheetView: View {
                 }
             }
 
+            if let removal = workspace.lastTimesheetRemoval {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Removed \(removal.project.name)'s row.")
+                        if workspace.isRecording(), (workspace.selectedProject ?? .unassigned).id == removal.project.id,
+                           removal.entries.contains(where: { $0.dayID == TimesheetWeek.dayID(for: workspace.today, calendar: workspace.calendar) }) {
+                            Text("Running timers continue recording new time.")
+                                .foregroundStyle(KeepTheme.mutedInk)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Button("Undo") { workspace.undoTimesheetRemoval() }
+                        .disabled(!workspace.canTrack)
+                }
+                .font(.system(size: 12))
+                .padding(12)
+                .background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 10))
+                .accessibilityElement(children: .contain)
+            }
+
             HStack(spacing: 6) {
                 Image(systemName: "clock")
                     .accessibilityHidden(true)

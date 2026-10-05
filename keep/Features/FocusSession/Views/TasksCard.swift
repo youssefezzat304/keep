@@ -18,35 +18,41 @@ struct TasksCard: View {
                     .foregroundStyle(KeepTheme.mutedInk)
             }
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach($tasks) { $task in
-                        HStack(spacing: 14) {
-                            Toggle("", isOn: $task.isComplete)
-                                .labelsHidden()
-                                .toggleStyle(.checkbox)
-                                .accessibilityLabel("Complete \(task.title)")
-                            Text(task.title)
-                                .font(.system(size: 13))
-                                .strikethrough(task.isComplete)
-                                .foregroundStyle(task.isComplete ? KeepTheme.mutedInk : KeepTheme.ink)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .lineLimit(2)
-                                .help(task.title)
+            GeometryReader { listArea in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach($tasks) { $task in
+                            HStack(spacing: 14) {
+                                Toggle("", isOn: $task.isComplete)
+                                    .labelsHidden()
+                                    .toggleStyle(.checkbox)
+                                    .accessibilityLabel("Complete \(task.title)")
+                                Text(task.title)
+                                    .font(.system(size: 13))
+                                    .strikethrough(task.isComplete)
+                                    .foregroundStyle(task.isComplete ? KeepTheme.mutedInk : KeepTheme.ink)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .lineLimit(2)
+                                    .help(task.title)
+                                RemoveRowButton(label: "Delete task: \(task.title)") {
+                                    let id = task.id
+                                    tasks.removeAll { $0.id == id }
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 2)
+                            .frame(minHeight: 44)
+                            .overlay(alignment: .bottom) { rule }
                         }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 2)
-                        .frame(minHeight: 44)
-                        .overlay(alignment: .bottom) { rule }
-                    }
-                    if tasks.count < 4 {
-                        ForEach(0..<(4 - tasks.count), id: \.self) { _ in
+                        let emptyRows = max(0, Int(listArea.size.height / 44) - tasks.count)
+                        ForEach(0..<emptyRows, id: \.self) { _ in
                             Color.clear.frame(height: 44).overlay(alignment: .bottom) { rule }
+                                .accessibilityHidden(true)
                         }
                     }
                 }
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
 
             HStack(spacing: 12) {
                 Image(systemName: "plus")
@@ -77,7 +83,7 @@ struct TasksCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity)
-        .frame(height: 288)
+        .frame(minHeight: 288, maxHeight: .infinity)
         .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         .overlay {
             RoundedRectangle(cornerRadius: KeepTheme.cardRadius)

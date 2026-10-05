@@ -3,6 +3,7 @@ import SwiftUI
 struct FocusSessionView: View {
     @Bindable var workspace: WorkspaceModel
     var isCompact = false
+    var minimumHeight: CGFloat = 0
     @State private var taskName = "Your next good idea"
     @State private var tasks = FocusTask.examples
 
@@ -29,6 +30,7 @@ struct FocusSessionView: View {
             .font(.system(size: 12))
             .foregroundStyle(KeepTheme.mutedInk)
         }
+        .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .topLeading)
     }
 
     @ViewBuilder private var supportingCards: some View {

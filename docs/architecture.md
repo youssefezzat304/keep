@@ -10,12 +10,12 @@ The application is a first visual draft with one application target. Timers reco
 | --- | --- | --- |
 | App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or task drafts across launches |
 | Navigation | Selectable Focus and Timesheet tabs; shell-owned selection; disabled Stats and Settings controls | Stats/Settings destinations |
-| Timesheet | Live project/day seconds, computed totals, seven-day grid, week navigation, manual edits, Add project, and local saving | Detailed session log, calendar/list alternatives, sync |
+| Timesheet | Live project/day seconds, computed totals, seven-day grid, week navigation, manual edits, weekly row removal with Undo, Add project, and local saving | Detailed session log, calendar/list alternatives, sync |
 | Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; separate editable task name | Project renaming/deletion and task-level time records |
 | Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
 | Flow timer | Elapsed time, independent controls, and recording priority over Pomodoro | Detailed session history or a completion limit |
 | Music | Bundled cozy illustration with a frosted controls panel; controls disabled and marked coming soon | Playback, music sources, provider integration |
-| Tasks | Lined list with example tasks, completion toggles, trimmed nonempty input, and internal scrolling | Persistence, deletion, reordering, project association |
+| Tasks | Lined list with example tasks, completion toggles, add/delete controls, and internal scrolling | Persistence, reordering, project association |
 | Design system | Semantic color assets, `KeepTheme`, reusable action button, flexible card modifier | Dark theme |
 
 Both timers may run at the same time, with independent controls. Flow overrides Pomodoro for recording; overlapping time is counted once. Project/day totals and manual edits survive relaunch; timers restart idle. Example tasks and task names remain editable drafts that are not saved.
@@ -42,6 +42,7 @@ keep/
       PrimaryButton.swift          Shared action button with caller-supplied closure
       ProjectPicker.swift          Searchable project selection shared by Focus/Timesheet
       ProjectCreationDialog.swift  Shared name/color sheet with caller-owned creation action
+      RemoveRowButton.swift        Accessible × button shared by task and Timesheet rows
     Modifiers/
       CardStyle.swift              Shared card treatment and View.cardStyle extension
   Models/
@@ -128,11 +129,13 @@ Implemented timer and recording semantics:
 
 `TimesheetTimeCell` opens a native `TimesheetEntryEditor` popover. The editor accepts nonnegative `h:mm` or `h:mm:ss`; blank sets the cell to zero. Invalid input stays in the editor with an explanation. Saving replaces the cell total after settling the running timer; later elapsed time adds to the edited value. A zero cell retains its project row. Timesheet has project/day aggregates, not individual sessions or task-level records.
 
+The trailing × removes a project's entries for the displayed week through `WorkspaceModel.removeTimesheetProject`. It settles recording before removal and saves immediately, preserving other projects, other weeks, catalog metadata, selection, and timer state. A running timer can create the row again with subsequent time. The model keeps one in-memory `TimesheetRemoval` for Undo across tabs/windows; Undo settles again and adds back removed time alongside newly recorded/edited values, then saves. Undo history is not restored after quitting. `TimesheetView` shows the removal/Undo notice and explains continued recording when applicable.
+
 `TimesheetPersistence` JSON-encodes the ledger, custom catalog, and optional `PomodoroSettings` into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog and default timer settings, retaining their entries. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, task drafts, and selection are not persisted.
 
 `ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. The dialog offers 30 named color swatches, a selection checkmark, keyboard focus, and native Create/Cancel shortcuts. Cancel discards drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project and returns focus to the task field; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
 
-`TasksCard` owns draft input/focus only; its list remains in the Focus view. `MusicPlayerCard` has no playback state. There are no external providers, notification permissions, databases, or credentials.
+`TasksCard` owns draft input/focus only; its list remains in the Focus view. A row's × removes that task by ID; completion counts update from the remaining list. Blank ruled rows fill the available list area, and the add field stays at the card's bottom. Task changes remain window-local drafts. `MusicPlayerCard` has no playback state. There are no external providers, notification permissions, databases, or credentials.
 
 Project management, task-level session history, music sources, and notifications remain scoped future work. See `docs/decisions.md`.
 
@@ -147,10 +150,10 @@ Layout and accessibility behavior:
 - Default window size is 1000 × 900; the root view has a 680 × 650 minimum frame.
 - The panel fills the usable window content area with equal 16-point margins on all four sides and 24-point inner padding. Its size depends on the window, not the selected tab or content height. Navigation stays at the top; longer tab content scrolls inside the panel. There is no fixed maximum panel width.
 - Below 820 points of window width, timer and supporting card pairs stack vertically.
-- The Timesheet table keeps a minimum width of 850 points and scrolls horizontally on narrow windows, preserving readable seven-day columns and totals. Its heading and week toolbar can stack using `ViewThatFits`.
+- The Timesheet table keeps a minimum width of 900 points and scrolls horizontally on narrow windows, preserving readable seven-day columns, totals, and the trailing remove button. Its heading and week toolbar can stack using `ViewThatFits`.
 - The target header uses `ViewThatFits` to move its project/task card below the heading when needed. Its native popover is 340 points wide with a scrollable project list; the folder button and project rows show hover and keyboard-focus feedback.
 - `CardStyle` supplies padding, flexible width, and rounding without imposing fixed maximum heights.
-- Supporting cards are 288 points high. The task list scrolls within its card as content grows.
+- The shell passes the Focus tab's available viewport height into its content as a minimum height. Music and task cards have a 288-point minimum and grow together into the remaining space above the footer on taller windows. On short windows the content keeps its natural minimum height and scrolls; compact layouts retain stacked cards. The music artwork fills its card without changing aspect ratio, while its controls stay at the bottom. Task lists scroll internally.
 - Timer digits use stable widths and scale down to fit their column. Running/stopped/completed states have explicit text.
 - Primary actions, timer settings/reset/break controls, and editable time cells have visible keyboard-focus rings; inputs expose labels and focus boundaries. Editors use native Save/Cancel shortcuts. Completion controls place the break button on a separate row when needed.
 - The music panel uses native material with a warm translucent overlay, an explicit user-requested exception to flat styling. Reduce Transparency replaces it with opaque paper.
@@ -216,13 +219,15 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-workspace-checks
 ```
 
-On 2026-10-05, the unsigned Debug build, 45 timing checks, and 157 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
+On 2026-10-05, the unsigned Debug build, 45 timing checks, and 180 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, weekly row removal/Undo during recording, preserved other weeks/projects, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
 
 Native offscreen renders of running/completed/break Focus states, empty/live/populated Timesheets at default, wide, and narrow sizes, and the entry editor were inspected. Live popover interaction, keyboard navigation, VoiceOver, release signing, and actual audio remain unverified; computer-use permission was unavailable for live UI checks.
 
 The project-creation dialog, all 30 color swatches, the updated picker, and a newly created Timesheet row were inspected in native offscreen renders. Live popover-to-sheet transitions and keyboard interaction remain unverified.
 
 Default/custom Pomodoro settings, long-break completion/running states, wrapped controls on a narrow timer card, and the default Focus layout were inspected in native offscreen renders. Live popover interaction and keyboard navigation remain unverified.
+
+Growing support cards and task delete controls were inspected at 1710 × 1080, 1920 × 1400, 1000 × 872, 700 × 1700, and 680 × 650 content sizes. Timesheet remove controls and Undo were inspected at wide/default/minimum sizes. Live click/keyboard interaction remains unverified.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

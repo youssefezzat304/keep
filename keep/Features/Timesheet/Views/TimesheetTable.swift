@@ -5,6 +5,7 @@ struct TimesheetTable: View {
     let week: TimesheetWeek
     private let projectWidth: CGFloat = 205
     private let totalWidth: CGFloat = 100
+    private let removeWidth: CGFloat = 44
     private let headerHeight: CGFloat = 68
     private let rowHeight: CGFloat = 78
     private let totalHeight: CGFloat = 64
@@ -13,8 +14,8 @@ struct TimesheetTable: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let tableWidth = max(850, geometry.size.width)
-            let dayWidth = (tableWidth - projectWidth - totalWidth - 32) / 7
+            let tableWidth = max(900, geometry.size.width)
+            let dayWidth = (tableWidth - projectWidth - totalWidth - removeWidth - 32) / 7
 
             ScrollView(.horizontal) {
                 VStack(spacing: 0) {
@@ -80,6 +81,7 @@ struct TimesheetTable: View {
                 .tracking(1.3)
                 .foregroundStyle(KeepTheme.mutedInk)
                 .frame(width: totalWidth, height: headerHeight, alignment: .trailing)
+            Color.clear.frame(width: removeWidth)
         }
         .frame(height: headerHeight)
     }
@@ -123,6 +125,11 @@ struct TimesheetTable: View {
                 .monospacedDigit()
                 .frame(width: totalWidth, alignment: .trailing)
                 .accessibilityLabel("\(project.name) total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: week.dayIDs, projectID: project.id)))")
+            RemoveRowButton(label: "Remove \(project.name)'s time for this week") {
+                workspace.removeTimesheetProject(project, dayIDs: week.dayIDs)
+            }
+            .disabled(!workspace.canTrack)
+            .frame(width: removeWidth)
         }
         .frame(height: rowHeight)
     }
@@ -150,6 +157,7 @@ struct TimesheetTable: View {
                 .foregroundStyle(KeepTheme.accentStrong)
                 .frame(width: totalWidth, alignment: .trailing)
                 .accessibilityLabel("Week total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: week.dayIDs)))")
+            Color.clear.frame(width: removeWidth)
         }
         .frame(height: totalHeight)
         .background { Rectangle().fill(KeepTheme.paper) }

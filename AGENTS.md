@@ -78,7 +78,7 @@ When timer behavior is requested:
 - Avoid duplicate ticking tasks and cancel work when its owner ends.
 - Make session completion and any notifications predictable and testable.
 
-Pomodoro and flow controls are independent and may run concurrently. Recorded time uses a single app-owned recorder: running Flow takes priority; otherwise only Pomodoro focus counts. Manual short/long Pomodoro breaks never add Pomodoro time. Route timer actions, settings changes, project changes, and Timesheet edits through `WorkspaceModel` so elapsed time is settled before state changes. Settings changes preserve the duration of running/paused intervals; completed focus intervals advance the break cycle once. Preserve these rules. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
+Pomodoro and flow controls are independent and may run concurrently. Recorded time uses a single app-owned recorder: running Flow takes priority; otherwise only Pomodoro focus counts. Manual short/long Pomodoro breaks never add Pomodoro time. Route timer actions, settings changes, project changes, and Timesheet edits/removal/Undo through `WorkspaceModel` so elapsed time is settled before state changes. Settings changes preserve the duration of running/paused intervals; completed focus intervals advance the break cycle once. Removing a weekly row preserves the catalog and timers; new time may recreate the row, and Undo restores removed time without overwriting that new time. Preserve these rules. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
 
 Do not add notification permissions, background services, persistence, or music-provider integrations as incidental parts of a visual task.
 

@@ -36,9 +36,11 @@ struct AppShellView: View {
 
                 // Each tab keeps its content and scroll position inside the same viewport.
                 ZStack(alignment: .top) {
-                    ScrollView {
-                        FocusSessionView(workspace: workspace, isCompact: geometry.size.width < 820)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    GeometryReader { viewport in
+                        ScrollView {
+                            FocusSessionView(workspace: workspace, isCompact: geometry.size.width < 820, minimumHeight: viewport.size.height)
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                        }
                     }
                     .opacity(selectedTab == .focus ? 1 : 0)
                     .allowsHitTesting(selectedTab == .focus)

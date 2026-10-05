@@ -11,6 +11,7 @@ final class WorkspaceModel {
     private(set) var persistenceError: String?
     private(set) var loadFailed = false
     private(set) var today: Date
+    private(set) var lastTimesheetRemoval: TimesheetRemoval?
     var canTrack: Bool { !loadFailed }
     var projects: [FocusProject] { FocusProject.defaults + ledger.customProjects }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
@@ -114,6 +115,26 @@ final class WorkspaceModel {
         guard canTrack else { return }
         synchronize(at: instant, date: now)
         ledger.ensureEntry(project: project, on: date, calendar: calendar)
+        ledgerDirty = true
+        save(at: instant)
+    }
+
+    /// Remove only the displayed week's row. Future running time may create it again.
+    func removeTimesheetProject(_ project: FocusProject, dayIDs: [String], at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack else { return }
+        synchronize(at: instant, date: date)
+        let removed = ledger.removeEntries(projectID: project.id, dayIDs: dayIDs)
+        guard !removed.isEmpty else { return }
+        lastTimesheetRemoval = TimesheetRemoval(project: project, entries: removed)
+        ledgerDirty = true
+        save(at: instant)
+    }
+
+    func undoTimesheetRemoval(at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, let removal = lastTimesheetRemoval else { return }
+        synchronize(at: instant, date: date)
+        ledger.restoreEntries(removal.entries)
+        lastTimesheetRemoval = nil
         ledgerDirty = true
         save(at: instant)
     }
