@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct FocusProjectPicker: View {
+struct ProjectPicker: View {
     let projects: [FocusProject]
     let selectedProject: FocusProject?
     let onSelect: (FocusProject?) -> Void
@@ -152,21 +152,10 @@ struct FocusProjectPicker: View {
     }
 }
 
-extension FocusProject {
-    var accentColor: Color {
-        switch accent {
-        case .terracotta: KeepTheme.accent
-        case .sage: KeepTheme.sage
-        case .mistBlue: KeepTheme.mistBlue
-        case .butter: KeepTheme.highlight
-        }
-    }
-}
-
 #Preview {
-    FocusProjectPicker(projects: FocusProject.examples, selectedProject: FocusProject.examples.first) { _ in }
+    ProjectPicker(projects: FocusProject.defaults, selectedProject: FocusProject.defaults.first) { _ in }
 }
 
 #Preview("No matching projects") {
-    FocusProjectPicker(projects: FocusProject.examples, selectedProject: nil, initialSearch: "No match") { _ in }
+    ProjectPicker(projects: FocusProject.defaults, selectedProject: nil, initialSearch: "No match") { _ in }
 }

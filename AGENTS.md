@@ -17,7 +17,7 @@ The intended core flow, based on the current interface, is:
 
 This flow describes the direction suggested by the interface, not completed functionality or a full product specification. See `docs/architecture.md` for the verified implementation state and `docs/decisions.md` for durable decisions and unresolved questions. Do not describe placeholders as working features.
 
-Session history, statistics, persistence, notifications, music integrations, accounts, and sync require their own scoped work. Do not implement them merely because they could be useful.
+Detailed session history, statistics, notifications, music integrations, accounts, and sync require their own scoped work. Do not add them merely because they could be useful. Project/day time totals and manual edits now persist locally.
 
 ## 2. Technology and architecture
 
@@ -78,7 +78,7 @@ When timer behavior is requested:
 - Avoid duplicate ticking tasks and cancel work when its owner ends.
 - Make session completion and any notifications predictable and testable.
 
-Pomodoro and flow timers are independent and may run concurrently. Preserve that behavior. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
+Pomodoro and flow controls are independent and may run concurrently. Recorded time uses a single app-owned recorder: running Flow takes priority; otherwise only Pomodoro focus counts. Manual Pomodoro breaks never add Pomodoro time. Route timer actions, project changes, and Timesheet edits through `WorkspaceModel` so elapsed time is settled before state changes. Preserve these rules. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
 
 Do not add notification permissions, background services, persistence, or music-provider integrations as incidental parts of a visual task.
 
@@ -217,7 +217,9 @@ The final response should state what changed, where, how it was verified, and an
 
 ## 19. Current project direction
 
-The Timesheet tab is currently a UI-only draft. Keep its static fixtures in `keep/Features/Timesheet/PreviewData/` and isolated from timers, session recording, and persistence unless the user requests that integration. Treat sample entries and totals as display data, not actual history.
+Focus and Timesheet share the app-owned `WorkspaceModel` and project catalog. Recorded project/day totals and manual edits persist locally; timer runtime and task-list state are not restored after quitting. Keep numeric fixtures in `keep/Features/Timesheet/PreviewData/` for previews only. Never seed the live ledger with sample history or store separately calculated totals.
+
+Preserve one recorder and one persistence owner across tabs and windows. Test overlap, focus/break exclusion, edits during recording, project changes, day boundaries, and reloads when changing recording behavior. Do not reintroduce direct timer bindings that bypass settlement.
 
 Preserve the native macOS focus-workspace structure. Follow `docs/style.md` for the cozy editorial visual direction. Treat the reference images as inspiration rather than a mandate to reproduce their page structure.
 

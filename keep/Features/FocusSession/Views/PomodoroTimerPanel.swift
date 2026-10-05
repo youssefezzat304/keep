@@ -1,14 +1,22 @@
 import SwiftUI
 
 struct PomodoroTimerPanel: View {
-    @Binding var timer: FocusTimer
+    let workspace: WorkspaceModel
 
     var body: some View {
-        FocusTimerCard(timer: $timer)
+        FocusTimerCard(
+            timer: workspace.pomodoro,
+            canPlay: workspace.canTrack,
+            flowOverrides: workspace.flow.phase() == .running,
+            onPlay: { workspace.play(.pomodoro) },
+            onStop: { workspace.stop(.pomodoro) },
+            onReset: { workspace.reset(.pomodoro) },
+            onBreak: { workspace.startBreak() }
+        )
     }
 }
 
 #Preview {
-    PomodoroTimerPanel(timer: .constant(FocusTimer(mode: .pomodoro)))
+    PomodoroTimerPanel(workspace: WorkspaceModel())
         .padding().frame(width: 450)
 }

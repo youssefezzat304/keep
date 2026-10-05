@@ -1,10 +1,18 @@
 import SwiftUI
 
 struct FocusTimerCard: View {
-    @Binding var timer: FocusTimer
+    let timer: FocusTimer
+    var canPlay = true
+    var flowOverrides = false
+    let onPlay: () -> Void
+    let onStop: () -> Void
+    let onReset: () -> Void
+    let onBreak: () -> Void
     @FocusState private var resetFocused: Bool
+    @FocusState private var breakFocused: Bool
 
     private var isPomodoro: Bool { timer.mode == .pomodoro }
+    private var isBreak: Bool { isPomodoro && timer.interval == .rest }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1, paused: timer.phase() != .running)) { _ in
@@ -16,11 +24,11 @@ struct FocusTimerCard: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(isPomodoro ? "Pomodoro" : "Flow state")
                             .font(.system(size: 25, weight: .regular, design: .serif))
-                        Text(isPomodoro ? "A little focus, a little rest." : "Find your rhythm. Stay a while.")
+                        Text(isBreak ? "Take a little breather." : isPomodoro ? "A little focus, a little rest." : "Find your rhythm. Stay a while.")
                             .font(.system(size: 13))
                     }
                     Spacer(minLength: 8)
-                    Image(systemName: isPomodoro ? "timer" : "leaf")
+                    Image(systemName: isBreak ? "cup.and.saucer" : isPomodoro ? "timer" : "leaf")
                         .font(.system(size: 22, weight: .light))
                         .frame(width: 46, height: 46)
                         .background(KeepTheme.paper.opacity(0.45), in: Circle())
@@ -33,7 +41,7 @@ struct FocusTimerCard: View {
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
-                        .accessibilityLabel(isPomodoro ? "Pomodoro time remaining" : "Flow time elapsed")
+                        .accessibilityLabel(isBreak ? "Break time remaining" : isPomodoro ? "Pomodoro time remaining" : "Flow time elapsed")
                         .accessibilityValue(timer.display(at: instant))
 
                     HStack(spacing: 6) {
@@ -49,15 +57,16 @@ struct FocusTimerCard: View {
 
                 HStack(spacing: 10) {
                     PrimaryButton(
-                        buttonTitle: phase == .running ? "Stop" : phase == .stopped ? "Continue" : "Play",
+                        buttonTitle: phase == .running ? "Stop" : phase == .stopped ? "Continue" : phase == .completed ? "Focus again" : "Play",
                         systemImage: phase == .running ? "stop.fill" : "play.fill"
                     ) {
-                        if phase == .running { timer.stop() } else { timer.play() }
+                        if phase == .running { onStop() } else { onPlay() }
                     }
-                    .accessibilityLabel("\(phase == .running ? "Stop" : "Play") \(isPomodoro ? "Pomodoro" : "flow timer")")
-                    .help(phase == .running ? "Stop and keep the current time" : "Start or continue this timer")
+                    .disabled(!canPlay)
+                    .accessibilityLabel(phase == .completed ? "Start a new Pomodoro focus interval" : "\(phase == .running ? "Stop" : "Play") \(isBreak ? "Pomodoro break" : isPomodoro ? "Pomodoro" : "flow timer")")
+                    .help(phase == .completed ? "Start a new focus interval" : phase == .running ? "Stop and keep the current time" : "Start or continue this timer")
 
-                    Button { timer.reset() } label: {
+                    Button(action: onReset) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 14))
                             .frame(width: 40, height: 40)
@@ -75,22 +84,41 @@ struct FocusTimerCard: View {
                     .accessibilityLabel("Reset \(isPomodoro ? "Pomodoro" : "flow timer")")
                     .help(isPomodoro ? "Reset to 25 minutes" : "Reset elapsed time to zero")
 
+                    if isPomodoro && !isBreak && phase == .completed {
+                        Button(action: onBreak) {
+                            Text("5m break")
+                                .font(.system(size: 13, weight: .medium))
+                                .padding(.horizontal, 12)
+                                .frame(height: 40)
+                                .background(KeepTheme.paper.opacity(0.65), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .focused($breakFocused)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(breakFocused ? KeepTheme.focusRing : .clear, lineWidth: 2)
+                                .padding(-3)
+                        }
+                        .disabled(!canPlay)
+                        .accessibilityLabel("Start a five-minute Pomodoro break")
+                        .help("Break time is not added to the Pomodoro timesheet")
+                    }
+
                     Spacer(minLength: 0)
-                    Text(isPomodoro ? "25 MIN" : "NO LIMIT")
+                    Text(isBreak ? "BREAK" : isPomodoro ? "25 MIN" : "NO LIMIT")
                         .font(.system(size: 10, weight: .medium))
                         .tracking(1.4)
                 }
             }
             .foregroundStyle(KeepTheme.ink)
-            .cardStyle(backgroundColor: isPomodoro ? KeepTheme.accent : KeepTheme.sage)
-            .onChange(of: phase) { _, newPhase in
-                if newPhase == .completed { timer.stop(at: instant) }
-            }
+            .cardStyle(backgroundColor: isBreak ? KeepTheme.highlight : isPomodoro ? KeepTheme.accent : KeepTheme.sage)
         }
     }
 
     private func status(for phase: FocusTimer.Phase) -> String {
-        switch phase {
+        if isBreak { return phase == .completed ? "Break complete · ready for a little focus" : phase == .stopped ? "Break paused · not counted" : "Break time · not counted by Pomodoro" }
+        if isPomodoro && phase == .running && flowOverrides { return "Flow is counting this time" }
+        return switch phase {
         case .idle: "Ready when you are"
         case .running: isPomodoro ? "One thing at a time" : "In your own time"
         case .stopped: "Stopped · continue whenever you're ready"

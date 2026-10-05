@@ -41,12 +41,8 @@ struct ActiveTargetHeader: View {
     private var targetField: some View {
         HStack(spacing: 12) {
             Button { showsProjectPicker = true } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder.fill")
-                        .font(.system(size: 18))
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 8, weight: .semibold))
-                }
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 18))
                 .foregroundStyle(KeepTheme.accentStrong)
                 .frame(width: 46, height: 44)
                 .background(KeepTheme.background.opacity(projectButtonHovered ? 0.85 : 0.5), in: RoundedRectangle(cornerRadius: 10))
@@ -62,7 +58,7 @@ struct ActiveTargetHeader: View {
             .accessibilityLabel("Select project. Current project: \(selectedProject?.name ?? "No project")")
             .help("Select a project")
             .popover(isPresented: $showsProjectPicker) {
-                FocusProjectPicker(projects: FocusProject.examples, selectedProject: selectedProject) { project in
+                ProjectPicker(projects: FocusProject.defaults, selectedProject: selectedProject) { project in
                     selectedProject = project
                     showsProjectPicker = false
                     focusedField = .task
@@ -99,7 +95,7 @@ struct ActiveTargetHeader: View {
 }
 
 #Preview {
-    ActiveTargetHeader(taskName: .constant("Your next good idea"), selectedProject: .constant(FocusProject.examples.first))
+    ActiveTargetHeader(taskName: .constant("Your next good idea"), selectedProject: .constant(FocusProject.defaults.first))
         .padding().background(KeepTheme.paper).preferredColorScheme(.light)
 }
 

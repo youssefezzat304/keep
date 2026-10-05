@@ -3,12 +3,12 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-05 [CODE] Current state: cozy Focus draft plus a selectable, UI-only Timesheet tab with a seven-day mock project grid. Focus timers/tasks and project selection/task-name input work locally; music remains a disabled playback preview.
+- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals. Flow takes recording priority; Pomodoro has manual uncounted breaks. Music remains a disabled playback preview.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] No persistence, external integrations, third-party packages, or Xcode test target. A standalone timer-check harness is available.
+- 2026-10-05 [CODE] JSON-encoded project/day totals and edits persist in local preferences. No external integrations, third-party packages, or Xcode test target; standalone timer/workspace checks are available.
 - 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
-- 2026-10-05 [CODE] State is window-local and resets when the window closes. Next feature is UNCONFIRMED.
+- 2026-10-05 [CODE] Timers/project selection/ledger are app-shared; timer runtime and window-local task drafts are not restored on relaunch. Next feature is UNCONFIRMED.
 
 ## [DECISIONS]
 
@@ -22,7 +22,7 @@ Ownership: agent rules in `AGENTS.md`, implemented structure and constraints in 
 
 Provide two independently playable/stoppable timers: Pomodoro and flow. They may run concurrently; actions on one must not change the other.
 
-### D003 ACTIVE — 2026-10-05 [CODE]
+### D003 PARTIALLY SUPERSEDED BY D008 — 2026-10-05 [CODE]
 
 For the first draft, Stop preserves time, Continue resumes it, and Reset starts fresh. Pomodoro uses 25 minutes; flow has no time limit. Timing uses `ContinuousClock`, including sleep, with state local to each window. No persistence or automatic break cycles are introduced.
 
@@ -34,7 +34,7 @@ The music area previews later lofi/ambient playback with cozy artwork and contro
 
 Use explicit light appearance for the first palette implementation. Keep Stats, Settings, and music playback controls disabled rather than implying unfinished functionality works.
 
-### D006 ACTIVE — 2026-10-05 [USER]
+### D006 SUPERSEDED BY D008 — 2026-10-05 [USER]
 
 Build only the Timesheet tab for now using mock project data. Show seven days, hours, and totals; introduce no timesheet business logic or connection to timers. Calendar and list-view alternatives are outside this task.
 
@@ -42,7 +42,13 @@ Build only the Timesheet tab for now using mock project data. Show seven days, h
 
 Add a folder icon to the Working on card to select a project, with a separate editable task name. Adapt the reference picker to Keep’s warm palette.
 
-2026-10-05 [CODE] The picker uses four local sample projects, search, and No project. Selecting a project preserves the task text; neither field is connected to timer recording or Timesheet. Project creation is a disabled preview, and no persistence is added.
+2026-10-05 [CODE] Initial draft used four local sample projects, search, and No project without timer integration or persistence. D008 supersedes those implementation limits; the picker and separate task-name field remain. Project creation is still a disabled preview.
+
+### D008 ACTIVE — 2026-10-05 [USER]
+
+Connect assigned projects to timer recording and editable Timesheet entries. Count Pomodoro focus only; count all running Flow time, with Flow overriding Pomodoro during overlap. Offer a manual 5-minute break after each focus interval. Save recorded time and manual edits locally across closing/reopening Keep. Remove the folder icon’s down arrow.
+
+2026-10-05 [CODE] One app-owned workspace coordinates both timers, shared project selection, and the numeric ledger. Project changes settle past time before switching attribution. Choosing “No project” records into an unassigned row. Edits replace the settled project/day total, and later time adds to it. Timers remain independently controlled; resets keep recorded totals. Saved totals reopen in the current week, with timers idle; app-offline time is excluded. Local data uses `keep.timesheet.v1` in UserDefaults. No sample history is loaded into the live ledger.
 
 ## [PROGRESS]
 
@@ -54,9 +60,11 @@ Add a folder icon to the Working on card to select a project, with a separate ed
 
 - 2026-10-05 [CODE] Added a native project popover with search, selected-row checks, hover/focus feedback, and a separate task-name field. Selection and task text remain owned by FocusSessionView.
 
+- 2026-10-05 [CODE] Added app-shared recording with Flow priority, focus/rest intervals, computed totals, editable cells, current/historical weeks, local saving, and a termination flush. Moved project metadata and picker presentation into shared boundaries.
+
 ## [DISCOVERIES]
 
-- 2026-10-05 [CODE] Each `WindowGroup` root now owns independent session/task state through `FocusSessionView`; no shared app store is needed for this draft.
+- 2026-10-05 [CODE] Initial draft kept timers/tasks in each Focus view. D008 introduces one app-owned WorkspaceModel for timers, selection, and recording; task drafts remain window-local.
 - 2026-10-05 [CODE] `PrimaryButton` and `NavBar` receive caller-owned actions. `AppShellView` owns Focus/Timesheet selection and preserves mounted focus state across tab changes.
 - 2026-10-05 [CODE] Timer and supporting-card pairs stack below 820 points; outer shell and task list scroll. Timer cards share presentation without sharing timing state.
 
@@ -68,12 +76,14 @@ Add a folder icon to the Working on card to select a project, with a separate ed
 
 - 2026-10-05 [CODE] Working on picker and task-name UI are implemented with local sample data. Offscreen normal/search/empty/unassigned and narrow layouts inspected; live interaction remains unverified.
 
+- 2026-10-05 [CODE] Timer recording and Timesheet editing/persistence implemented. Build, 24 timer checks, and 84 workspace checks passed, including cross-process persistence. Offscreen running/completed/break, empty/live Timesheet, and editor layouts inspected.
+
 ## [OPEN QUESTIONS]
 
 These questions are not blockers for unrelated work; resolve them when the relevant feature is requested.
 
-- 2026-10-05 [CODE] UNCONFIRMED: durable history/relaunch recovery, automatic break cycles, and future notifications. Draft sleep/window/stop behavior is documented in D003.
-- 2026-10-05 [CODE] UNCONFIRMED: durable task/project relationship, recording target switches during a session, and storage requirements. Current UI selection preserves task text and does not alter timing.
+- 2026-10-05 [CODE] UNCONFIRMED: detailed session history, restoring timer runtime, automatic break cycles, and future notifications. Current focus/break/sleep/relaunch behavior is documented in D008 and architecture.
+- 2026-10-05 [CODE] UNCONFIRMED: project creation/renaming/deletion, task-level time records, and future storage migration. Project switches currently apply prospectively, and selection preserves task text.
 - 2026-10-05 [CODE] UNCONFIRMED: music source/provider, statistics scope, and a future dark palette.
 
 ## [WORKING SET]
@@ -83,9 +93,10 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `docs/decisions.md`
 - 2026-10-05 [CODE] `docs/style.md`
 - 2026-10-05 [CODE] `keep/App/`
+- 2026-10-05 [CODE] `keep/Models/`
 - 2026-10-05 [CODE] `keep/Features/FocusSession/`
 - 2026-10-05 [CODE] `keep/Features/Timesheet/`
-- 2026-10-05 [CODE] `tests/FocusTimerChecks.swift`
+- 2026-10-05 [CODE] `tests/`
 - 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
 - 2026-10-05 [CODE] `keep.xcodeproj/project.pbxproj`
@@ -99,3 +110,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [TOOL] Timesheet unsigned Debug build passed. Inspected offscreen layouts at default, wide, and narrow sizes; static totals reconcile to 26h 30m. Live interaction remains unverified.
 
 - 2026-10-05 [TOOL] Project picker unsigned Debug build passed; native offscreen default/narrow, case-insensitive trimmed search, no-match, and No project/empty-task states inspected. Live popover and keyboard interaction remain unverified.
+
+- 2026-10-05 [TOOL] Recording integration unsigned Debug build passed; 24 timer and 84 workspace checks passed. Separate subprocesses verified persisted data using a temporary preferences domain. Default/wide/narrow native offscreen Timesheet renders, timer focus/completion/break states, and the edit popover inspected; live UI interaction remains unverified.

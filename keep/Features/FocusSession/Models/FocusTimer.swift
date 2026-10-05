@@ -14,16 +14,26 @@ struct FocusTimer {
         case completed
     }
 
+    enum Interval {
+        case focus
+        case rest
+    }
+
     let mode: Mode
     let focusDuration: TimeInterval
+    let breakDuration: TimeInterval
+    private(set) var interval: Interval = .focus
+    var intervalDuration: TimeInterval { interval == .focus ? focusDuration : breakDuration }
     private var accumulated: TimeInterval = 0
     private var startedAt: ContinuousClock.Instant?
     private var storedPhase: Phase = .idle
 
-    init(mode: Mode, focusDuration: TimeInterval = 25 * 60) {
+    init(mode: Mode, focusDuration: TimeInterval = 25 * 60, breakDuration: TimeInterval = 5 * 60) {
         precondition(focusDuration > 0 && focusDuration.isFinite)
+        precondition(breakDuration > 0 && breakDuration.isFinite)
         self.mode = mode
         self.focusDuration = focusDuration
+        self.breakDuration = breakDuration
     }
 
     func elapsed(at instant: ContinuousClock.Instant = .now) -> TimeInterval {
@@ -34,7 +44,7 @@ struct FocusTimer {
     }
 
     func phase(at instant: ContinuousClock.Instant = .now) -> Phase {
-        if mode == .pomodoro && elapsed(at: instant) >= focusDuration {
+        if mode == .pomodoro && elapsed(at: instant) >= intervalDuration {
             return .completed
         }
         return storedPhase
@@ -42,7 +52,7 @@ struct FocusTimer {
 
     func seconds(at instant: ContinuousClock.Instant = .now) -> Int {
         switch mode {
-        case .pomodoro: Int(ceil(max(0, focusDuration - elapsed(at: instant))))
+        case .pomodoro: Int(ceil(max(0, intervalDuration - elapsed(at: instant))))
         case .flow: Int(floor(elapsed(at: instant)))
         }
     }
@@ -68,14 +78,23 @@ struct FocusTimer {
     mutating func stop(at instant: ContinuousClock.Instant = .now) {
         guard storedPhase == .running else { return }
         accumulated = elapsed(at: instant)
-        if mode == .pomodoro { accumulated = min(accumulated, focusDuration) }
+        if mode == .pomodoro { accumulated = min(accumulated, intervalDuration) }
         startedAt = nil
         storedPhase = .stopped
     }
 
     mutating func reset() {
+        interval = .focus
         accumulated = 0
         startedAt = nil
         storedPhase = .idle
+    }
+
+    mutating func startBreak(at instant: ContinuousClock.Instant = .now) {
+        guard mode == .pomodoro, interval == .focus, phase(at: instant) == .completed else { return }
+        reset()
+        interval = .rest
+        startedAt = instant
+        storedPhase = .running
     }
 }

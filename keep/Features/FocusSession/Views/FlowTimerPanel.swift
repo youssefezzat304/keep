@@ -1,14 +1,22 @@
 import SwiftUI
 
 struct FlowTimerPanel: View {
-    @Binding var timer: FocusTimer
+    let workspace: WorkspaceModel
 
     var body: some View {
-        FocusTimerCard(timer: $timer)
+        FocusTimerCard(
+            timer: workspace.flow,
+            canPlay: workspace.canTrack,
+            flowOverrides: workspace.flow.phase() == .running,
+            onPlay: { workspace.play(.flow) },
+            onStop: { workspace.stop(.flow) },
+            onReset: { workspace.reset(.flow) },
+            onBreak: { workspace.startBreak() }
+        )
     }
 }
 
 #Preview {
-    FlowTimerPanel(timer: .constant(FocusTimer(mode: .flow)))
+    FlowTimerPanel(workspace: WorkspaceModel())
         .padding().frame(width: 450)
 }

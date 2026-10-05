@@ -1,18 +1,16 @@
 import SwiftUI
 
 struct FocusSessionView: View {
+    @Bindable var workspace: WorkspaceModel
     var isCompact = false
-    @State private var pomodoro = FocusTimer(mode: .pomodoro)
-    @State private var flow = FocusTimer(mode: .flow)
     @State private var taskName = "Your next good idea"
-    @State private var selectedProject = FocusProject.examples.first
     @State private var tasks = FocusTask.examples
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            ActiveTargetHeader(taskName: $taskName, selectedProject: $selectedProject, isCompact: isCompact)
+            ActiveTargetHeader(taskName: $taskName, selectedProject: Binding(get: { workspace.selectedProject }, set: { workspace.selectProject($0) }), isCompact: isCompact)
 
-            TimerWorkspaceCard(pomodoro: $pomodoro, flow: $flow, isCompact: isCompact)
+            TimerWorkspaceCard(workspace: workspace, isCompact: isCompact)
 
             if isCompact {
                 VStack(spacing: 18) { supportingCards }
@@ -40,6 +38,6 @@ struct FocusSessionView: View {
 }
 
 #Preview {
-    FocusSessionView()
+    FocusSessionView(workspace: WorkspaceModel())
         .padding().frame(width: 950).background(KeepTheme.paper)
 }

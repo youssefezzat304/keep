@@ -1,11 +1,15 @@
 import SwiftUI
 
 struct TimesheetTable: View {
+    let workspace: WorkspaceModel
+    let week: TimesheetWeek
     private let projectWidth: CGFloat = 205
-    private let totalWidth: CGFloat = 88
+    private let totalWidth: CGFloat = 100
     private let headerHeight: CGFloat = 68
     private let rowHeight: CGFloat = 78
     private let totalHeight: CGFloat = 64
+
+    private var projects: [FocusProject] { workspace.ledger.projects(dayIDs: week.dayIDs) }
 
     var body: some View {
         GeometryReader { geometry in
@@ -16,9 +20,19 @@ struct TimesheetTable: View {
                 VStack(spacing: 0) {
                     header(dayWidth: dayWidth)
                     divider
-                    ForEach(TimesheetMockData.projects) { project in
+                    ForEach(projects) { project in
                         projectRow(project, dayWidth: dayWidth)
                         divider
+                    }
+                    if projects.isEmpty {
+                        VStack(spacing: 9) {
+                            Text("A fresh week of focus.").font(.system(size: 22, design: .serif))
+                            Text("Choose a project and start a timer, or add a project to enter time.")
+                                .font(.system(size: 13))
+                                .foregroundStyle(KeepTheme.mutedInk)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 130)
                     }
                     totals(dayWidth: dayWidth)
                 }
@@ -27,14 +41,14 @@ struct TimesheetTable: View {
             }
             .scrollIndicators(.visible)
         }
-        .frame(height: headerHeight + rowHeight * 4 + totalHeight + 5)
+        .frame(height: headerHeight + rowHeight * CGFloat(projects.count) + totalHeight + CGFloat(projects.count + 1) + (projects.isEmpty ? 130 : 0))
         .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         .clipShape(RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         .overlay {
             RoundedRectangle(cornerRadius: KeepTheme.cardRadius)
                 .strokeBorder(KeepTheme.border, lineWidth: 1)
         }
-        .accessibilityLabel("Sample weekly timesheet. Times are hours and minutes. Scroll horizontally for all seven days on smaller windows.")
+        .accessibilityLabel("Weekly timesheet. Click a time to edit hours, minutes, and seconds. Scroll horizontally for all seven days on smaller windows.")
     }
 
     private func header(dayWidth: CGFloat) -> some View {
@@ -47,13 +61,13 @@ struct TimesheetTable: View {
             .foregroundStyle(KeepTheme.mutedInk)
             .frame(width: projectWidth, alignment: .leading)
 
-            ForEach(TimesheetMockData.days) { day in
+            ForEach(week.days) { day in
                 VStack(spacing: 5) {
-                    Text(day.id)
+                    Text(day.label)
                         .font(.system(size: 10, weight: .medium))
                         .tracking(1)
                         .foregroundStyle(KeepTheme.mutedInk)
-                    Text(day.date)
+                    Text(day.number)
                         .font(.system(size: 20, weight: .regular, design: .serif))
                 }
                 .frame(width: dayWidth, height: headerHeight)
@@ -70,11 +84,11 @@ struct TimesheetTable: View {
         .frame(height: headerHeight)
     }
 
-    private func projectRow(_ project: TimesheetProjectPreview, dayWidth: CGFloat) -> some View {
+    private func projectRow(_ project: FocusProject, dayWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             HStack(spacing: 11) {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(project.color)
+                    .fill(project.accentColor)
                     .frame(width: 12, height: 30)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 5) {
@@ -89,27 +103,26 @@ struct TimesheetTable: View {
             }
             .frame(width: projectWidth, alignment: .leading)
 
-            ForEach(Array(TimesheetMockData.days.enumerated()), id: \.element.id) { index, day in
-                Text(project.hours[index])
-                    .font(.system(size: 14))
-                    .monospacedDigit()
-                    .foregroundStyle(project.hours[index] == "—" ? KeepTheme.mutedInk : KeepTheme.ink)
-                    .frame(width: dayWidth - 16, height: 34)
-                    .background(project.hours[index] == "—" ? KeepTheme.paper : project.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(KeepTheme.border.opacity(0.65), lineWidth: 1)
-                    }
-                    .frame(width: dayWidth, height: rowHeight)
-                    .background { Rectangle().fill(day.isWeekend ? KeepTheme.paper : .clear) }
-                    .accessibilityLabel("\(project.name), \(day.id): \(project.hours[index] == "—" ? "no time recorded" : project.hours[index])")
+            ForEach(week.days) { day in
+                TimesheetTimeCell(
+                    seconds: workspace.ledger.seconds(projectID: project.id, dayID: day.id),
+                    projectName: project.name,
+                    day: day,
+                    color: project.accentColor,
+                    canEdit: workspace.canTrack
+                ) { seconds in
+                    workspace.edit(seconds: seconds, project: project, dayID: day.id)
+                }
+                .frame(width: dayWidth - 16)
+                .frame(width: dayWidth, height: rowHeight)
+                .background { Rectangle().fill(day.isWeekend ? KeepTheme.paper : .clear) }
             }
 
-            Text(project.total)
+            Text(TimesheetDuration.total(workspace.ledger.total(dayIDs: week.dayIDs, projectID: project.id)))
                 .font(.system(size: 13, weight: .medium))
                 .monospacedDigit()
                 .frame(width: totalWidth, alignment: .trailing)
-                .accessibilityLabel("\(project.name) total: \(project.total)")
+                .accessibilityLabel("\(project.name) total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: week.dayIDs, projectID: project.id)))")
         }
         .frame(height: rowHeight)
     }
@@ -122,21 +135,21 @@ struct TimesheetTable: View {
                 .foregroundStyle(KeepTheme.secondaryInk)
                 .frame(width: projectWidth, alignment: .leading)
 
-            ForEach(Array(TimesheetMockData.days.enumerated()), id: \.element.id) { index, day in
-                Text(TimesheetMockData.dailyTotals[index])
+            ForEach(week.days) { day in
+                Text(TimesheetDuration.clock(workspace.ledger.total(dayIDs: [day.id])))
                     .font(.system(size: 13, weight: .medium))
                     .monospacedDigit()
                     .frame(width: dayWidth, height: totalHeight)
                     .background { Rectangle().fill(day.isWeekend ? KeepTheme.mutedWarm.opacity(0.28) : .clear) }
-                    .accessibilityLabel("\(day.id) total: \(TimesheetMockData.dailyTotals[index])")
+                    .accessibilityLabel("\(day.label) total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: [day.id])))")
             }
 
-            Text(TimesheetMockData.weekTotal)
+            Text(TimesheetDuration.total(workspace.ledger.total(dayIDs: week.dayIDs)))
                 .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(KeepTheme.accentStrong)
                 .frame(width: totalWidth, alignment: .trailing)
-                .accessibilityLabel("Week total: \(TimesheetMockData.weekTotal)")
+                .accessibilityLabel("Week total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: week.dayIDs)))")
         }
         .frame(height: totalHeight)
         .background { Rectangle().fill(KeepTheme.paper) }
@@ -148,6 +161,6 @@ struct TimesheetTable: View {
 }
 
 #Preview {
-    TimesheetTable()
+    TimesheetTable(workspace: WorkspaceModel(), week: TimesheetWeek(containing: .now))
         .padding().frame(width: 950).background(KeepTheme.paper)
 }

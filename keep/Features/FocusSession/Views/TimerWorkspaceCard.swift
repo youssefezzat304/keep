@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct TimerWorkspaceCard: View {
-    @Binding var pomodoro: FocusTimer
-    @Binding var flow: FocusTimer
+    let workspace: WorkspaceModel
     var isCompact = false
 
     var body: some View {
@@ -14,15 +13,12 @@ struct TimerWorkspaceCard: View {
     }
 
     @ViewBuilder private var panels: some View {
-        PomodoroTimerPanel(timer: $pomodoro)
-        FlowTimerPanel(timer: $flow)
+        PomodoroTimerPanel(workspace: workspace)
+        FlowTimerPanel(workspace: workspace)
     }
 }
 
 #Preview {
-    TimerWorkspaceCard(
-        pomodoro: .constant(FocusTimer(mode: .pomodoro)),
-        flow: .constant(FocusTimer(mode: .flow))
-    )
+    TimerWorkspaceCard(workspace: WorkspaceModel())
     .padding().frame(width: 900)
 }

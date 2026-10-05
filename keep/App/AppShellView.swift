@@ -6,9 +6,11 @@ enum WorkspaceTab {
 }
 
 struct AppShellView: View {
+    @State private var workspace: WorkspaceModel
     @State private var selectedTab: WorkspaceTab
 
-    init(initialTab: WorkspaceTab = .focus) {
+    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel()) {
+        _workspace = State(initialValue: workspace)
         _selectedTab = State(initialValue: initialTab)
     }
 
@@ -22,16 +24,27 @@ struct AppShellView: View {
                         onSelectTimesheet: { selectedTab = .timesheet }
                     )
 
+                    if let message = workspace.persistenceError {
+                        HStack {
+                            Text(message).font(.system(size: 13))
+                            Spacer()
+                            Button("Retry") { workspace.retryPersistence() }
+                        }
+                        .padding(12)
+                        .background(KeepTheme.highlight, in: RoundedRectangle(cornerRadius: 10))
+                        .accessibilityElement(children: .contain)
+                    }
+
                     // Keep the focus view mounted so changing tabs preserves its local state.
                     ZStack(alignment: .top) {
-                        FocusSessionView(isCompact: geometry.size.width < 820)
+                        FocusSessionView(workspace: workspace, isCompact: geometry.size.width < 820)
                             .frame(height: selectedTab == .focus ? nil : 0, alignment: .top)
                             .clipped()
                             .opacity(selectedTab == .focus ? 1 : 0)
                             .allowsHitTesting(selectedTab == .focus)
                             .accessibilityHidden(selectedTab != .focus)
 
-                        TimesheetView()
+                        TimesheetView(workspace: workspace)
                             .frame(height: selectedTab == .timesheet ? nil : 0, alignment: .top)
                             .clipped()
                             .opacity(selectedTab == .timesheet ? 1 : 0)
@@ -40,14 +53,15 @@ struct AppShellView: View {
                     }
                 }
                 .padding(24)
-                .frame(maxWidth: 1100)
+                .frame(maxWidth: .infinity)
                 .background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 28))
                 .overlay {
                     RoundedRectangle(cornerRadius: 28)
                         .strokeBorder(KeepTheme.border.opacity(0.5), lineWidth: 1)
                 }
                 .padding(16)
-                .frame(maxWidth: .infinity)
+                // Center the panel when it fits; let taller layouts scroll naturally.
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }
             .background(KeepTheme.background)
         }
@@ -55,6 +69,7 @@ struct AppShellView: View {
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
         .preferredColorScheme(.light)
+        .onAppear { workspace.startUpdating() }
     }
 }
 
@@ -63,5 +78,9 @@ struct AppShellView: View {
 }
 
 #Preview("Timesheet") {
-    AppShellView(initialTab: .timesheet).frame(width: 1000, height: 900)
+    AppShellView(initialTab: .timesheet, workspace: TimesheetPreviewData.workspace()).frame(width: 1000, height: 900)
+}
+
+#Preview("Wide window") {
+    AppShellView().frame(width: 1710, height: 1080)
 }
