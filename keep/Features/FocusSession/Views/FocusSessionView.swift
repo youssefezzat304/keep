@@ -4,12 +4,13 @@ struct FocusSessionView: View {
     var isCompact = false
     @State private var pomodoro = FocusTimer(mode: .pomodoro)
     @State private var flow = FocusTimer(mode: .flow)
-    @State private var target = "Your next good idea"
+    @State private var taskName = "Your next good idea"
+    @State private var selectedProject = FocusProject.examples.first
     @State private var tasks = FocusTask.examples
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            ActiveTargetHeader(target: $target, isCompact: isCompact)
+            ActiveTargetHeader(taskName: $taskName, selectedProject: $selectedProject, isCompact: isCompact)
 
             TimerWorkspaceCard(pomodoro: $pomodoro, flow: $flow, isCompact: isCompact)
 
