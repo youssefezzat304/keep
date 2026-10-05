@@ -4,6 +4,7 @@ struct ProjectPicker: View {
     let projects: [FocusProject]
     let selectedProject: FocusProject?
     let onSelect: (FocusProject?) -> Void
+    let onCreate: (() -> Void)?
     @State private var search: String
     @State private var hoveredOption: String?
     @FocusState private var searchFocused: Bool
@@ -13,11 +14,13 @@ struct ProjectPicker: View {
         projects: [FocusProject],
         selectedProject: FocusProject?,
         initialSearch: String = "",
+        onCreate: (() -> Void)? = nil,
         onSelect: @escaping (FocusProject?) -> Void
     ) {
         self.projects = projects
         self.selectedProject = selectedProject
         self.onSelect = onSelect
+        self.onCreate = onCreate
         _search = State(initialValue: initialSearch)
     }
 
@@ -56,50 +59,56 @@ struct ProjectPicker: View {
                     .strokeBorder(searchFocused ? KeepTheme.focusRing : KeepTheme.controlBorder, lineWidth: searchFocused ? 2 : 1)
             }
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 5) {
-                    projectOption(nil)
+            ScrollViewReader { scroll in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 5) {
+                        projectOption(nil)
 
-                    Text("YOUR PROJECTS")
-                        .font(.system(size: 10, weight: .medium))
-                        .tracking(1.3)
-                        .foregroundStyle(KeepTheme.mutedInk)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 15)
-                        .padding(.bottom, 7)
+                        Text("YOUR PROJECTS")
+                            .font(.system(size: 10, weight: .medium))
+                            .tracking(1.3)
+                            .foregroundStyle(KeepTheme.mutedInk)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 15)
+                            .padding(.bottom, 7)
 
-                    ForEach(filteredProjects) { project in
-                        projectOption(project)
-                    }
-
-                    if filteredProjects.isEmpty {
-                        VStack(spacing: 6) {
-                            Text("No projects found")
-                                .font(.system(size: 14, weight: .medium))
-                            Text("Try a different project name.")
-                                .font(.system(size: 12))
-                                .foregroundStyle(KeepTheme.mutedInk)
+                        ForEach(filteredProjects) { project in
+                            projectOption(project)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
+
+                        if filteredProjects.isEmpty {
+                            VStack(spacing: 6) {
+                                Text("No projects found")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("Try a different project name.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(KeepTheme.mutedInk)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                        }
                     }
                 }
+                .onAppear { scroll.scrollTo(selectedProject?.id ?? "no-project", anchor: .center) }
             }
             .frame(height: 276)
 
             Rectangle().fill(KeepTheme.border).frame(height: 1)
 
             HStack {
-                Button {} label: {
+                Button { onCreate?() } label: {
                     Label("Create a new project", systemImage: "plus")
                         .font(.system(size: 13, weight: .medium))
                 }
                 .buttonStyle(.plain)
-                .disabled(true)
+                .foregroundStyle(KeepTheme.accentStrong)
+                .disabled(onCreate == nil)
+                .focused($focusedOption, equals: "create-project")
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(focusedOption == "create-project" ? KeepTheme.focusRing : .clear, lineWidth: 2)
+                }
                 Spacer()
-                Text("Coming soon")
-                    .font(.system(size: 10))
-                    .foregroundStyle(KeepTheme.mutedInk)
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 2)
@@ -149,13 +158,14 @@ struct ProjectPicker: View {
         }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .help(project?.name ?? "Work without a project")
+        .id(optionID)
     }
 }
 
 #Preview {
-    ProjectPicker(projects: FocusProject.defaults, selectedProject: FocusProject.defaults.first) { _ in }
+    ProjectPicker(projects: FocusProject.defaults, selectedProject: FocusProject.defaults.first, onCreate: {}) { _ in }
 }
 
 #Preview("No matching projects") {
-    ProjectPicker(projects: FocusProject.defaults, selectedProject: nil, initialSearch: "No match") { _ in }
+    ProjectPicker(projects: FocusProject.defaults, selectedProject: nil, initialSearch: "No match", onCreate: {}) { _ in }
 }

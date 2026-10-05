@@ -2,15 +2,18 @@ import SwiftUI
 
 struct ActiveTargetHeader: View {
     @Binding var taskName: String
-    @Binding var selectedProject: FocusProject?
+    let workspace: WorkspaceModel
     var isCompact = false
     @State private var showsProjectPicker = false
+    @State private var showsProjectCreation = false
     @State private var projectButtonHovered = false
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
         case project, task
     }
+
+    private var selectedProject: FocusProject? { workspace.selectedProject }
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -25,6 +28,12 @@ struct ActiveTargetHeader: View {
             }
         }
         .foregroundStyle(KeepTheme.ink)
+        .sheet(isPresented: $showsProjectCreation, onDismiss: { focusedField = .task }) {
+            ProjectCreationDialog { name, accent in
+                let project = try workspace.createProject(name: name, accent: accent)
+                workspace.selectProject(project)
+            }
+        }
     }
 
     private var heading: some View {
@@ -58,8 +67,11 @@ struct ActiveTargetHeader: View {
             .accessibilityLabel("Select project. Current project: \(selectedProject?.name ?? "No project")")
             .help("Select a project")
             .popover(isPresented: $showsProjectPicker) {
-                ProjectPicker(projects: FocusProject.defaults, selectedProject: selectedProject) { project in
-                    selectedProject = project
+                ProjectPicker(projects: workspace.projects, selectedProject: selectedProject, onCreate: workspace.canTrack ? {
+                    showsProjectPicker = false
+                    showsProjectCreation = true
+                } : nil) { project in
+                    workspace.selectProject(project)
                     showsProjectPicker = false
                     focusedField = .task
                 }
@@ -95,11 +107,13 @@ struct ActiveTargetHeader: View {
 }
 
 #Preview {
-    ActiveTargetHeader(taskName: .constant("Your next good idea"), selectedProject: .constant(FocusProject.defaults.first))
+    ActiveTargetHeader(taskName: .constant("Your next good idea"), workspace: WorkspaceModel())
         .padding().background(KeepTheme.paper).preferredColorScheme(.light)
 }
 
 #Preview("No project") {
-    ActiveTargetHeader(taskName: .constant(""), selectedProject: .constant(nil))
+    let workspace = WorkspaceModel()
+    workspace.selectProject(nil)
+    return ActiveTargetHeader(taskName: .constant(""), workspace: workspace)
         .padding().background(KeepTheme.paper).preferredColorScheme(.light)
 }

@@ -49,6 +49,8 @@ Centralize colors in named asset-catalog colors or a shared theme namespace unde
 
 Named color assets are the source of truth. `keep/DesignSystem/KeepTheme.swift` exposes semantic references to them; use those references in views.
 
+Project identity uses 30 selectable colors: the existing terracotta, sage, mist blue, and butter yellow, plus 26 muted warm, green, blue, purple, and neutral hues in `Project*.colorset` assets. `FocusProjectStyle` maps the saved accent to its asset. These colors identify projects; keep interface surfaces, text, and actions on the semantic palette above. Color selection uses a visible checkmark and named accessibility labels.
+
 ```swift
 Text("Start focus")
     .foregroundStyle(KeepTheme.ink)

@@ -3,10 +3,10 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals. Flow takes recording priority; Pomodoro has manual uncounted breaks. Music remains a disabled playback preview.
+- 2026-10-05 [CODE] Current state: Focus records project time into an editable seven-day Timesheet with locally saved totals. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Music remains a disabled playback preview.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] JSON-encoded project/day totals and edits persist in local preferences. No external integrations, third-party packages, or Xcode test target; standalone timer/workspace checks are available.
+- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. No external integrations, third-party packages, or Xcode test target; standalone timer/workspace checks are available.
 - 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
 - 2026-10-05 [CODE] Timers/project selection/ledger are app-shared; timer runtime and window-local task drafts are not restored on relaunch. Next feature is UNCONFIRMED.
 
@@ -42,9 +42,9 @@ Build only the Timesheet tab for now using mock project data. Show seven days, h
 
 Add a folder icon to the Working on card to select a project, with a separate editable task name. Adapt the reference picker to Keep’s warm palette.
 
-2026-10-05 [CODE] Initial draft used four local sample projects, search, and No project without timer integration or persistence. D008 supersedes those implementation limits; the picker and separate task-name field remain. Project creation is still a disabled preview.
+2026-10-05 [CODE] Initial draft used four local sample projects, search, and No project without timer integration or persistence. D008 supersedes those implementation limits; the picker and separate task-name field remain. D010 enables creation, which was initially disabled.
 
-### D008 ACTIVE — 2026-10-05 [USER]
+### D008 PARTIALLY SUPERSEDED BY D011 — 2026-10-05 [USER]
 
 Connect assigned projects to timer recording and editable Timesheet entries. Count Pomodoro focus only; count all running Flow time, with Flow overriding Pomodoro during overlap. Offer a manual 5-minute break after each focus interval. Save recorded time and manual edits locally across closing/reopening Keep. Remove the folder icon’s down arrow.
 
@@ -55,6 +55,18 @@ Connect assigned projects to timer recording and editable Timesheet entries. Cou
 Keep equal padding between the panel and the window on all four sides. Switching navigation tabs must not change the panel size.
 
 2026-10-05 [CODE] The panel fills the usable content area with 16-point margins. Navigation stays outside separate mounted tab ScrollViews; content height no longer controls the shell's size.
+
+### D010 ACTIVE — 2026-10-05 [USER]
+
+Create a new project opens a dialog for a project name and a choice of 30 colors.
+
+2026-10-05 [CODE] Both Focus and Timesheet use the same dialog and shared saved catalog. Focus selects the created project; Timesheet adds it to the displayed week without reassigning running timers. Names are trimmed, limited to 80 characters, and must be distinct ignoring case/diacritics. Creation assigns a UUID and saves the name/color before any recorded time. Old saved totals remain readable. Cancel discards the draft.
+
+### D011 ACTIVE — 2026-10-05 [USER]
+
+Make the Pomodoro icon clickable and open a popover to choose focus duration, short-break duration, long-break duration, and the number of iterations before a long break.
+
+2026-10-05 [CODE] Defaults are 25/5/15 minutes and four completed focus intervals. Save validates and persists settings locally; current running/paused intervals keep their original duration, and future intervals use the saved settings. Idle countdowns update immediately. Breaks remain manually started, as previously requested. Focus completion advances the cycle once; short breaks retain progress, a started long break or Reset clears it, and skipped long breaks remain due. Cycle runtime resets on relaunch. Both break types remain excluded from Pomodoro recording; Flow priority is preserved.
 
 ## [PROGRESS]
 
@@ -88,8 +100,8 @@ Keep equal padding between the panel and the window on all four sides. Switching
 
 These questions are not blockers for unrelated work; resolve them when the relevant feature is requested.
 
-- 2026-10-05 [CODE] UNCONFIRMED: detailed session history, restoring timer runtime, automatic break cycles, and future notifications. Current focus/break/sleep/relaunch behavior is documented in D008 and architecture.
-- 2026-10-05 [CODE] UNCONFIRMED: project creation/renaming/deletion, task-level time records, and future storage migration. Project switches currently apply prospectively, and selection preserves task text.
+- 2026-10-05 [CODE] UNCONFIRMED: detailed session history, restoring timer runtime, automatic interval starts, and future notifications. Current focus/break/sleep/relaunch behavior is documented in D008, D011, and architecture.
+- 2026-10-05 [CODE] UNCONFIRMED: project renaming/deletion, task-level time records, and future storage migration. Project switches currently apply prospectively, and selection preserves task text.
 - 2026-10-05 [CODE] UNCONFIRMED: music source/provider, statistics scope, and a future dark palette.
 
 ## [WORKING SET]
@@ -120,3 +132,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [TOOL] Recording integration unsigned Debug build passed; 24 timer and 84 workspace checks passed. Separate subprocesses verified persisted data using a temporary preferences domain. Default/wide/narrow native offscreen Timesheet renders, timer focus/completion/break states, and the edit popover inspected; live UI interaction remains unverified.
 
 - 2026-10-05 [TOOL] Fixed-panel unsigned Debug build passed. Offscreen Focus and empty/populated Timesheet renders inspected at wide, default, and minimum content sizes; pixel measurements confirmed 16-point margins on all sides and identical panel bounds across tabs. Live tab switching and scrolling remain unverified.
+
+- 2026-10-05 [TOOL] Project creation unsigned Debug build and 135 workspace checks passed, including catalog persistence without time, backward-compatible loads, validation, all 30 color encodings, and separate-process reloads. Native offscreen dialog/picker/created Timesheet renders inspected; live sheet transitions remain unverified.
+
+- 2026-10-05 [TOOL] Pomodoro settings unsigned Debug build, 45 timer checks, and 157 workspace checks passed. Configurable short/long break cycles, retained active durations, focus-only recording, saved settings, legacy records, and separate-process reloads verified. Offscreen settings and long-break layouts inspected, including narrow controls; live popover interaction remains unverified.

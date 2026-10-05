@@ -11,8 +11,8 @@ The application is a first visual draft with one application target. Timers reco
 | App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or task drafts across launches |
 | Navigation | Selectable Focus and Timesheet tabs; shell-owned selection; disabled Stats and Settings controls | Stats/Settings destinations |
 | Timesheet | Live project/day seconds, computed totals, seven-day grid, week navigation, manual edits, Add project, and local saving | Detailed session log, calendar/list alternatives, sync |
-| Active target | Searchable folder picker using a shared project catalog; selection drives recording; separate editable task name | Project creation/renaming/deletion and task-level time records |
-| Pomodoro | 25-minute focus; optional manual 5-minute break after completion; independent Play, Stop/Continue, Reset; focus-only recording | Automatic cycles, notifications, adjustable durations in the UI |
+| Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; separate editable task name | Project renaming/deletion and task-level time records |
+| Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
 | Flow timer | Elapsed time, independent controls, and recording priority over Pomodoro | Detailed session history or a completion limit |
 | Music | Bundled cozy illustration with a frosted controls panel; controls disabled and marked coming soon | Playback, music sources, provider integration |
 | Tasks | Lined list with example tasks, completion toggles, trimmed nonempty input, and internal scrolling | Persistence, deletion, reordering, project association |
@@ -41,6 +41,7 @@ keep/
       NavBar.swift                 Shared navigation presentation
       PrimaryButton.swift          Shared action button with caller-supplied closure
       ProjectPicker.swift          Searchable project selection shared by Focus/Timesheet
+      ProjectCreationDialog.swift  Shared name/color sheet with caller-owned creation action
     Modifiers/
       CardStyle.swift              Shared card treatment and View.cardStyle extension
   Models/
@@ -48,8 +49,8 @@ keep/
     FocusProject.swift             Shared project catalog and Codable metadata
   Features/
     FocusSession/
-      Models/                      FocusTimer focus/rest timing state and FocusTask data
-      Views/                       Focus workspace, timer card, and supporting panels
+      Models/                      FocusTimer timing/cycles, PomodoroSettings, and FocusTask data
+      Views/                       Focus workspace, timer/settings popover, and supporting panels
     Timesheet/
       Models/                      TimesheetLedger, calendar/duration helpers, local persistence
       PreviewData/                 Numeric fixtures used only by previews
@@ -74,7 +75,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
         │   └── TimesheetTable → TimesheetTimeCell → TimesheetEntryEditor
         └── ScrollView → FocusSessionView
             ├── ActiveTargetHeader
-            │   └── ProjectPicker → FocusProject.defaults
+            │   └── ProjectPicker → WorkspaceModel.projects; ProjectCreationDialog sheet
             ├── TimerWorkspaceCard
             │   ├── PomodoroTimerPanel → FocusTimerCard
             │   └── FlowTimerPanel → FocusTimerCard
@@ -110,9 +111,12 @@ There is no established MVVM layer, repository abstraction, service container, o
 
 Implemented timer and recording semantics:
 
-- Pomodoro counts down 25 minutes of focus. At completion it waits; the user may choose a manual 5-minute break or Focus again. Break completion waits for the next focus interval. No interval starts automatically.
+- Pomodoro defaults to 25-minute focus, 5-minute short breaks, 15-minute long breaks, and a long break after four completed focus intervals. The timer/cup icon opens a settings popover with editable minute/count fields and native steppers, Save, and Cancel. Valid ranges are focus 1–180 minutes, short break 1–60, long break 1–120, and iterations 1–12.
+- Focus completion waits for a manually started break or Focus again. Short breaks preserve cycle progress. Starting a due long break begins a new cycle; skipping it keeps a long break due until chosen. Break completion waits for the next focus interval. No interval starts automatically.
+- Each completed focus interval advances the cycle once, including delayed refreshes and skipped breaks. Flow recording priority does not affect Pomodoro cycle progress. Reset clears cycle progress and starts fresh focus; relaunch also starts a fresh cycle.
+- `WorkspaceModel.updatePomodoroSettings` settles recording and validates/saves configuration. Running or paused intervals retain their original duration and elapsed time; later intervals use the new settings. Idle countdowns update immediately. Cancel/dismissing the popover discards its draft. Settings are shared across windows; runtime progress is not saved.
 - Flow counts up from zero. Both timers have independent Play, Stop/Continue, and Reset controls, and may run concurrently.
-- Stop preserves elapsed time; Continue excludes stopped intervals. Repeated Play does not restart a running interval. Reset returns that timer to fresh focus/zero without deleting recorded time.
+- Stop preserves elapsed time; Continue excludes stopped intervals. Repeated Play does not restart a running interval. Reset returns that timer to its configured focus duration/zero without deleting recorded time.
 - Every timer action, project change, and manual edit settles recording before mutating state. There is no writable timer binding in the views.
 - Running Flow contributes the entire monotonic interval. Otherwise a running Pomodoro focus interval contributes only its remaining focus duration. Breaks contribute zero Pomodoro time, including delayed completion updates. Overlap contributes once; stopping Flow falls back to running focus.
 - Selecting another project settles the old project first; only future time goes to the new selection. No project records under an explicit unassigned row. Task-name changes do not affect recording.
@@ -120,13 +124,13 @@ Implemented timer and recording semantics:
 - Recorded intervals split at local calendar midnights, including DST days of 23 or 25 hours. Duration is mapped from the previous checkpoint’s civil date; later wall-clock changes affect subsequent date attribution.
 - Timers and selection are app-scoped, continue while Keep runs, and restart idle on relaunch. No time is counted while the app is quit. Closing a window does not end app-owned timers.
 
-`TimesheetLedger` stores one numeric seconds value per project ID/local day ID, together with project metadata. Rows appear immediately when recording starts or a project is added manually. Daily, project, and weekly totals are derived from entries. The UI initially shows the current Monday–Sunday week; arrows navigate history and This week returns to the current week.
+`TimesheetLedger` stores one numeric seconds value per project ID/local day ID, together with project metadata. It also stores a separate `customProjects` catalog, so a created project survives relaunch before it has any time entries. `WorkspaceModel.projects` combines the four built-in projects with this saved catalog. Rows appear immediately when recording starts or a project is added manually. Daily, project, and weekly totals are derived from entries. The UI initially shows the current Monday–Sunday week; arrows navigate history and This week returns to the current week.
 
 `TimesheetTimeCell` opens a native `TimesheetEntryEditor` popover. The editor accepts nonnegative `h:mm` or `h:mm:ss`; blank sets the cell to zero. Invalid input stays in the editor with an explanation. Saving replaces the cell total after settling the running timer; later elapsed time adds to the edited value. A zero cell retains its project row. Timesheet has project/day aggregates, not individual sessions or task-level records.
 
-`TimesheetPersistence` JSON-encodes the ledger into the app’s standard `UserDefaults` under `keep.timesheet.v1`. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data blocks recording/edits and shows Retry rather than overwriting unreadable records. Timer runtime, task drafts, and selection are not persisted.
+`TimesheetPersistence` JSON-encodes the ledger, custom catalog, and optional `PomodoroSettings` into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog and default timer settings, retaining their entries. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, task drafts, and selection are not persisted.
 
-`ActiveTargetHeader` owns picker presentation/focus. `ProjectPicker` owns transient search/hover/focus state, searches four shared catalog projects by name, and focuses the task field after selection. Create a new project is still disabled. `DesignSystem/FocusProjectStyle.swift` maps shared project accents to theme colors. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
+`ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. The dialog offers 30 named color swatches, a selection checkmark, keyboard focus, and native Create/Cancel shortcuts. Cancel discards drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project and returns focus to the task field; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
 
 `TasksCard` owns draft input/focus only; its list remains in the Focus view. `MusicPlayerCard` has no playback state. There are no external providers, notification permissions, databases, or credentials.
 
@@ -148,7 +152,7 @@ Layout and accessibility behavior:
 - `CardStyle` supplies padding, flexible width, and rounding without imposing fixed maximum heights.
 - Supporting cards are 288 points high. The task list scrolls within its card as content grows.
 - Timer digits use stable widths and scale down to fit their column. Running/stopped/completed states have explicit text.
-- Primary actions, timer reset/break controls, and editable time cells have visible keyboard-focus rings; inputs expose labels and focus boundaries. Entry editors use native Save/Cancel shortcuts.
+- Primary actions, timer settings/reset/break controls, and editable time cells have visible keyboard-focus rings; inputs expose labels and focus boundaries. Editors use native Save/Cancel shortcuts. Completion controls place the break button on a separate row when needed.
 - The music panel uses native material with a warm translucent overlay, an explicit user-requested exception to flat styling. Reduce Transparency replaces it with opaque paper.
 
 Offscreen native renders were inspected at 1000 × 872 and 900 × 772 content sizes, plus a full-height 700-point-wide layout. Live interaction, keyboard navigation, VoiceOver, and actual material compositing in an onscreen window remain unverified because computer-use permissions were unavailable.
@@ -193,6 +197,7 @@ Run the deterministic timing checks:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Features/FocusSession/Models/PomodoroSettings.swift \
   keep/Features/FocusSession/Models/FocusTimer.swift \
   tests/FocusTimerChecks.swift -o /tmp/keep-timer-checks
 /tmp/keep-timer-checks
@@ -203,6 +208,7 @@ Run the recording, editing, and persistence checks:
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
   keep/Models/FocusProject.swift keep/Models/WorkspaceModel.swift \
+  keep/Features/FocusSession/Models/PomodoroSettings.swift \
   keep/Features/FocusSession/Models/FocusTimer.swift \
   keep/Features/Timesheet/Models/TimesheetLedger.swift \
   keep/Features/Timesheet/Models/TimesheetPersistence.swift \
@@ -210,9 +216,13 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-workspace-checks
 ```
 
-On 2026-10-05, the unsigned Debug build, 24 existing timing checks, and 84 workspace checks passed. Workspace checks cover overlap, Flow priority, manual breaks, paused/reset timers, project reassignment, edits during recording, fractions, midnight/week rollover, DST, duration validation, corrupt-load protection, and persistence across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
+On 2026-10-05, the unsigned Debug build, 45 timing checks, and 157 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
 
 Native offscreen renders of running/completed/break Focus states, empty/live/populated Timesheets at default, wide, and narrow sizes, and the entry editor were inspected. Live popover interaction, keyboard navigation, VoiceOver, release signing, and actual audio remain unverified; computer-use permission was unavailable for live UI checks.
+
+The project-creation dialog, all 30 color swatches, the updated picker, and a newly created Timesheet row were inspected in native offscreen renders. Live popover-to-sheet transitions and keyboard interaction remain unverified.
+
+Default/custom Pomodoro settings, long-break completion/running states, wrapped controls on a narrow timer card, and the default Focus layout were inspected in native offscreen renders. Live popover interaction and keyboard navigation remain unverified.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

@@ -27,6 +27,37 @@ enum WorkspaceChecks {
             workspace.ledger.seconds(projectID: project.id, dayID: dayID)
         }
 
+        expect(FocusProject.Accent.projectColors.count == 30, "Exactly 30 selectable project colors")
+        expect(Set(FocusProject.Accent.projectColors).count == 30, "Color choices are distinct")
+        let catalog = model()
+        let created = try catalog.createProject(name: "  Autumn notes\n", accent: .plum, at: instant(0), date: wall(0))
+        expect(created.name == "Autumn notes" && created.accent == .plum, "Creation trims the name and keeps the chosen color")
+        expect(catalog.projects.contains(created), "Created project joins the shared catalog")
+        expect(catalog.ledger.entries.isEmpty, "Creation alone does not fabricate time or a weekly row")
+        expect(catalog.selectedProject == keep, "Catalog registration does not change the active project")
+        for (name, color) in [(" \n ", FocusProject.Accent.sage), (String(repeating: "a", count: 81), .sage), ("autumn NOTES", .sage), ("No project", .sage), ("Another", .neutral)] {
+            do {
+                _ = try catalog.createProject(name: name, accent: color, at: instant(0), date: wall(0))
+                preconditionFailure("Invalid project should not be created")
+            } catch is ProjectCreationError {
+                expect(catalog.ledger.customProjects.count == 1, "Invalid creation leaves the catalog unchanged")
+            }
+        }
+        catalog.play(.flow, at: instant(0), date: wall(0))
+        let next = try catalog.createProject(name: "Sketchbook", accent: .seafoam, at: instant(10), date: wall(10))
+        catalog.selectProject(next, at: instant(10), date: wall(10))
+        catalog.stop(.flow, at: instant(20), date: wall(20))
+        near(seconds(catalog), 10, "Creating and selecting while running settles the old project")
+        near(seconds(catalog, next), 10, "New project records only subsequent time")
+        catalog.edit(seconds: 90, project: next, dayID: dayID, at: instant(20), date: wall(20))
+        near(seconds(catalog, next), 90, "Created project supports manual time edits")
+        let legacy = try JSONDecoder().decode(TimesheetLedger.self, from: Data("{\"entries\":[]}".utf8))
+        expect(legacy.customProjects.isEmpty, "Existing v1 data loads without a catalog field")
+        for color in FocusProject.Accent.projectColors {
+            let data = try JSONEncoder().encode(color)
+            expect(try JSONDecoder().decode(FocusProject.Accent.self, from: data) == color, "Color survives encoding: \(color)")
+        }
+
         let pomodoro = model(10)
         pomodoro.play(.pomodoro, at: instant(0), date: wall(0))
         expect(pomodoro.ledger.projects(dayIDs: [dayID]).count == 1, "Start adds a project row immediately")
@@ -61,6 +92,32 @@ enum WorkspaceChecks {
         near(seconds(pomodoro), 17, "Reset settles time without deleting recorded history")
         pomodoro.synchronize(at: instant(100), date: wall(100))
         near(seconds(pomodoro), 17, "Reset stops counting")
+
+        let settings = PomodoroSettings(focusMinutes: 1, shortBreakMinutes: 2, longBreakMinutes: 3, iterationsBeforeLongBreak: 2)
+        let configured = model(10)
+        configured.play(.pomodoro, at: instant(0), date: wall(0))
+        expect(configured.updatePomodoroSettings(settings, at: instant(5), date: wall(5)), "Apply valid settings while running")
+        near(seconds(configured), 5, "Settings change settles recorded time")
+        expect(configured.pomodoro.focusDuration == 10, "Settings do not change active focus duration")
+        configured.startBreak(at: instant(15), date: wall(15))
+        near(seconds(configured), 10, "Delayed focus completion caps at original duration after settings change")
+        expect(configured.pomodoro.breakDuration == 120 && !configured.pomodoro.isLongBreak, "First focus offers configured short break")
+        configured.play(.pomodoro, at: instant(135), date: wall(135))
+        expect(configured.pomodoro.focusDuration == 60, "Next focus uses new duration")
+        configured.startBreak(at: instant(195), date: wall(195))
+        expect(configured.pomodoro.isLongBreak && configured.pomodoro.breakDuration == 180, "Configured iteration threshold offers long break")
+        configured.synchronize(at: instant(205), date: wall(205))
+        near(seconds(configured), 70, "Neither short nor long break contributes Pomodoro time")
+        configured.play(.flow, at: instant(205), date: wall(205))
+        configured.updatePomodoroSettings(PomodoroSettings(focusMinutes: 3), at: instant(210), date: wall(210))
+        expect(configured.flow.phase(at: instant(210)) == .running, "Settings leave Flow running")
+        near(seconds(configured), 75, "Flow priority continues during long break and settings change")
+        let retained = configured.pomodoroSettings
+        expect(!configured.updatePomodoroSettings(PomodoroSettings(focusMinutes: 0), at: instant(210), date: wall(210)), "Invalid focus settings rejected")
+        expect(!configured.updatePomodoroSettings(PomodoroSettings(iterationsBeforeLongBreak: 13), at: instant(210), date: wall(210)), "Invalid iteration settings rejected")
+        expect(!configured.updatePomodoroSettings(PomodoroSettings(shortBreakMinutes: 61), at: instant(210), date: wall(210)), "Invalid short break settings rejected")
+        expect(!configured.updatePomodoroSettings(PomodoroSettings(longBreakMinutes: 0), at: instant(210), date: wall(210)), "Invalid long break settings rejected")
+        expect(configured.pomodoroSettings == retained, "Invalid settings preserve saved configuration")
 
         let pausedBreak = model(2)
         pausedBreak.startBreak(at: instant(0), date: wall(0))
@@ -194,6 +251,32 @@ enum WorkspaceChecks {
         near(seconds(reloaded), 7210, "New recording adds to saved totals")
         near(try persistence.load().seconds(projectID: keep.id, dayID: dayID), 7210, "Stop saves immediately")
 
+        let savedProject = try reloaded.createProject(name: "Saved before any time", accent: .walnut, at: instant(35), date: wall(35))
+        let catalogReload = WorkspaceModel(persistence: persistence, calendar: calendar, date: day)
+        expect(catalogReload.projects.contains(savedProject), "Name, identity, and color persist before the first session")
+        expect(catalogReload.ledger.entries.allSatisfy { $0.project.id != savedProject.id }, "Saved catalog does not invent entries")
+        near(seconds(catalogReload), 7210, "Adding a saved catalog preserves previous time")
+        reloaded.updatePomodoroSettings(settings, at: instant(35), date: wall(35))
+        let settingsReload = WorkspaceModel(persistence: persistence, calendar: calendar, date: day)
+        expect(settingsReload.pomodoroSettings == settings && settingsReload.pomodoro.focusDuration == 60, "Settings survive reload and configure the idle timer")
+        expect(settingsReload.pomodoro.completedFocusIntervals == 0, "Runtime cycle progress is not restored")
+        expect(settingsReload.projects.contains(savedProject), "Saving settings preserves custom projects")
+        near(seconds(settingsReload), 7210, "Saving settings preserves recorded time")
+
+        let oldRecords = try JSONSerialization.jsonObject(with: JSONEncoder().encode(reloaded.ledger)) as? [String: Any]
+        let oldData = try JSONSerialization.data(withJSONObject: ["entries": oldRecords?["entries"] ?? []])
+        defaults.set(oldData, forKey: persistence.key)
+        let legacyReload = WorkspaceModel(persistence: persistence, calendar: calendar, date: day)
+        expect(legacyReload.canTrack && legacyReload.ledger.customProjects.isEmpty, "Old saved records migrate without a load failure")
+        expect(legacyReload.pomodoroSettings == .defaults, "Old records use default settings")
+        near(seconds(legacyReload), 7210, "Old saved records retain exact totals")
+
+        var invalidSettingsLedger = reloaded.ledger
+        invalidSettingsLedger.setPomodoroSettings(PomodoroSettings(focusMinutes: 0))
+        try persistence.save(invalidSettingsLedger)
+        let invalidSettingsLoad = WorkspaceModel(persistence: persistence, calendar: calendar, date: day)
+        expect(invalidSettingsLoad.loadFailed && !invalidSettingsLoad.canTrack, "Invalid saved settings are protected as corrupt data")
+
         let corruptData = Data("invalid saved JSON".utf8)
         defaults.set(corruptData, forKey: persistence.key)
         let failed = WorkspaceModel(persistence: persistence, calendar: calendar, date: day)
@@ -201,6 +284,13 @@ enum WorkspaceChecks {
         failed.play(.flow, at: instant(0), date: wall(0))
         failed.edit(seconds: 50, project: keep, dayID: dayID, at: instant(10), date: wall(10))
         expect(failed.ledger.entries.isEmpty && failed.flow.phase(at: instant(10)) == .idle, "Failed load blocks edits and recording")
+        expect(!failed.updatePomodoroSettings(settings), "Failed load blocks settings writes")
+        do {
+            _ = try failed.createProject(name: "Blocked", accent: .sage)
+            preconditionFailure("Creation must not overwrite unreadable data")
+        } catch is ProjectCreationError {
+            expect(failed.ledger.customProjects.isEmpty, "Failed load also blocks project creation")
+        }
         expect(defaults.data(forKey: persistence.key) == corruptData, "Failed load never overwrites stored records")
         try persistence.save(reloaded.ledger)
         failed.retryPersistence()
@@ -233,10 +323,14 @@ enum WorkspaceChecks {
         if mode == "--write-probe" {
             var ledger = TimesheetLedger()
             ledger.setSeconds(2715, project: FocusProject.defaults[1], dayID: "2026-10-05")
+            ledger.registerProject(FocusProject(id: "probe-project", name: "Across launches", accent: .lavender, category: "Personal project"))
+            ledger.setPomodoroSettings(PomodoroSettings(focusMinutes: 45, shortBreakMinutes: 7, longBreakMinutes: 20, iterationsBeforeLongBreak: 3))
             try persistence.save(ledger)
         } else if mode == "--read-probe" {
             let ledger = try persistence.load()
             near(ledger.seconds(projectID: "german", dayID: "2026-10-05"), 2715, "Cross-process saved value")
+            expect(ledger.customProjects.first?.id == "probe-project" && ledger.customProjects.first?.accent == .lavender, "Cross-process project catalog persists without recorded time")
+            expect(ledger.pomodoroSettings?.focusMinutes == 45 && ledger.pomodoroSettings?.iterationsBeforeLongBreak == 3, "Cross-process Pomodoro settings persist")
         } else { preconditionFailure("Unknown probe mode") }
     }
 

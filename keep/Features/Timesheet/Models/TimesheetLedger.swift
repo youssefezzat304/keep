@@ -10,6 +10,28 @@ struct TimesheetEntry: Identifiable, Codable {
 /// Numeric source of truth. UI strings and totals are derived, never stored separately.
 struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
+    private(set) var customProjects: [FocusProject] = []
+    private(set) var pomodoroSettings: PomodoroSettings?
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, pomodoroSettings }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try container.decode([TimesheetEntry].self, forKey: .entries)
+        // Existing v1 records predate project creation and contain only entries.
+        customProjects = try container.decodeIfPresent([FocusProject].self, forKey: .customProjects) ?? []
+        pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
+    }
+
+    mutating func setPomodoroSettings(_ settings: PomodoroSettings) {
+        pomodoroSettings = settings
+    }
+
+    mutating func registerProject(_ project: FocusProject) {
+        customProjects.append(project)
+    }
 
     func seconds(projectID: String, dayID: String) -> TimeInterval {
         entries.first { $0.project.id == projectID && $0.dayID == dayID }?.seconds ?? 0

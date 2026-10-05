@@ -20,20 +20,42 @@ struct FocusTimer {
     }
 
     let mode: Mode
-    let focusDuration: TimeInterval
-    let breakDuration: TimeInterval
-    private(set) var interval: Interval = .focus
-    var intervalDuration: TimeInterval { interval == .focus ? focusDuration : breakDuration }
+    private(set) var focusDuration: TimeInterval
+    private(set) var breakDuration: TimeInterval
+    private(set) var shortBreakDuration: TimeInterval
+    private(set) var longBreakDuration: TimeInterval
+    private(set) var iterationsBeforeLongBreak: Int
+    private(set) var completedFocusIntervals = 0
+    private(set) var isLongBreak = false
+    private var nextFocusDuration: TimeInterval
     private var accumulated: TimeInterval = 0
     private var startedAt: ContinuousClock.Instant?
     private var storedPhase: Phase = .idle
+    private(set) var interval: Interval = .focus
+    var intervalDuration: TimeInterval { interval == .focus ? focusDuration : breakDuration }
+    var nextBreakIsLong: Bool { breakIsLong() }
+    var nextBreakDuration: TimeInterval { upcomingBreakDuration() }
 
-    init(mode: Mode, focusDuration: TimeInterval = 25 * 60, breakDuration: TimeInterval = 5 * 60) {
+    func breakIsLong(at instant: ContinuousClock.Instant = .now) -> Bool {
+        let pending = interval == .focus && storedPhase != .completed && phase(at: instant) == .completed ? 1 : 0
+        return completedFocusIntervals + pending >= iterationsBeforeLongBreak
+    }
+
+    func upcomingBreakDuration(at instant: ContinuousClock.Instant = .now) -> TimeInterval {
+        breakIsLong(at: instant) ? longBreakDuration : shortBreakDuration
+    }
+
+    init(mode: Mode, focusDuration: TimeInterval = 25 * 60, breakDuration: TimeInterval = 5 * 60, longBreakDuration: TimeInterval = 15 * 60, iterationsBeforeLongBreak: Int = 4) {
         precondition(focusDuration > 0 && focusDuration.isFinite)
         precondition(breakDuration > 0 && breakDuration.isFinite)
+        precondition(longBreakDuration > 0 && longBreakDuration.isFinite && iterationsBeforeLongBreak > 0)
         self.mode = mode
         self.focusDuration = focusDuration
         self.breakDuration = breakDuration
+        self.shortBreakDuration = breakDuration
+        self.longBreakDuration = longBreakDuration
+        self.iterationsBeforeLongBreak = iterationsBeforeLongBreak
+        nextFocusDuration = focusDuration
     }
 
     func elapsed(at instant: ContinuousClock.Instant = .now) -> TimeInterval {
@@ -68,14 +90,16 @@ struct FocusTimer {
     }
 
     mutating func play(at instant: ContinuousClock.Instant = .now) {
+        settleCompletion(at: instant)
         guard phase(at: instant) != .running else { return }
-        if phase(at: instant) == .completed { reset() }
+        if phase(at: instant) == .completed { prepareFocus() }
         startedAt = instant
         storedPhase = .running
     }
 
     /// Stop preserves elapsed time so Play can continue. Reset starts a new session.
     mutating func stop(at instant: ContinuousClock.Instant = .now) {
+        settleCompletion(at: instant)
         guard storedPhase == .running else { return }
         accumulated = elapsed(at: instant)
         if mode == .pomodoro { accumulated = min(accumulated, intervalDuration) }
@@ -84,17 +108,49 @@ struct FocusTimer {
     }
 
     mutating func reset() {
+        completedFocusIntervals = 0
+        prepareFocus()
+    }
+
+    private mutating func prepareFocus() {
         interval = .focus
+        isLongBreak = false
+        focusDuration = nextFocusDuration
+        breakDuration = shortBreakDuration
         accumulated = 0
         startedAt = nil
         storedPhase = .idle
     }
 
     mutating func startBreak(at instant: ContinuousClock.Instant = .now) {
+        settleCompletion(at: instant)
         guard mode == .pomodoro, interval == .focus, phase(at: instant) == .completed else { return }
-        reset()
+        isLongBreak = nextBreakIsLong
+        breakDuration = nextBreakDuration
+        if isLongBreak { completedFocusIntervals = 0 }
+        accumulated = 0
         interval = .rest
         startedAt = instant
         storedPhase = .running
+    }
+
+    /// Count each completed focus interval once, even if refreshes arrive late.
+    mutating func settleCompletion(at instant: ContinuousClock.Instant = .now) {
+        guard mode == .pomodoro, storedPhase != .completed, phase(at: instant) == .completed else { return }
+        accumulated = intervalDuration
+        startedAt = nil
+        storedPhase = .completed
+        if interval == .focus { completedFocusIntervals += 1 }
+    }
+
+    /// Active/paused intervals keep their original duration; new intervals use these settings.
+    mutating func configure(_ settings: PomodoroSettings, at instant: ContinuousClock.Instant = .now) {
+        guard mode == .pomodoro, settings.isValid else { return }
+        settleCompletion(at: instant)
+        nextFocusDuration = Double(settings.focusMinutes * 60)
+        shortBreakDuration = Double(settings.shortBreakMinutes * 60)
+        longBreakDuration = Double(settings.longBreakMinutes * 60)
+        iterationsBeforeLongBreak = settings.iterationsBeforeLongBreak
+        if storedPhase == .idle { prepareFocus() }
     }
 }

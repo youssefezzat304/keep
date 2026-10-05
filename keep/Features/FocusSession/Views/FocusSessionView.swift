@@ -8,7 +8,7 @@ struct FocusSessionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            ActiveTargetHeader(taskName: $taskName, selectedProject: Binding(get: { workspace.selectedProject }, set: { workspace.selectProject($0) }), isCompact: isCompact)
+            ActiveTargetHeader(taskName: $taskName, workspace: workspace, isCompact: isCompact)
 
             TimerWorkspaceCard(workspace: workspace, isCompact: isCompact)
 

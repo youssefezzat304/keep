@@ -12,6 +12,8 @@ final class WorkspaceModel {
     private(set) var loadFailed = false
     private(set) var today: Date
     var canTrack: Bool { !loadFailed }
+    var projects: [FocusProject] { FocusProject.defaults + ledger.customProjects }
+    var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
 
     @ObservationIgnored private var checkpoint: ContinuousClock.Instant?
     @ObservationIgnored private var checkpointDate: Date?
@@ -31,9 +33,10 @@ final class WorkspaceModel {
             do { self.ledger = try persistence.load() }
             catch {
                 loadFailed = true
-                persistenceError = "Couldn’t load your saved time. Retry before recording or editing entries."
+                persistenceError = "Couldn’t load your saved workspace. Retry before recording, editing time, or creating projects."
             }
         }
+        if let settings = self.ledger.pomodoroSettings { pomodoro.configure(settings) }
     }
 
     func selectProject(_ project: FocusProject?, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
@@ -41,6 +44,23 @@ final class WorkspaceModel {
         selectedProject = project
         if isRecording(at: instant) { ensureCurrentRow(on: date) }
         save(at: instant)
+    }
+
+    /// Catalog registration does not invent a Timesheet entry or change the active project.
+    func createProject(name: String, accent: FocusProject.Accent, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws -> FocusProject {
+        guard canTrack else { throw ProjectCreationError.unavailable }
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= 80 else { throw ProjectCreationError.invalidName }
+        guard accent != .neutral else { throw ProjectCreationError.invalidColor }
+        guard !(projects + [.unassigned]).contains(where: { $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) else {
+            throw ProjectCreationError.duplicateName
+        }
+        synchronize(at: instant, date: date)
+        let project = FocusProject(id: UUID().uuidString, name: name, accent: accent, category: "Personal project")
+        ledger.registerProject(project)
+        ledgerDirty = true
+        save(at: instant)
+        return project
     }
 
     func play(_ mode: FocusTimer.Mode, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
@@ -68,6 +88,17 @@ final class WorkspaceModel {
         synchronize(at: instant, date: date)
         pomodoro.startBreak(at: instant)
         save(at: instant)
+    }
+
+    @discardableResult
+    func updatePomodoroSettings(_ settings: PomodoroSettings, at instant: ContinuousClock.Instant = .now, date: Date = .now) -> Bool {
+        guard canTrack, settings.isValid else { return false }
+        synchronize(at: instant, date: date)
+        pomodoro.configure(settings, at: instant)
+        ledger.setPomodoroSettings(settings)
+        ledgerDirty = true
+        save(at: instant)
+        return true
     }
 
     /// Edits replace the settled cell total. Future active time is added to that value.
@@ -106,7 +137,7 @@ final class WorkspaceModel {
                 ledgerDirty = true
             }
         }
-        if pomodoro.phase(at: instant) == .completed { pomodoro.stop(at: instant) }
+        pomodoro.settleCompletion(at: instant)
         checkpoint = instant
         checkpointDate = date
         if let lastSave, instant - lastSave < .seconds(5) { return }
@@ -141,6 +172,7 @@ final class WorkspaceModel {
         if loadFailed, let persistence {
             do {
                 ledger = try persistence.load()
+                if let settings = ledger.pomodoroSettings { pomodoro.configure(settings) }
                 loadFailed = false
                 persistenceError = nil
             } catch { return }
@@ -159,6 +191,6 @@ final class WorkspaceModel {
             ledgerDirty = false
             lastSave = instant
             persistenceError = nil
-        } catch { persistenceError = "Couldn’t save your time. Retry to keep the latest entries on this Mac." }
+        } catch { persistenceError = "Couldn’t save your changes. Retry to keep them on this Mac." }
     }
 }

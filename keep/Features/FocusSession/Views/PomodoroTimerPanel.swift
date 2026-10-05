@@ -11,7 +11,9 @@ struct PomodoroTimerPanel: View {
             onPlay: { workspace.play(.pomodoro) },
             onStop: { workspace.stop(.pomodoro) },
             onReset: { workspace.reset(.pomodoro) },
-            onBreak: { workspace.startBreak() }
+            onBreak: { workspace.startBreak() },
+            pomodoroSettings: workspace.pomodoroSettings,
+            onSettings: { workspace.updatePomodoroSettings($0) }
         )
     }
 }

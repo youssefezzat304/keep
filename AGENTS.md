@@ -78,7 +78,7 @@ When timer behavior is requested:
 - Avoid duplicate ticking tasks and cancel work when its owner ends.
 - Make session completion and any notifications predictable and testable.
 
-Pomodoro and flow controls are independent and may run concurrently. Recorded time uses a single app-owned recorder: running Flow takes priority; otherwise only Pomodoro focus counts. Manual Pomodoro breaks never add Pomodoro time. Route timer actions, project changes, and Timesheet edits through `WorkspaceModel` so elapsed time is settled before state changes. Preserve these rules. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
+Pomodoro and flow controls are independent and may run concurrently. Recorded time uses a single app-owned recorder: running Flow takes priority; otherwise only Pomodoro focus counts. Manual short/long Pomodoro breaks never add Pomodoro time. Route timer actions, settings changes, project changes, and Timesheet edits through `WorkspaceModel` so elapsed time is settled before state changes. Settings changes preserve the duration of running/paused intervals; completed focus intervals advance the break cycle once. Preserve these rules. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
 
 Do not add notification permissions, background services, persistence, or music-provider integrations as incidental parts of a visual task.
 
@@ -217,7 +217,7 @@ The final response should state what changed, where, how it was verified, and an
 
 ## 19. Current project direction
 
-Focus and Timesheet share the app-owned `WorkspaceModel` and project catalog. Recorded project/day totals and manual edits persist locally; timer runtime and task-list state are not restored after quitting. Keep numeric fixtures in `keep/Features/Timesheet/PreviewData/` for previews only. Never seed the live ledger with sample history or store separately calculated totals.
+Focus and Timesheet share the app-owned `WorkspaceModel` and project catalog. Create projects through the workspace; the saved custom catalog is separate from time entries so projects can persist before their first session. Preserve loading of older records without the catalog field. Created projects, recorded project/day totals, and manual edits persist locally; timer runtime and task-list state are not restored after quitting. Keep numeric fixtures in `keep/Features/Timesheet/PreviewData/` for previews only. Never seed the live ledger with sample history or store separately calculated totals.
 
 Preserve one recorder and one persistence owner across tabs and windows. Test overlap, focus/break exclusion, edits during recording, project changes, day boundaries, and reloads when changing recording behavior. Do not reintroduce direct timer bindings that bypass settlement.
 

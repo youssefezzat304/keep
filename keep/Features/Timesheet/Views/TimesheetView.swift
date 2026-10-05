@@ -4,6 +4,7 @@ struct TimesheetView: View {
     let workspace: WorkspaceModel
     @State private var weekOffset = 0
     @State private var showsProjectPicker = false
+    @State private var showsProjectCreation = false
 
     private var week: TimesheetWeek {
         let date = workspace.calendar.date(byAdding: .weekOfYear, value: weekOffset, to: workspace.today) ?? workspace.today
@@ -47,7 +48,10 @@ struct TimesheetView: View {
                 .disabled(!workspace.canTrack)
                 .help("Add a project to this week and enter time")
                 .popover(isPresented: $showsProjectPicker) {
-                    ProjectPicker(projects: FocusProject.defaults, selectedProject: nil) { project in
+                    ProjectPicker(projects: workspace.projects, selectedProject: nil, onCreate: {
+                        showsProjectPicker = false
+                        showsProjectCreation = true
+                    }) { project in
                         workspace.addProject(project ?? .unassigned, on: week.days.first?.date ?? workspace.today)
                         showsProjectPicker = false
                     }
@@ -69,6 +73,12 @@ struct TimesheetView: View {
             .foregroundStyle(KeepTheme.mutedInk)
         }
         .foregroundStyle(KeepTheme.ink)
+        .sheet(isPresented: $showsProjectCreation) {
+            ProjectCreationDialog { name, accent in
+                let project = try workspace.createProject(name: name, accent: accent)
+                workspace.addProject(project, on: week.days.first?.date ?? workspace.today)
+            }
+        }
     }
 
     private var heading: some View {
