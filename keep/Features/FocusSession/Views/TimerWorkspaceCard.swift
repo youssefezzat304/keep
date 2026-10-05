@@ -1,22 +1,28 @@
-//
-//  TimerWorkspaceCard.swift
-//  keep
-//
-//  Created by Youssef Abdelrahim on 22.06.26.
-//
-
 import SwiftUI
 
 struct TimerWorkspaceCard: View {
+    @Binding var pomodoro: FocusTimer
+    @Binding var flow: FocusTimer
+    var isCompact = false
+
     var body: some View {
-        VStack {
-            PomodoroTimerPanel()
-            FlowTimerPanel()
+        if isCompact {
+            VStack(spacing: 18) { panels }
+        } else {
+            HStack(alignment: .top, spacing: 18) { panels }
         }
-        .padding()
+    }
+
+    @ViewBuilder private var panels: some View {
+        PomodoroTimerPanel(timer: $pomodoro)
+        FlowTimerPanel(timer: $flow)
     }
 }
 
 #Preview {
-    TimerWorkspaceCard()
+    TimerWorkspaceCard(
+        pomodoro: .constant(FocusTimer(mode: .pomodoro)),
+        flow: .constant(FocusTimer(mode: .flow))
+    )
+    .padding().frame(width: 900)
 }

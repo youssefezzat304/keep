@@ -4,20 +4,20 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-The application is an early UI prototype with one application target and a single root view composition. All current views are stateless: there are no session models, observable stores, action bindings, persistence services, or external integrations.
+The application is a first visual draft with one application target. Timers and tasks now have working, window-local state. Music is a visual preview; audio, persistence, and external integrations are not implemented.
 
-| Area | Implemented today | Missing behavior |
+| Area | Implemented today | Not implemented |
 | --- | --- | --- |
-| App window | `WindowGroup` displaying `AppShellView`; default size 900 × 800 | No explicit policy for sharing state across windows |
-| Navigation | Home, Stats, and Settings buttons | No route state or destination views; all buttons print `clicked` |
-| Active target | `Untitled` label and Change button | No project/task model or picker; Change prints a message |
-| Pomodoro | Static `25:00` label and Start button | No countdown or lifecycle; Start prints a message |
-| Flow timer | Static `00:00:00` label and Start button | No elapsed-time tracking or lifecycle; Start prints a message |
-| Music | Placeholder card | No playback controls, audio source, or provider |
-| Tasks | Placeholder card | No task input, list, completion, or storage |
-| Design system | Shared button view and card modifier | No central theme or populated accent color; cozy styling is specified in `docs/style.md` |
+| App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; scrolling shell | State shared across windows or launches |
+| Navigation | Selected Focus label; disabled Stats and Settings controls with help text | Destination views and routing |
+| Active target | Editable text field owned by the focus view | Project/task picker or persisted target |
+| Pomodoro | 25-minute countdown with Play, Stop/Continue, Reset, and a completion state | Break cycles, notifications, history, adjustable durations in the UI |
+| Flow timer | Elapsed time with its own Play, Stop/Continue, and Reset | Session history or a completion limit |
+| Music | Bundled cozy illustration with a frosted controls panel; controls disabled and marked coming soon | Playback, music sources, provider integration |
+| Tasks | Lined list with example tasks, completion toggles, trimmed nonempty input, and internal scrolling | Persistence, deletion, reordering, project association |
+| Design system | Semantic color assets, `KeepTheme`, reusable action button, flexible card modifier | Dark theme |
 
-Navigation, timer, task, and music labels indicate intended UI areas. They do not settle requirements such as timer exclusivity, music-provider choice, or persistence strategy.
+Both timers may run at the same time. Their actions and resets are independent. Example tasks and the target text are draft content editable within the current window; they are not saved.
 
 ## 2. Repository structure
 
@@ -33,15 +33,18 @@ keep/
     KeepApp.swift                  @main entry point, WindowGroup, default window size
     AppShellView.swift             Navigation and focus-workspace composition
   DesignSystem/
+    KeepTheme.swift                Semantic references to named color assets
     Components/
       NavBar.swift                 Shared navigation presentation
-      PrimaryButton.swift          Shared button appearance; placeholder action
+      PrimaryButton.swift          Shared action button with caller-supplied closure
     Modifiers/
       CardStyle.swift              Shared card treatment and View.cardStyle extension
   Features/
     FocusSession/
-      Views/                       Focus workspace and its constituent panels
-  Assets.xcassets/                  AppIcon and AccentColor asset definitions
+      Models/                      FocusTimer timing state and FocusTask data
+      Views/                       Focus workspace, timer card, and supporting panels
+  Assets.xcassets/                  Named colors, CozyCorner artwork, and AppIcon
+tests/FocusTimerChecks.swift        Standalone deterministic timing checks
 reference/                         Local, Git-ignored visual references
 ```
 
@@ -54,18 +57,20 @@ keepApp
 └── WindowGroup
     └── AppShellView
         ├── NavBar
-        │   └── PrimaryButton × 3: Home, Stats, Settings
+        │   └── Focus selection; disabled Stats and Settings
         └── FocusSessionView
             ├── ActiveTargetHeader
             ├── TimerWorkspaceCard
-            │   ├── PomodoroTimerPanel
-            │   └── FlowTimerPanel
-            └── HStack
-                ├── MusicPlayerCard → cardStyle
-                └── TasksCard → cardStyle
+            │   ├── PomodoroTimerPanel → FocusTimerCard
+            │   └── FlowTimerPanel → FocusTimerCard
+            └── Supporting cards (HStack or VStack)
+                ├── MusicPlayerCard
+                └── TasksCard
 ```
 
-`TimerWorkspaceCard` currently composes two timer panels with padding; despite its name, it does not apply the shared card modifier. `NavBar` currently lives in the design system but hard-codes destination labels. Revisit its ownership or inputs when real navigation is implemented rather than making reusable controls own routing.
+`TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel binds its own timer to the shared `FocusTimerCard` presentation. `FocusSessionView` owns the two timers, target, and task collection.
+
+`NavBar` still presents fixed navigation labels without owning route state. Revisit its ownership or inputs when real navigation is requested. Shared `PrimaryButton` receives its action from the caller.
 
 ## 4. Responsibility and dependency boundaries
 
@@ -82,31 +87,43 @@ There is no established MVVM layer, repository abstraction, service container, o
 
 ## 5. State and data ownership
 
-There is no runtime state flow to document yet: values are literals and actions only print messages. No data is saved between launches.
+`FocusSessionView` owns two `FocusTimer` values, a target string, and an array of `FocusTask` values using `@State`. Child views receive bindings. Every window has its own state, and closing the window discards that state. Nothing is saved between launches.
 
-When behavior is introduced:
+`FocusTimer` is a value type using `ContinuousClock.Instant` and accumulated elapsed seconds. `play` and `stop` accept optional clock instants; elapsed calculations, phase, and display formatting use those recorded instants. Reset clears timing state. Deterministic checks advance supplied instants without sleeping.
 
-- Give each session, active target, and task collection one explicit owner. Child views receive values and bindings or action closures as appropriate.
-- Keep elapsed/remaining-time calculations in testable timing logic, separate from display refreshes and SwiftUI layout.
-- Record the actual session lifecycle and clock semantics once chosen, including pause/resume and sleep/wake behavior.
-- Decide whether state belongs to one window or the whole application before sharing it across the existing `WindowGroup`.
-- Document any persistence or external integration at the point it is implemented, including its data boundary and failure behavior.
+Implemented semantics:
 
-These are implementation constraints, not existing model or service APIs. Pomodoro/flow exclusivity, target switching during a session, recovery after relaunch, and the music source remain open questions in `docs/decisions.md`.
+- Pomodoro counts down from 25 minutes; flow counts up from zero.
+- Play starts an idle timer; Continue resumes a stopped timer. Repeated Play while running does not restart it.
+- Stop freezes the current time. Reset returns that timer to its initial value.
+- Pomodoro clamps its display at zero and enters completed state. Playing a completed interval begins a new one.
+- `ContinuousClock` includes time during system sleep and does not depend on wall-clock adjustments. Relaunch recovery is not implemented.
+- A `TimelineView` refreshes the display approximately once per second while running. The refresh schedule is not timing truth. The view freezes completed Pomodoro timing through the model's Stop action.
+- Each timer can run, stop, or reset without mutating the other timer.
+
+`TasksCard` owns only its draft input/focus state; task data remains in the parent. `MusicPlayerCard` owns no playback state. There are no ticking background services, observable global stores, notification requests, databases, or provider credentials.
+
+Task/project relationships, target switching semantics beyond editing its label, durable session history, and music sources remain open product questions. See `docs/decisions.md`.
 
 ## 6. Visual implementation and layout constraints
 
-`docs/style.md` defines the target cozy editorial appearance. The current code uses a fixed white shell, gray buttons, red music card, and blue task card. `AccentColor` has an asset entry without color components. There is no `KeepTheme` implementation or explicit appearance policy.
+`docs/style.md` owns the cozy editorial palette. Named color assets are the source of truth; `KeepTheme` provides shared semantic references. The first draft explicitly uses light appearance to keep fixed warm surfaces and foregrounds consistent.
 
-Existing layout constraints include:
+The shell places a cream workspace over peach surroundings. Pomodoro uses terracotta; flow uses sage. Tasks use an ivory ruled-list treatment. The music artwork is a bundled asset in `keep/Assets.xcassets/CozyCorner.imageset/`; its generation prompt and provenance are in `docs/music-artwork.md`.
 
-- A 900 × 800 default window, without an explicit app-level minimum window size.
-- A focus view minimum width of 700 points, with additional nested padding in the shell and feature view.
-- A 50-point fixed target-header height and large fixed timer font sizes.
-- Side-by-side music and task cards; no adaptive stacking or scroll container.
-- A shared card frame constrained to 100–500 points wide and 100–350 points high, with a 20-point corner radius.
+Layout and accessibility behavior:
 
-These are source-level constraints, not verified reports of visual defects. Inspect previews or the running app when changing layout, especially for narrow windows, long task names, and supporting content growth. Define shared semantic styling in the design system or asset catalog when the palette is implemented.
+- Default window size is 1000 × 900; the root view has a 680 × 650 minimum frame.
+- The outer shell scrolls, centers the workspace, and caps it at 1100 points wide.
+- Below 820 points of window width, timer and supporting card pairs stack vertically.
+- The target header uses `ViewThatFits` to move the target field below the heading when needed.
+- `CardStyle` supplies padding, flexible width, and rounding without imposing fixed maximum heights.
+- Supporting cards are 288 points high. The task list scrolls within its card as content grows.
+- Timer digits use stable widths and scale down to fit their column. Running/stopped/completed states have explicit text.
+- Primary actions and timer reset controls have custom keyboard-focus rings; inputs expose labels and focus boundaries.
+- The music panel uses native material with a warm translucent overlay, an explicit user-requested exception to flat styling. Reduce Transparency replaces it with opaque paper.
+
+Offscreen native renders were inspected at 1000 × 872 and 900 × 772 content sizes, plus a full-height 700-point-wide layout. Live interaction, keyboard navigation, VoiceOver, and actual material compositing in an onscreen window remain unverified because computer-use permissions were unavailable.
 
 ## 7. Build configuration and capabilities
 
@@ -128,7 +145,7 @@ The checked-in project currently declares:
 
 The language-mode setting does not identify the installed Swift compiler. Project metadata does not prove SDK availability or that a build succeeds on a given machine. Check the installed toolchain when compatibility matters.
 
-There is no test target, configured lint/format tool, persistence framework, backend, or network/music integration. Sandbox settings do not imply that a file-import feature exists; adding capabilities requires a concrete feature need.
+There is no Xcode test target, configured lint/format tool, persistence framework, backend, or network/music integration. Timing checks run through a standalone Swift harness. Sandbox settings do not imply that a file-import feature exists; adding capabilities requires a concrete feature need.
 
 ## 8. Development and verification
 
@@ -142,7 +159,16 @@ xcodebuild -project keep.xcodeproj -scheme keep -configuration Debug \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-The scheme and target were confirmed with `xcodebuild -list` on 2026-10-05. No compilation or runtime verification was performed for this documentation baseline. The unsigned build command is a development workflow, not evidence of a successful build or release-signing validation.
+Run the deterministic timing checks:
+
+```sh
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Features/FocusSession/Models/FocusTimer.swift \
+  tests/FocusTimerChecks.swift -o /tmp/keep-timer-checks
+/tmp/keep-timer-checks
+```
+
+On 2026-10-05, the unsigned Debug build and 24 deterministic timing checks passed. The build emitted an App Intents metadata warning because no AppIntents dependency is present. These results do not validate release signing, real audio, or live UI interaction.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

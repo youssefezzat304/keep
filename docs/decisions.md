@@ -3,12 +3,12 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-05 [CODE] Current state: stateless UI prototype. Navigation and timer actions print messages; task/music cards are placeholders.
+- 2026-10-05 [CODE] Current state: first cozy visual draft with independent working timers, an editable focus label, and a lined task list. Music is a disabled playback preview.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] No persistence, external integrations, third-party packages, or test target currently configured.
-- 2026-10-05 [USER] Visual direction: editorial restraint with the provided image's cozy palette; implementation is pending.
-- 2026-10-05 [CODE] Next feature is UNCONFIRMED; this documentation task does not select a roadmap item.
+- 2026-10-05 [CODE] No persistence, external integrations, third-party packages, or Xcode test target. A standalone timer-check harness is available.
+- 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
+- 2026-10-05 [CODE] State is window-local and resets when the window closes. Next feature is UNCONFIRMED.
 
 ## [DECISIONS]
 
@@ -18,28 +18,45 @@ Keep documentation in the existing lowercase `docs/` files and refine root `AGEN
 
 Ownership: agent rules in `AGENTS.md`, implemented structure and constraints in architecture, durable context here, and visual language in style. Avoid duplicate root-level or uppercase alternatives.
 
+### D002 ACTIVE — 2026-10-05 [USER]
+
+Provide two independently playable/stoppable timers: Pomodoro and flow. They may run concurrently; actions on one must not change the other.
+
+### D003 ACTIVE — 2026-10-05 [CODE]
+
+For the first draft, Stop preserves time, Continue resumes it, and Reset starts fresh. Pomodoro uses 25 minutes; flow has no time limit. Timing uses `ContinuousClock`, including sleep, with state local to each window. No persistence or automatic break cycles are introduced.
+
+### D004 ACTIVE — 2026-10-05 [USER]
+
+The music area previews later lofi/ambient playback with cozy artwork and controls floating on a blurry card. This panel is an exception to the flat visual language; actual audio remains out of scope.
+
+### D005 ACTIVE — 2026-10-05 [CODE]
+
+Use explicit light appearance for the first palette implementation. Keep Stats, Settings, and music playback controls disabled rather than implying unfinished functionality works.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
 
+- 2026-10-05 [CODE] Added semantic color assets, generated/bundled music artwork, adaptive card composition, independent timer state, and window-local task add/completion behavior.
+
 ## [DISCOVERIES]
 
-- 2026-10-05 [CODE] `WindowGroup` is present without an explicit cross-window state policy; decide ownership when introducing session state.
-- 2026-10-05 [CODE] `PrimaryButton` owns a placeholder print action, and `NavBar` hard-codes labels. Real navigation needs caller-owned actions and routing state.
-- 2026-10-05 [CODE] `TimerWorkspaceCard` does not use `CardStyle`; current layout includes fixed dimensions and no adaptive stacking or scrolling.
+- 2026-10-05 [CODE] Each `WindowGroup` root now owns independent session/task state through `FocusSessionView`; no shared app store is needed for this draft.
+- 2026-10-05 [CODE] `PrimaryButton` now receives caller-owned actions. `NavBar` remains presentation for Focus and disabled future destinations.
+- 2026-10-05 [CODE] Timer and supporting-card pairs stack below 820 points; outer shell and task list scroll. Timer cards share presentation without sharing timing state.
 
 ## [OUTCOMES]
 
-- 2026-10-05 [CODE] Canonical document paths and evidence-based maintenance rules are established. Application behavior remains unchanged.
+- 2026-10-05 [CODE] First visual draft is implemented. Unsigned build and timing checks pass; offscreen layout renders inspected. Live UI verification is unavailable without computer-use permission.
 
 ## [OPEN QUESTIONS]
 
 These questions are not blockers for unrelated work; resolve them when the relevant feature is requested.
 
-- 2026-10-05 [CODE] UNCONFIRMED: whether Pomodoro and flow sessions can run together, and their pause/reset/completion rules.
-- 2026-10-05 [CODE] UNCONFIRMED: sleep/wake timing behavior, relaunch recovery, and window-local versus app-wide session ownership.
+- 2026-10-05 [CODE] UNCONFIRMED: durable history/relaunch recovery, automatic break cycles, and future notifications. Draft sleep/window/stop behavior is documented in D003.
 - 2026-10-05 [CODE] UNCONFIRMED: task/project relationship, target switching during a session, and storage requirements.
-- 2026-10-05 [CODE] UNCONFIRMED: music source/provider, statistics scope, and supported appearance modes.
+- 2026-10-05 [CODE] UNCONFIRMED: music source/provider, statistics scope, and a future dark palette.
 
 ## [WORKING SET]
 
@@ -48,10 +65,15 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `docs/decisions.md`
 - 2026-10-05 [CODE] `docs/style.md`
 - 2026-10-05 [CODE] `keep/App/`
-- 2026-10-05 [CODE] `keep/Features/FocusSession/Views/`
+- 2026-10-05 [CODE] `keep/Features/FocusSession/`
+- 2026-10-05 [CODE] `tests/FocusTimerChecks.swift`
+- 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
 - 2026-10-05 [CODE] `keep.xcodeproj/project.pbxproj`
 
 ## [RECEIPTS]
 
 - 2026-10-05 [TOOL] `xcodebuild -list -project keep.xcodeproj` succeeded: application target and scheme `keep`; Debug and Release configurations. This is project discovery, not a compilation check.
+- 2026-10-05 [TOOL] Unsigned Debug `xcodebuild` succeeded; App Intents metadata extraction warning only.
+- 2026-10-05 [TOOL] Standalone Swift harness passed 24 timing checks for independent actions, pause/resume, reset, completion, and formatting.
+- 2026-10-05 [TOOL] Inspected offscreen AppKit/SwiftUI renders at default and narrow sizes. Computer-use permissions were not granted; live interaction remains unverified.

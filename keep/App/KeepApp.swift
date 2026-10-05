@@ -1,18 +1,11 @@
-//
-//  KeepApp.swift
-//  Keep
-//
-//  Created by Youssef Abdelrahim on 20.06.26.
-//
-
 import SwiftUI
 
 @main
 struct keepApp: App {
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Keep") {
             AppShellView()
         }
-        .defaultSize(width: 900, height: 800)
+        .defaultSize(width: 1000, height: 900)
     }
 }

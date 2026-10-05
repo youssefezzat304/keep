@@ -47,27 +47,17 @@ Use `mutedForeground` primarily on `paper` and `surface`; use stronger ink for t
 
 Centralize colors in named asset-catalog colors or a shared theme namespace under `keep/DesignSystem/`. Choose one source of truth and have any helpers reference it.
 
-For example, once named assets are added:
-
-```swift
-enum KeepTheme {
-    static let background = Color("Background")
-    static let paper = Color("Paper")
-    static let foreground = Color("Foreground")
-    static let accent = Color("AccentColor")
-    static let accentForeground = Color("AccentForeground")
-}
-```
+Named color assets are the source of truth. `keep/DesignSystem/KeepTheme.swift` exposes semantic references to them; use those references in views.
 
 ```swift
 Text("Start focus")
-    .foregroundStyle(KeepTheme.accentForeground)
+    .foregroundStyle(KeepTheme.ink)
     .padding(.horizontal, 20)
     .padding(.vertical, 10)
     .background(KeepTheme.accent, in: RoundedRectangle(cornerRadius: 12))
 ```
 
-These are implementation examples, not existing APIs. The current `AccentColor` asset has no defined color value. Add the relevant assets or theme definitions as part of a requested styling implementation before using them.
+`AccentColor` and the other colors used by the first draft are populated. Keep theme additions in the same asset/namespace pattern rather than declaring independent palettes in feature views.
 
 Avoid scattered RGB literals, generic `.red`/`.blue` card fills, and opacity adjustments that accidentally weaken text contrast. A palette change should be possible through shared tokens.
 
@@ -134,7 +124,7 @@ Within Keep's existing shell, establish a clear progression from navigation to a
 
 Prefer an 8-point spacing rhythm, with 16–24 points inside cards and 24–32 points between major regions. Adapt spacing to window size rather than stacking fixed widths and heights that cause clipping.
 
-Check the default 900 × 800 window and smaller supported sizes. Reflow or provide scrolling when content cannot fit comfortably.
+Check the default 1000 × 900 window, the previous 900 × 800 size, and smaller supported sizes. Reflow or provide scrolling when content cannot fit comfortably.
 
 ## 10. Corners
 
@@ -153,7 +143,9 @@ The existing 12-point button and 20-point card radii fit this direction. Use pil
 
 Most cards need no shadow. Separate regions with warm surface colors, spacing, and occasional borders.
 
-Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid floating-card effects and heavy dark outlines.
+Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid heavy dark outlines.
+
+The music card is an explicit exception to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a restrained native material with a cream overlay for this panel only. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
 
 ## 12. Buttons and controls
 
@@ -207,7 +199,7 @@ Do not add a web renderer, Tailwind, CSS tokens, or shadcn/ui to implement this 
 
 ## 18. Appearance modes
 
-The palette above defines the light appearance. It does not establish an implemented dark theme.
+The palette above defines the light appearance. The first draft explicitly uses `.preferredColorScheme(.light)` so fixed warm surfaces and text remain consistent. A dark theme is not implemented.
 
 If dark appearance is supported, define explicit semantic variants in the same source of truth. Use warm espresso backgrounds, dark brown surfaces, cream ink, and muted coral/sage accents. Re-check contrast for each role; do not invert the light palette or reuse light highlight fills behind light text.
 

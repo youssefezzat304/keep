@@ -1,28 +1,14 @@
-//
-//  FlowTimerPanel.swift
-//  keep
-//
-//  Created by Youssef Abdelrahim on 22.06.26.
-//
-
 import SwiftUI
 
 struct FlowTimerPanel: View {
+    @Binding var timer: FocusTimer
+
     var body: some View {
-        HStack {
-            Text("Flow ")
-                .font(.system(size: 20))
-            Text("00:00:00")
-                .font(.system(size: 70))
-                
-            Button("Start") {
-                print("Start Flow")
-            }
-        }
-        .padding()
+        FocusTimerCard(timer: $timer)
     }
 }
 
 #Preview {
-    FlowTimerPanel()
+    FlowTimerPanel(timer: .constant(FocusTimer(mode: .flow)))
+        .padding().frame(width: 450)
 }

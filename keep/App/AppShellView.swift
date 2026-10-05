@@ -1,29 +1,33 @@
-//
-//  AppShellView.swift
-//  keep
-//
-//  Created by Youssef Abdelrahim on 26.06.26.
-//
-
-
 import SwiftUI
 
 struct AppShellView: View {
     var body: some View {
-        VStack(spacing: 0) {
-            NavBar()
-                .padding(.top, 20)
-                .padding(.horizontal, 32)
-            
-            FocusSessionView()
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 24) {
+                    NavBar()
+                    FocusSessionView(isCompact: geometry.size.width < 820)
+                }
+                .padding(24)
                 .frame(maxWidth: 1100)
-                .padding(.horizontal, 32)
+                .background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 28))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28)
+                        .strokeBorder(KeepTheme.border.opacity(0.5), lineWidth: 1)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+            }
+            .background(KeepTheme.background)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white)
+        .frame(minWidth: 680, minHeight: 650)
+        .foregroundStyle(KeepTheme.ink)
+        .tint(KeepTheme.accentStrong)
+        .preferredColorScheme(.light)
     }
 }
 
 #Preview {
     AppShellView()
+        .frame(width: 1000, height: 900)
 }

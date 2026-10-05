@@ -40,7 +40,7 @@ Before non-trivial work, read:
 
 Use the exact lowercase documentation paths. Do not create root-level duplicates or uppercase alternatives. There is no separate product specification yet; do not invent requirements to fill that gap.
 
-When documentation and implementation disagree, inspect the source, distinguish intended behavior from current behavior, and correct stale factual documentation within the task's scope. Flag unresolved product or architectural conflicts. The style guide describes the target appearance; placeholder colors do not establish the intended palette.
+When documentation and implementation disagree, inspect the source, distinguish intended behavior from current behavior, and correct stale factual documentation within the task's scope. Flag unresolved product or architectural conflicts. The style guide owns visual intent; use shared theme tokens rather than treating incidental colors as new palette decisions.
 
 ## 4. Code quality
 
@@ -77,6 +77,8 @@ When timer behavior is requested:
 - Define pause, resume, reset, completion, sleep, and wake behavior for the requested scope.
 - Avoid duplicate ticking tasks and cancel work when its owner ends.
 - Make session completion and any notifications predictable and testable.
+
+Pomodoro and flow timers are independent and may run concurrently. Preserve that behavior. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
 
 Do not add notification permissions, background services, persistence, or music-provider integrations as incidental parts of a visual task.
 
@@ -183,7 +185,7 @@ Keep recent milestones and command outcomes concise. Compress older history; do 
 
 - For source changes, run an appropriate Xcode build when the installed toolchain supports the project.
 - For timer state, persistence, or other significant domain logic, add or run focused tests that verify behavior rather than implementation details.
-- For UI changes, inspect the affected SwiftUI previews or running app at relevant window sizes, including the default 900 × 800 window.
+- For UI changes, inspect the affected SwiftUI previews or running app at relevant window sizes, including the default size documented in `docs/architecture.md` and a narrow window.
 - Check keyboard operation, focus visibility, labels, contrast, text clipping, and appearance modes affected by the change.
 - Avoid adding tests solely for reversible documentation or cosmetic edits.
 - Fix errors introduced by the change without expanding into unrelated refactoring.
