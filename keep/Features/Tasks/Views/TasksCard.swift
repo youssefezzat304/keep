@@ -53,7 +53,7 @@ struct TasksCard: View {
 
             dayNavigation
 
-            if let error = store.persistenceError {
+            if let error = store.persistenceError ?? store.habitPersistenceError {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(error).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                     Button("Retry") { store.retryPersistence() }.font(.system(size: 12))
@@ -65,12 +65,12 @@ struct TasksCard: View {
             GeometryReader { listArea in
                 KeepScrollView {
                     VStack(spacing: 0) {
-                        ForEach(tasks) { task in
+                        ForEach(tasks, id: \.listID) { task in
                             TaskRow(task: task, isComplete: Binding(
-                                    get: { store.tasks(on: day).first { $0.id == task.id }?.isComplete ?? task.isComplete },
-                                    set: { store.setComplete($0, taskID: task.id, on: day) }
-                                ), canStartTimer: canStartTimer, onStartTimer: onStartTimer) {
-                                    store.remove(taskID: task.id, on: day)
+                                    get: { store.tasks(on: day).first { $0.id == task.id && $0.habitID == task.habitID }?.isComplete ?? task.isComplete },
+                                    set: { store.setComplete($0, taskID: task.id, on: day, habitID: task.habitID, today: today) }
+                                ), canComplete: store.canComplete(task, on: day, today: today), canStartTimer: canStartTimer, onStartTimer: timerAction(on: day)) {
+                                    store.remove(taskID: task.id, on: day, habitID: task.habitID)
                             }
                             .disabled(!store.canEdit)
                             .padding(.vertical, 8)
@@ -179,6 +179,15 @@ struct TasksCard: View {
 
     private var rule: some View { Rectangle().fill(KeepTheme.border).frame(height: 1) }
 
+    private func timerAction(on day: String) -> ((FocusTask, WorkspaceModel.TaskTimers) -> Void)? {
+        guard store.canStartTimers(on: day, today: today), let onStartTimer else { return nil }
+        return { task, timers in
+            // A day can change while a hover/control is still on screen.
+            guard store.canStartTimers(on: day, today: .now), canStartTimer else { return }
+            onStartTimer(task, timers)
+        }
+    }
+
     private func addTask(on day: String) {
         if store.add(drafts[day] ?? "", on: day) { drafts.removeValue(forKey: day) }
     }
@@ -187,6 +196,7 @@ struct TasksCard: View {
 private struct TaskRow: View {
     let task: FocusTask
     @Binding var isComplete: Bool
+    let canComplete: Bool
     let canStartTimer: Bool
     let onStartTimer: ((FocusTask, WorkspaceModel.TaskTimers) -> Void)?
     let onRemove: () -> Void
@@ -198,10 +208,13 @@ private struct TaskRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Toggle("", isOn: $isComplete).labelsHidden().toggleStyle(.checkbox)
+            Toggle("", isOn: $isComplete).labelsHidden().toggleStyle(KeepCheckboxStyle())
                 .focused($focused, equals: .complete)
-                .accessibilityLabel("Complete \(task.title)")
-            Text(task.title).font(.system(size: 13)).strikethrough(task.isComplete)
+                .accessibilityLabel("Complete \(task.title)").disabled(!canComplete)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(task.title).font(.system(size: 13)).strikethrough(task.isComplete)
+                if task.habitID != nil { Text("Habit").font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk) }
+            }
                 .foregroundStyle(task.isComplete ? KeepTheme.mutedInk : KeepTheme.ink)
                 .frame(maxWidth: .infinity, alignment: .leading).lineLimit(2).help(task.title)
                 .focusable(onStartTimer != nil).focused($titleFocused)

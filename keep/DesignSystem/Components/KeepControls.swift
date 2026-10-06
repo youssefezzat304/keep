@@ -84,3 +84,28 @@ struct KeepInputStyle: ViewModifier {
             }
     }
 }
+
+/// A compact paper checkbox with the same borders and focus treatment as other controls.
+struct KeepCheckboxStyle: ToggleStyle {
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.isFocused) private var focused
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(configuration.isOn ? KeepTheme.accentStrong : KeepTheme.surface)
+                    .frame(width: 19, height: 19)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 5).strokeBorder(focused ? KeepTheme.focusRing : configuration.isOn ? KeepTheme.accentStrong : KeepTheme.controlBorder, lineWidth: focused ? 2 : 1)
+                    }
+                    .overlay {
+                        if configuration.isOn { Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(KeepTheme.surface) }
+                    }
+                configuration.label.font(.system(size: 13)).foregroundStyle(KeepTheme.ink)
+            }.contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).opacity(enabled ? 1 : 0.5)
+        .accessibilityValue(configuration.isOn ? "Checked" : "Unchecked")
+        .accessibilityAddTraits(configuration.isOn ? .isSelected : [])
+    }
+}

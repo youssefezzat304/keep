@@ -195,9 +195,9 @@ private final class HabitChangeReading { var changed = false }
             expect(TaskDay.id(for: days[0], calendar: calendar) == "\(year)-01-01" && TaskDay.id(for: days[expectedDays - 1], calendar: calendar) == "\(year)-12-31", "Annual grid covers Jan through Dec")
             expect(Set(days.filter { calendar.component(.day, from: $0) == 1 }.map { calendar.component(.month, from: $0) }).count == 12, "All twelve month labels represented")
         }
-        expect(HabitDates.weeklyHeight(completions: 0, peak: 0) == 0, "Empty year weekly bars empty")
-        expect(HabitDates.weeklyHeight(completions: 1, peak: 100) == 1, "Small positive weekly total remains visible")
-        expect(HabitDates.weeklyHeight(completions: 50, peak: 100) == 4 && HabitDates.weeklyHeight(completions: 100, peak: 100) == 7, "Weekly bars scale up to seven stacked squares")
+        expect(HabitDates.weeklyHeight(completions: 0) == 0, "Empty year weekly bars empty")
+        expect(HabitDates.weeklyHeight(completions: 1) == 1, "Small positive weekly total remains visible")
+        expect(HabitDates.weeklyHeight(completions: 4) == 4 && HabitDates.weeklyHeight(completions: 100) == 7, "Weekly bars count goals and cap at seven instead of scaling sparse history")
         let suite = "keep.tests.frequency.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { fatalError("Defaults") }
         defer { defaults.removePersistentDomain(forName: suite) }

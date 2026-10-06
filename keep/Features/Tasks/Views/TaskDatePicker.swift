@@ -8,12 +8,14 @@ struct TaskDatePicker: View {
     @FocusState private var typingDate: Bool
     let calendar: Calendar
     let onChoose: (Date) -> Void
+    let confirmationTitle: String
 
-    init(date: Date, calendar: Calendar, onChoose: @escaping (Date) -> Void) {
+    init(date: Date, calendar: Calendar, confirmationTitle: String = "Show tasks", onChoose: @escaping (Date) -> Void) {
         _date = State(initialValue: date)
         _month = State(initialValue: date)
         _typedDate = State(initialValue: TaskDay.id(for: date, calendar: calendar))
         self.calendar = calendar
+        self.confirmationTitle = confirmationTitle
         self.onChoose = onChoose
     }
 
@@ -65,7 +67,7 @@ struct TaskDatePicker: View {
                 Button("Today") { select(Date.now) }
                     .buttonStyle(KeepButtonStyle(emphasis: .quiet))
                 Spacer()
-                Button("Show tasks") {
+                Button(confirmationTitle) {
                     if let enteredDate { onChoose(enteredDate) }
                 }
                 .buttonStyle(KeepButtonStyle(emphasis: .primary))

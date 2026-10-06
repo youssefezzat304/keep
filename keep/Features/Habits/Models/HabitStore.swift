@@ -38,6 +38,7 @@ struct HabitStatistics {
     @ObservationIgnored private let persistence: HabitPersistence?
     @ObservationIgnored private let calendarSource: Calendar
     @ObservationIgnored private var needsSave = false
+    @ObservationIgnored private var activityCache: (key: String, snapshot: HabitActivitySnapshot)?
     var calendar: Calendar {
         var local = Calendar(identifier: .gregorian)
         local.timeZone = calendarSource.timeZone
@@ -57,7 +58,17 @@ struct HabitStatistics {
         rebuildProgressIndex()
     }
 
+    func activity(today: Date) -> HabitActivitySnapshot {
+        _ = archive // Observe data changes even when the prepared snapshot is cached.
+        let key = TaskDay.id(for: today, calendar: calendar) + calendar.timeZone.identifier + (calendar.locale?.identifier ?? "")
+        if let cached = activityCache, cached.key == key { return cached.snapshot }
+        let snapshot = HabitActivitySnapshot(archive: archive, today: today, calendar: calendar)
+        activityCache = (key, snapshot)
+        return snapshot
+    }
+
     private func rebuildProgressIndex() {
+        activityCache = nil
         progressByHabit = archive.logs.reduce(into: [:]) { index, log in
             index[log.habitID, default: [:]][log.dayID] = log.amount
         }
@@ -73,6 +84,7 @@ struct HabitStatistics {
         guard goal.isValid else { throw HabitError.invalidGoal }
         guard !weekdays.isEmpty, Set(weekdays).count == weekdays.count else { throw HabitError.invalidFrequency }
         let habit = Habit(id: UUID(), name: name, icon: icon, startDay: startDay, endDay: endDay, goal: goal, weekdays: HabitWeekday.allCases.filter { weekdays.contains($0) })
+        activityCache = nil
         archive.habits.append(habit)
         save()
         return habit
@@ -88,6 +100,7 @@ struct HabitStatistics {
         guard canEdit, TaskDay.isValid(dayID), dayID <= TaskDay.id(for: today, calendar: calendar),
               let habit = habits.first(where: { $0.id == habitID }), habit.isScheduled(on: dayID),
               (0...1_000_000).contains(amount), habit.goal != .checkIn || amount <= 1 else { return false }
+        activityCache = nil
         archive.logs.removeAll { $0.habitID == habitID && $0.dayID == dayID }
         if amount > 0 { archive.logs.append(HabitLog(habitID: habitID, dayID: dayID, amount: amount)) }
         progressByHabit[habitID, default: [:]][dayID] = amount > 0 ? amount : nil

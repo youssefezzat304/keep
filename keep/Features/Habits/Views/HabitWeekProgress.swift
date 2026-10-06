@@ -117,7 +117,8 @@ struct HabitDayControl: View {
             else { onLogAmount(HabitLogSelection(habit: habit, dayID: dayID)) }
         } label: {
             ZStack {
-                Circle().fill(complete ? color : habit.icon.accent.color.opacity(0.16))
+                Circle().fill(complete ? color : KeepTheme.surface)
+                    .overlay { Circle().strokeBorder(complete ? color : habit.isScheduled(on: dayID) ? color.opacity(0.65) : KeepTheme.controlBorder.opacity(0.6), lineWidth: 1.3) }
                 if complete && !showsDate {
                     Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold))
                 } else if showsDate {
@@ -139,7 +140,7 @@ struct HabitDayControl: View {
             }
             .foregroundStyle(complete ? KeepTheme.surface : KeepTheme.ink).frame(width: 30, height: 30)
         }
-        .buttonStyle(HabitCircleButtonStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.3)
+        .buttonStyle(HabitCircleButtonStyle()).disabled(!enabled).opacity(enabled ? 1 : 0.6)
         .accessibilityLabel("\(habit.name), \(HabitDates.label(date, calendar: store.calendar, style: .dateTime.weekday(.wide).day().month(.wide).year()))")
         .accessibilityValue(!habit.isScheduled(on: dayID) ? "Not scheduled" : complete ? "Complete, \(amount) of \(habit.goal.target)" : "\(amount) of \(habit.goal.target)")
         .help("\(HabitDates.label(date, calendar: store.calendar, style: .dateTime.weekday(.wide).day().month(.wide).year())) · \(habit.goal.summary) · \(complete ? "Complete" : "\(amount) logged")")

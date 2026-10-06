@@ -7,9 +7,12 @@ struct keepApp: App {
     @State private var music: MusicPlayerModel
     @State private var preferences: AppPreferences
     @State private var wallpapers = WallpaperLibrary()
-    @State private var tasks = DailyTaskStore(persistence: TaskPersistence())
-    @State private var habits = HabitStore(persistence: HabitPersistence())
+    @State private var tasks: DailyTaskStore
+    @State private var habits: HabitStore
     init() {
+        let habits = HabitStore(persistence: HabitPersistence())
+        _habits = State(initialValue: habits)
+        _tasks = State(initialValue: DailyTaskStore(persistence: TaskPersistence(), habits: habits))
         let preferences = AppPreferences(persistence: SettingsPersistence())
         let music = MusicPlayerModel(preferences: preferences)
         music.selectChannel(preferences.selectedChannel)

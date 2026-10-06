@@ -171,11 +171,13 @@ Avoid glossy fills, oversized shadows, and subtle color changes as the only indi
 
 ## 13. Selection, tasks, and session emphasis
 
+The task selector uses one flat suggestion list beneath its input, with inline task/project labels and pins; avoid nested cards or separate recent-activity sections. Pinned entries remain first.
+
 The working-on card uses a neutral border. Display its task name as plain text until the user explicitly edits it; avoid automatic text selection or a persistent focus outline. Keep focus feedback local to the control actually being used.
 
 Use `warmHighlight` for restrained selected-content emphasis. Use sage with readable ink for completion or supportive status. Use terracotta to identify the active session or selected navigation item sparingly.
 
-Task rows reveal three 30-point circular buttons with only a play arrow on hover or keyboard focus, with labels/tooltips and equivalent accessibility actions. Focus and Flow use the same artwork-tinted semantic fills as their timer cards. Both uses the fixed warm-neutral `TaskBothTimerFill` and dark `TaskBothTimerInk` assets, unchanged by artwork or appearance. Reserve their width to avoid shifting task text. Task completion should also have a checkmark or explicit state. Pomodoro and flow modes need labels, not just different colors. Keep selected task titles legible even when struck through.
+Today’s task rows reveal three 30-point circular buttons with only a play arrow on hover or keyboard focus, with labels/tooltips and equivalent accessibility actions. Focus and Flow use the same artwork-tinted semantic fills as their timer cards. Both uses the fixed warm-neutral `TaskBothTimerFill` and dark `TaskBothTimerInk` assets, unchanged by artwork or appearance. Reserve their width to avoid shifting task text. Task completion should also have a checkmark or explicit state. Pomodoro and flow modes need labels, not just different colors. Keep selected task titles legible even when struck through.
 
 ## 14. Graphics and data visualization
 
@@ -185,7 +187,7 @@ Reserve terracotta for the main metric and use sage, butter yellow, or mist blue
 
 Avoid pseudo-3D charts, gradient fills, excessive decoration, and speculative analytics widgets.
 
-Habit tracker uses one paper surface with faded horizontal/vertical separators. Center the full current-year activity grid; use small 6–11-point squares, 3-point gaps, and month labels beneath Monday-first week columns. Monthly daily intensity uses fern; stacked weekly totals use periwinkle. Keep future dates subdued and expose exact counts in tooltips/accessibility labels. Weekly progress fits its seven day controls in 480 points, leaving room for the stats (up to 560 points) beside it; stack stats below at narrow widths. Give habit icons and their rows distinct existing project accents, and vary the small metric backgrounds with sage, blue, honey, and rose. Use readable accent ink in both appearances. Circular completion controls retain checkmarks and partial rings/amounts so progress never relies on color alone. The creation sheet uses seven selectable weekday dots, with letters and selected checkmarks. Reuse semantic light/dark tokens and native controls.
+Habit tracker uses one paper surface with faded horizontal/vertical separators. Center the full current-year activity grid; use small 6–11-point squares, 3-point gaps, and month labels beneath Monday-first week columns. Monthly daily intensity uses fern; stacked weekly totals use periwinkle. Keep future dates subdued and expose exact counts in tooltips/accessibility labels. Weekly progress fits its seven day controls in 480 points, leaving room for the stats (up to 560 points) beside it; stack stats below at narrow widths. Give habit icons and their rows distinct existing project accents, and vary the small metric backgrounds with sage, blue, honey, and rose. Use readable accent ink in both appearances. Circular completion controls have clear accent outlines for empty dates, including subdued future/rest states, and retain checkmarks and partial rings/amounts so progress never relies on color alone. The creation sheet uses seven selectable weekday dots, with letters and selected checkmarks. Use the grouped Dashboard-style activity switch, themed paper checkboxes, and the same styled calendar used for choosing task dates. Weekly bars fill one square per goal (seven or more fills the column), with an explicit scale and exact tooltips. Reuse semantic light/dark tokens and native controls.
 
 ## 15. Icons and illustrations
 

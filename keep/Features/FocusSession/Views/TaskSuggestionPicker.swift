@@ -17,7 +17,7 @@ struct TaskSuggestionPicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 8) {
             TextField("What are you working on?", text: $editor.text)
                 .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
                 .padding(12).background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 10))
@@ -30,16 +30,8 @@ struct TaskSuggestionPicker: View {
                     .fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
             } else {
                 KeepScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach([true, false], id: \.self) { pinned in
-                            let activities = matches.filter { $0.isPinned == pinned }
-                            if !activities.isEmpty {
-                                Text(pinned ? "PINNED" : "RECENT ACTIVITY")
-                                    .font(.system(size: 10, weight: .medium)).tracking(1.2)
-                                    .foregroundStyle(KeepTheme.mutedInk).padding(.top, 8).padding(.horizontal, 10)
-                                ForEach(activities) { activity in row(activity) }
-                            }
-                        }
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(matches) { activity in row(activity) }
                     }
                 }.frame(maxHeight: 300)
             }
@@ -51,25 +43,37 @@ struct TaskSuggestionPicker: View {
     }
 
     private func row(_ activity: TaskActivity) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             Button { onSelect(activity) } label: {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(activity.title).font(.system(size: 14, weight: .medium)).lineLimit(2)
+                HStack(spacing: 10) {
+                    Text(activity.title).font(.system(size: 14)).lineLimit(2)
                     Label(activity.project.name, systemImage: "folder.fill")
-                        .font(.system(size: 11)).foregroundStyle(activity.project.labelColor(in: environment)).lineLimit(1)
+                        .font(.system(size: 12)).foregroundStyle(activity.project.labelColor(in: environment)).lineLimit(1)
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
-                .contentShape(Rectangle())
+                .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+                .padding(.horizontal, 8).contentShape(Rectangle())
             }
-            .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+            .buttonStyle(TaskSuggestionRowStyle())
             .accessibilityLabel("Select task \(activity.title), project \(activity.project.name)")
             Button { workspace.toggleTaskPin(activity) } label: {
-                Image(systemName: activity.isPinned ? "pin.fill" : "pin")
+                Image(systemName: activity.isPinned ? "pin.fill" : "pin").font(.system(size: 12))
             }
             .buttonStyle(KeepButtonStyle(emphasis: .quiet))
             .help(activity.isPinned ? "Unpin task" : "Pin task")
             .accessibilityLabel("\(activity.isPinned ? "Unpin" : "Pin") task \(activity.title), project \(activity.project.name)")
             .disabled(!workspace.canTrack)
         }
+    }
+}
+
+private struct TaskSuggestionRowStyle: ButtonStyle {
+    @State private var hovered = false
+    @Environment(\.isFocused) private var focused
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(hovered || configuration.isPressed ? KeepTheme.mutedWarm.opacity(0.45) : .clear, in: RoundedRectangle(cornerRadius: 8))
+            .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(focused ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
+            .onHover { hovered = $0 }
     }
 }

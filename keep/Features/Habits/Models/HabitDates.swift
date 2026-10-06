@@ -41,10 +41,6 @@ enum HabitDates {
         return weeks
     }
 
-    /// Weekly mode uses seven stacked tiles, scaled to the busiest week of this year.
-    static func weeklyHeight(completions: Int, peak: Int) -> Int {
-        guard completions > 0, peak > 0 else { return 0 }
-        return min(7, max(1, Int(ceil(Double(completions) / Double(peak) * 7))))
-    }
-
+    /// A square means one completed goal, with seven or more filling the column.
+    static func weeklyHeight(completions: Int) -> Int { min(7, max(0, completions)) }
 }

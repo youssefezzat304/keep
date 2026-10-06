@@ -65,10 +65,10 @@ struct HabitCreationDialog: View {
                     KeepSelectionMenu(label: "Target unit", selection: $unit, options: HabitUnit.allCases, title: { $0.title })
                 }
             }
-            labeled("Starts") { DatePicker("Start date", selection: $startDate, displayedComponents: .date).labelsHidden().accessibilityLabel("Start date") }
-            Toggle("Set an end date", isOn: $hasEndDate).font(.system(size: 13))
+            labeled("Starts") { HabitDateField(label: "Start date", date: $startDate, calendar: store.calendar) }
+            Toggle("Set an end date", isOn: $hasEndDate).toggleStyle(KeepCheckboxStyle())
             if hasEndDate {
-                labeled("Ends") { DatePicker("End date", selection: $endDate, displayedComponents: .date).labelsHidden().accessibilityLabel("End date") }
+                labeled("Ends") { HabitDateField(label: "End date", date: $endDate, calendar: store.calendar) }
             }
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong).fixedSize(horizontal: false, vertical: true) }
             HStack {

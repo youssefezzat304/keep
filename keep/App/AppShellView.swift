@@ -17,10 +17,10 @@ struct AppShellView: View {
     @State private var selectedTab: WorkspaceTab
     @Environment(\.self) private var environment
 
-    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore = DailyTaskStore(), habits: HabitStore = HabitStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary()) {
+    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore? = nil, habits: HabitStore = HabitStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary()) {
         _workspace = State(initialValue: workspace)
         _music = State(initialValue: music)
-        _tasks = State(initialValue: tasks)
+        _tasks = State(initialValue: tasks ?? DailyTaskStore(habits: habits))
         _habits = State(initialValue: habits)
         _preferences = State(initialValue: preferences)
         _wallpapers = State(initialValue: wallpapers)
