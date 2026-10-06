@@ -14,8 +14,8 @@ struct MusicTrack: Equatable, Identifiable {
     }
 }
 
-enum MusicFailure: Error, Equatable {
-    case connection, unavailable, noTracks, rateLimited
+nonisolated enum MusicFailure: Error, Equatable {
+    case connection, unavailable, noTracks, rateLimited, appleMusicPermission, appleMusicConnection
 
     var message: String {
         switch self {
@@ -23,6 +23,8 @@ enum MusicFailure: Error, Equatable {
         case .unavailable: "This track couldn’t play. Try another track or retry."
         case .noTracks: "No playable tracks found. Try again in a moment."
         case .rateLimited: "Audius is busy. Wait a moment and retry."
+        case .appleMusicPermission: "Allow Keep to control Music in System Settings → Privacy & Security → Automation, then retry."
+        case .appleMusicConnection: "Open Music, sign in if needed, and choose a song or playlist. Then retry here."
         }
     }
 }

@@ -93,10 +93,7 @@ struct FocusTimerCard: View {
     }
 
     private var surfaceColor: Color {
-        let palette = environment.artworkPalette
-        let tint = isBreak ? palette?.ambient : isPomodoro ? palette?.primary : palette?.secondary
-        return KeepTheme.artworkSurface(isBreak ? KeepTheme.highlight : isPomodoro ? KeepTheme.accent : KeepTheme.sage,
-            tint: tint?.color, amount: environment.colorScheme == .dark ? 0.24 : 0.32, environment: environment)
+        KeepTheme.timerSurface(mode: timer.mode, isBreak: isBreak, environment: environment)
     }
 
     private func controlRow(phase: FocusTimer.Phase, longBreakDue: Bool, upcomingBreakDuration: TimeInterval, includeBreak: Bool) -> some View {

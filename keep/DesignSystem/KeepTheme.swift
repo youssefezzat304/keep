@@ -17,6 +17,8 @@ enum KeepTheme {
     static let border = Color("Border")
     static let controlBorder = Color("ControlBorder")
     static let focusRing = Color("FocusRing")
+    static let taskBothTimerFill = Color("TaskBothTimerFill")
+    static let taskBothTimerInk = Color("TaskBothTimerInk")
 
     static let cardRadius: CGFloat = 22
 }

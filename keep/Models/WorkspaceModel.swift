@@ -4,6 +4,7 @@ import Observation
 /// Shared across windows and tabs. All timer actions settle the single recorder first.
 @Observable
 final class WorkspaceModel {
+    enum TaskTimers: CaseIterable { case focus, flow, both }
     private(set) var pomodoro = FocusTimer(mode: .pomodoro)
     private(set) var flow = FocusTimer(mode: .flow)
     private(set) var selectedProject: FocusProject? = FocusProject.defaults.first
@@ -84,6 +85,18 @@ final class WorkspaceModel {
         guard canTrack else { return }
         synchronize(at: instant, date: date)
         if mode == .pomodoro { pomodoro.play(at: instant) } else { flow.play(at: instant) }
+        if isRecording(at: instant) { ensureCurrentRow(on: date) }
+        save(at: instant)
+    }
+
+    /// Assign and start atomically after settling the previous shared task. The other timer is untouched.
+    func startTask(_ title: String, timers: TaskTimers, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canTrack, !title.isEmpty else { return }
+        synchronize(at: instant, date: date)
+        taskName = String(title.prefix(200))
+        if timers == .focus || timers == .both { pomodoro.playFocus(at: instant) }
+        if timers == .flow || timers == .both { flow.play(at: instant) }
         if isRecording(at: instant) { ensureCurrentRow(on: date) }
         save(at: instant)
     }

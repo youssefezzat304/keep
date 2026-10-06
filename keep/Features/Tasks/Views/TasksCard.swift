@@ -3,15 +3,20 @@ import SwiftUI
 struct TasksCard: View {
     @Bindable var store: DailyTaskStore
     var today: Date = .now
+    var canStartTimer: Bool
+    var onStartTimer: ((FocusTask, WorkspaceModel.TaskTimers) -> Void)?
     @State private var selection = TaskDaySelection()
     @State private var drafts: [String: String] = [:]
     @State private var showsDatePicker = false
     @FocusState private var isAddingTask: Bool
     @FocusState private var isChoosingDay: Bool
 
-    init(store: DailyTaskStore, today: Date = .now, initialDate: Date? = nil) {
+    init(store: DailyTaskStore, today: Date = .now, initialDate: Date? = nil, canStartTimer: Bool = true,
+         onStartTimer: ((FocusTask, WorkspaceModel.TaskTimers) -> Void)? = nil) {
         self.store = store
         self.today = today
+        self.canStartTimer = canStartTimer
+        self.onStartTimer = onStartTimer
         var selection = TaskDaySelection()
         if let initialDate { selection.select(initialDate, today: today, calendar: store.calendar) }
         _selection = State(initialValue: selection)
@@ -61,24 +66,11 @@ struct TasksCard: View {
                 KeepScrollView {
                     VStack(spacing: 0) {
                         ForEach(tasks) { task in
-                            HStack(spacing: 14) {
-                                Toggle("", isOn: Binding(
+                            TaskRow(task: task, isComplete: Binding(
                                     get: { store.tasks(on: day).first { $0.id == task.id }?.isComplete ?? task.isComplete },
                                     set: { store.setComplete($0, taskID: task.id, on: day) }
-                                ))
-                                .labelsHidden()
-                                .toggleStyle(.checkbox)
-                                .accessibilityLabel("Complete \(task.title)")
-                                Text(task.title)
-                                    .font(.system(size: 13))
-                                    .strikethrough(task.isComplete)
-                                    .foregroundStyle(task.isComplete ? KeepTheme.mutedInk : KeepTheme.ink)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .lineLimit(2)
-                                    .help(task.title)
-                                RemoveRowButton(label: "Delete task: \(task.title)") {
+                                ), canStartTimer: canStartTimer, onStartTimer: onStartTimer) {
                                     store.remove(taskID: task.id, on: day)
-                                }
                             }
                             .disabled(!store.canEdit)
                             .padding(.vertical, 8)
@@ -189,6 +181,77 @@ struct TasksCard: View {
 
     private func addTask(on day: String) {
         if store.add(drafts[day] ?? "", on: day) { drafts.removeValue(forKey: day) }
+    }
+}
+
+private struct TaskRow: View {
+    let task: FocusTask
+    @Binding var isComplete: Bool
+    let canStartTimer: Bool
+    let onStartTimer: ((FocusTask, WorkspaceModel.TaskTimers) -> Void)?
+    let onRemove: () -> Void
+    @State private var hovered = false
+    @FocusState private var focused: Control?
+    @FocusState private var titleFocused: Bool
+    @Environment(\.self) private var environment
+    private enum Control: Hashable { case complete, focus, flow, both, remove }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Toggle("", isOn: $isComplete).labelsHidden().toggleStyle(.checkbox)
+                .focused($focused, equals: .complete)
+                .accessibilityLabel("Complete \(task.title)")
+            Text(task.title).font(.system(size: 13)).strikethrough(task.isComplete)
+                .foregroundStyle(task.isComplete ? KeepTheme.mutedInk : KeepTheme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading).lineLimit(2).help(task.title)
+                .focusable(onStartTimer != nil).focused($titleFocused)
+                .focusEffectDisabled().accessibilityLabel(task.title)
+                .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(titleFocused ? KeepTheme.focusRing : .clear, lineWidth: 2).padding(-2).allowsHitTesting(false) }
+                .accessibilityActions {
+                    if let onStartTimer, canStartTimer {
+                        Button("Start Focus") { onStartTimer(task, .focus) }
+                        Button("Start Flow") { onStartTimer(task, .flow) }
+                        Button("Start both timers") { onStartTimer(task, .both) }
+                    }
+                }
+            if let onStartTimer {
+                HStack(spacing: 4) {
+                    timerButton(.focus, label: "Start Focus", symbol: "timer", control: .focus,
+                        fill: KeepTheme.timerSurface(mode: .pomodoro, environment: environment), ink: KeepTheme.ink, action: onStartTimer)
+                    timerButton(.flow, label: "Start Flow", symbol: "leaf", control: .flow,
+                        fill: KeepTheme.timerSurface(mode: .flow, environment: environment), ink: KeepTheme.ink, action: onStartTimer)
+                    timerButton(.both, label: "Start both timers", symbol: "square.stack", control: .both,
+                        fill: KeepTheme.taskBothTimerFill, ink: KeepTheme.taskBothTimerInk, action: onStartTimer)
+                }
+                .opacity(hovered || focused != nil || titleFocused ? 1 : 0)
+                .allowsHitTesting(hovered || focused != nil || titleFocused)
+            }
+            RemoveRowButton(label: "Delete task: \(task.title)", action: onRemove)
+                .focused($focused, equals: .remove)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovered = $0 }
+    }
+
+    private func timerButton(_ timers: WorkspaceModel.TaskTimers, label: String, symbol: String, control: Control,
+                             fill: Color, ink: Color, action: @escaping (FocusTask, WorkspaceModel.TaskTimers) -> Void) -> some View {
+        Button { action(task, timers) } label: {
+            HStack(spacing: 2) {
+                Image(systemName: "play.fill").font(.system(size: 9))
+                Image(systemName: symbol).font(.system(size: 9))
+            }
+            .foregroundStyle(ink).frame(width: 32, height: 30)
+            .background(fill, in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain).focusable().focused($focused, equals: control).focusEffectDisabled().disabled(!canStartTimer)
+        .onKeyPress(keys: [.space, .return]) { _ in
+            guard canStartTimer, environment.isEnabled else { return .ignored }
+            action(task, timers)
+            return .handled
+        }
+        .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(focused == control ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
+        .accessibilityLabel("\(label) for \(task.title)").help("\(label) for this task")
     }
 }
 

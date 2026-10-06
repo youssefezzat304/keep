@@ -105,6 +105,26 @@ import Foundation
         expect(Set(active.ledger.sessions.map(\.id)).count == active.ledger.sessions.count, "Restored sessions have unique identifiers")
 
         let suite = "keep.session-checks.\(UUID().uuidString)"
+        let taskActions = WorkspaceModel(calendar: calendar, focusDuration: 10, breakDuration: 5, date: date)
+        taskActions.startTask("  Focus task  ", timers: .focus, at: instant, date: date)
+        expect(taskActions.taskName == "Focus task", "Task actions trim and commit the selected title")
+        expect(taskActions.pomodoro.phase(at: instant) == .running && taskActions.flow.phase(at: instant) == .idle, "Focus starts only Pomodoro")
+        taskActions.startTask("Flow task", timers: .flow, at: time(4), date: wall(4))
+        expect(taskActions.ledger.sessions[0].task == "Focus task" && close(taskActions.ledger.sessions[0].seconds, 4), "Task launch settles time under the previous title")
+        expect(taskActions.pomodoro.phase(at: time(4)) == .running, "Flow action leaves a running Pomodoro untouched")
+        taskActions.stop(.flow, at: time(7), date: wall(7))
+        taskActions.synchronize(at: time(10), date: wall(10))
+        taskActions.startBreak(at: time(10), date: wall(10))
+        taskActions.startTask("Next focus", timers: .focus, at: time(12), date: wall(12))
+        expect(taskActions.pomodoro.interval == .focus && taskActions.pomodoro.phase(at: time(12)) == .running, "Focus task leaves an active break for a focus interval")
+        expect(taskActions.pomodoro.completedFocusIntervals == 1, "Leaving a short break preserves the focus cycle")
+        expect(taskActions.flow.phase(at: time(12)) == .stopped, "Focus action leaves paused Flow untouched")
+        taskActions.startTask("Together", timers: .both, at: time(15), date: wall(15))
+        expect(taskActions.pomodoro.phase(at: time(15)) == .running && taskActions.flow.phase(at: time(15)) == .running, "Both action starts the two independent timers")
+        taskActions.stop(.flow, at: time(18), date: wall(18))
+        expect(taskActions.ledger.sessions.last?.task == "Together" && taskActions.ledger.sessions.last?.source == .flow, "Both action records once with Flow priority and the selected title")
+        expect(close(taskActions.ledger.sessions.reduce(0) { $0 + $1.seconds }, 16), "Task changes and overlap preserve exact recorded totals and exclude breaks")
+
         guard let defaults = UserDefaults(suiteName: suite) else { fatalError("No defaults suite") }
         defer { defaults.removePersistentDomain(forName: suite) }
         let persistence = TimesheetPersistence(defaults: defaults)

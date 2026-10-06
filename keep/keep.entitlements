@@ -4,5 +4,14 @@
 <dict>
     <key>com.apple.security.files.bookmarks.app-scope</key>
     <true/>
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+    <key>com.apple.security.scripting-targets</key>
+    <dict>
+        <key>com.apple.Music</key>
+        <array>
+            <string>com.apple.Music.playback</string>
+        </array>
+    </dict>
 </dict>
 </plist>

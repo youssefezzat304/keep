@@ -42,6 +42,10 @@ struct SettingsView: View {
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
+                    settingRow("Apple Music", detail: "Uses the account signed in to Music on this Mac. Choose Apple Music in the player and press Play to allow playback control. Choose songs and playlists in Music; your Keep volume is saved for both providers.") {
+                        Button("Open Music…") { player.openAppleMusic() }
+                    }
+                    Divider().overlay(KeepTheme.border).allowsHitTesting(false)
                     settingRow("Wallpaper", detail: "Your backdrop for a slower afternoon.") {
                         KeepSelectionMenu(label: "Wallpaper source", selection: $preferences.wallpaperSource,
                                           options: WallpaperSource.allCases, title: { $0.title }).frame(width: 190)
@@ -239,6 +243,7 @@ struct SettingsView: View {
         Text(text).font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
     }
     private func select(_ channel: MusicChannel, autoplay: Bool) {
+        player.selectProvider(.audius)
         preferences.selectChannel(channel)
         if player.selectedChannel?.id == channel.id {
             if autoplay && !player.wantsPlayback { player.togglePlayback() }

@@ -97,6 +97,13 @@ struct FocusTimer {
         storedPhase = .running
     }
 
+    /// Task-row Focus starts focus even during a break, without clearing completed cycle progress.
+    mutating func playFocus(at instant: ContinuousClock.Instant = .now) {
+        settleCompletion(at: instant)
+        if interval == .rest { prepareFocus() }
+        play(at: instant)
+    }
+
     /// Stop preserves elapsed time so Play can continue. Reset starts a new session.
     mutating func stop(at instant: ContinuousClock.Instant = .now) {
         settleCompletion(at: instant)

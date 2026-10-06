@@ -44,6 +44,9 @@ struct SettingsArchive: Codable, Equatable {
     var glassiness: Double = 0.45
     var channels: [MusicChannel] = []
     var selectedChannelID: String?
+    // Optional additions preserve archives written before provider/volume preferences existed.
+    var musicProvider: MusicProvider?
+    var musicVolume: Double?
 
     static let rotationIntervals = [30, 60, 300, 900]
 
@@ -54,6 +57,7 @@ struct SettingsArchive: Codable, Equatable {
         && channels.allSatisfy(\.isValid)
         && Set(channels.map(\.id)).count == channels.count
         && (selectedChannelID == nil || channels.contains { $0.id == selectedChannelID })
+        && (musicVolume == nil || musicVolume.map { $0.isFinite && (0...1).contains($0) } == true)
     }
 }
 
@@ -123,6 +127,14 @@ final class AppPreferences {
         set { update { $0.glassiness = newValue.isFinite ? min(1, max(0, newValue)) : 0.45 } }
     }
     var selectedChannel: MusicChannel? { snapshot.channels.first { $0.id == snapshot.selectedChannelID } }
+    var musicProvider: MusicProvider {
+        get { snapshot.musicProvider ?? .audius }
+        set { update { $0.musicProvider = newValue } }
+    }
+    var musicVolume: Double {
+        get { snapshot.musicVolume ?? 0.5 }
+        set { update { $0.musicVolume = newValue.isFinite ? min(1, max(0, newValue)) : 0.5 } }
+    }
 
     func saveChannel(_ channel: MusicChannel) {
         update { archive in

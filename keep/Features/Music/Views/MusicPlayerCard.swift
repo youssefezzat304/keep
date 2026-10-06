@@ -5,8 +5,8 @@ struct MusicPlayerCard: View {
     var preferences = AppPreferences()
     var wallpapers = WallpaperLibrary()
     @State private var showsSavedChannels = false
-    @State private var channelMenuHovered = false
-    @FocusState private var channelMenuFocused: Bool
+    @State private var providerMenuHovered = false
+    @FocusState private var providerMenuFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var favoriteTarget: MusicChannel? { player.selectedChannel ?? player.track?.artistChannel }
@@ -58,14 +58,17 @@ struct MusicPlayerCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: 288, maxHeight: .infinity)
+        .onChange(of: player.provider) { _, provider in
+            if provider != .audius { showsSavedChannels = false }
+        }
     }
 
     private var artworkHeader: some View {
         HStack {
-            if let url = player.track?.permalink ?? player.selectedChannel?.url ?? URL(string: "https://audius.co") {
+            if let url = player.provider == .appleMusic ? URL(string: "music://") : player.track?.permalink ?? player.selectedChannel?.url ?? URL(string: "https://audius.co") {
                 Link(destination: url) {
                     HStack(spacing: 5) {
-                        Text("Audius")
+                        Text(player.provider.title)
                         Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .medium))
                     }
                     .font(.system(size: 12, weight: .medium))
@@ -73,14 +76,23 @@ struct MusicPlayerCard: View {
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background(KeepTheme.paper.opacity(0.95), in: Capsule())
                 }
-                .buttonStyle(.plain).accessibilityLabel("Open on Audius").help("Open on Audius")
+                .buttonStyle(.plain).accessibilityLabel("Open \(player.provider.title)").help("Open \(player.provider.title)")
             }
+            providerMenu
             Spacer(minLength: 4)
             if preferences.wallpaperSource == .folder {
                 musicControl("photo.badge.arrow.down", label: "Next wallpaper", disabled: !wallpapers.canAdvance) { wallpapers.next() }
                     .background(KeepTheme.paper.opacity(0.95), in: Circle())
             }
-            channelMenu
+            Button {} label: {
+                Image(systemName: "chevron.up.chevron.right.chevron.down.chevron.left")
+                    .font(.system(size: 22, weight: .light))
+                    .frame(width: 46, height: 46)
+                    .background(KeepTheme.paper.opacity(0.85), in: Circle())
+            }
+            .buttonStyle(.plain).disabled(true)
+            .accessibilityLabel("Zen mode, coming later")
+            .help("Zen mode · Coming later")
         }
         .frame(height: 46)
     }
@@ -89,11 +101,11 @@ struct MusicPlayerCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(player.track?.title ?? "Slow afternoons")
+                    Text(player.track?.title ?? (player.provider == .audius ? "Slow afternoons" : "Your Apple Music"))
                         .font(.system(size: 23, design: .serif))
                         .lineLimit(1)
-                        .help(player.track?.title ?? "Slow afternoons")
-                    Text(player.track?.artist ?? "Lofi for a little focus")
+                        .help(player.track?.title ?? player.provider.title)
+                    Text(player.track?.artist ?? (player.provider == .audius ? "Lofi for a little focus" : "Choose a song or playlist in Music"))
                         .font(.system(size: 12))
                         .foregroundStyle(KeepTheme.secondaryInk)
                         .lineLimit(1)
@@ -119,17 +131,21 @@ struct MusicPlayerCard: View {
                 musicControl(player.volume == 0 ? "speaker.slash" : "speaker.wave.2", label: player.volume == 0 ? "Unmute music" : "Mute music") {
                     player.toggleMute()
                 }
+                .disabled(!preferences.canEdit)
                 Slider(value: $player.volume, in: 0...1)
                     .frame(minWidth: 55, idealWidth: 80, maxWidth: 100)
                     .tint(KeepTheme.accentStrong)
                     .accessibilityLabel("Music volume")
                     .accessibilityValue("\(Int(player.volume * 100)) percent")
+                    .disabled(!preferences.canEdit)
             }
         }
     }
 
-    private var favoriteActions: some View {
-        HStack(spacing: 2) {
+    @ViewBuilder private var favoriteActions: some View {
+        if player.provider == .appleMusic {
+            musicControl("music.note.list", label: "Choose music in Apple Music") { player.openAppleMusic() }
+        } else { HStack(spacing: 2) {
             musicControl(isFavorite ? "heart.fill" : "heart", label: isFavorite ? "Unsave current artist or playlist" : "Save current artist or playlist", disabled: favoriteTarget == nil || !preferences.canEdit) {
                 guard let target = favoriteTarget else { return }
                 if isFavorite { preferences.removeChannel(target) }
@@ -143,6 +159,7 @@ struct MusicPlayerCard: View {
             .foregroundStyle(showsSavedChannels ? KeepTheme.accentStrong : KeepTheme.ink)
             .background(KeepTheme.mutedWarm.opacity(showsSavedChannels ? 0.5 : 0), in: Circle())
             .accessibilityValue(showsSavedChannels ? "Expanded" : "Collapsed")
+        }
         }
     }
 
@@ -192,6 +209,7 @@ struct MusicPlayerCard: View {
     }
 
     private func playSavedChannel(_ channel: MusicChannel) {
+        player.selectProvider(.audius)
         preferences.selectChannel(channel)
         if player.selectedChannel?.id != channel.id { player.selectChannel(channel, autoplay: true) }
         else if case .failed = player.state { player.retry() }
@@ -199,46 +217,56 @@ struct MusicPlayerCard: View {
         // Keep the drawer open through loading, playback, track changes, and pause.
     }
 
-    private var channelMenu: some View {
+    private var providerMenu: some View {
         Menu {
-            Button {
-                guard player.selectedChannel != nil else { return }
-                preferences.selectChannel(nil)
-                player.selectChannel(nil)
-            } label: {
-                Label("All lofi", systemImage: player.selectedChannel == nil ? "checkmark" : "waveform")
-            }
-            if !preferences.snapshot.channels.isEmpty { Divider() }
-            ForEach(preferences.snapshot.channels) { channel in
-                Button {
-                    guard player.selectedChannel?.id != channel.id else { return }
-                    preferences.selectChannel(channel)
-                    player.selectChannel(channel)
-                } label: {
-                    Label(channel.name, systemImage: player.selectedChannel?.id == channel.id ? "checkmark" : channel.symbol)
+            ForEach(MusicProvider.allCases) { provider in
+                Button { player.selectProvider(provider) } label: {
+                    Label(provider.title, systemImage: player.provider == provider ? "checkmark" : "music.note")
                 }
             }
-            if preferences.snapshot.channels.isEmpty {
-                Text("Save artists & playlists in Settings")
+            Divider()
+            Menu("Audius listens") {
+                Button {
+                    player.selectProvider(.audius)
+                    guard player.selectedChannel != nil else { return }
+                    preferences.selectChannel(nil)
+                    player.selectChannel(nil)
+                } label: {
+                    Label("All lofi", systemImage: player.selectedChannel == nil ? "checkmark" : "waveform")
+                }
+                ForEach(preferences.snapshot.channels) { channel in
+                    Button {
+                        player.selectProvider(.audius)
+                        guard player.selectedChannel?.id != channel.id else { return }
+                        preferences.selectChannel(channel)
+                        player.selectChannel(channel)
+                    } label: {
+                        Label(channel.name, systemImage: player.selectedChannel?.id == channel.id ? "checkmark" : channel.symbol)
+                    }
+                }
+            }
+            if player.provider == .appleMusic {
+                Button("Choose music in Music…") { player.openAppleMusic() }
             }
         } label: {
-            Label("Music source: \(player.selectedChannel?.name ?? "All lofi")", systemImage: "bookmark")
+            Label("Choose music provider", systemImage: "arrow.triangle.2.circlepath")
                 .labelStyle(.iconOnly)
-                .font(.system(size: 22, weight: .light))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(KeepTheme.ink)
-                .frame(width: 46, height: 46)
+                .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).buttonStyle(.plain)
-        .frame(width: 46, height: 46)
-        .background(KeepTheme.paper.opacity(channelMenuHovered ? 0.98 : 0.85), in: Circle())
+        .frame(width: 28, height: 28)
+        .background(KeepTheme.paper.opacity(providerMenuHovered ? 0.98 : 0.85), in: Circle())
         .contentShape(Circle())
-        .onHover { channelMenuHovered = $0 }
-        .focused($channelMenuFocused)
-        .overlay { Circle().strokeBorder(channelMenuFocused ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
+        .onHover { providerMenuHovered = $0 }
+        .focused($providerMenuFocused)
+        .overlay { Circle().strokeBorder(providerMenuFocused ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
         .disabled(!preferences.canEdit)
-        .accessibilityLabel("Music channel: \(player.selectedChannel?.name ?? "All lofi")")
-        .help("Music source: \(player.selectedChannel?.name ?? "All lofi")")
+        .accessibilityLabel("Choose music provider")
+        .accessibilityValue(player.provider.title)
+        .help("Music provider: \(player.provider.title)")
     }
 
     @ViewBuilder private var status: some View {
@@ -257,13 +285,13 @@ struct MusicPlayerCard: View {
         case .loading:
             HStack(spacing: 7) {
                 ProgressView().controlSize(.small)
-                Text(player.track == nil ? "Finding your next listen…" : "Connecting to the stream…")
+                Text(player.provider == .appleMusic ? "Connecting to Music…" : player.track == nil ? "Finding your next listen…" : "Connecting to the stream…")
             }
             .font(.system(size: 12))
             .foregroundStyle(KeepTheme.secondaryInk)
             .accessibilityElement(children: .combine)
         case .idle, .paused, .playing:
-            Text(player.state == .playing ? "Playing · Audius" : player.state == .paused ? "Paused · Take your time" : "Press play to settle in")
+            Text(player.state == .playing ? "Playing · \(player.provider.title)" : player.provider == .appleMusic && player.track == nil ? (player.appleMusicConnected ? "Choose a song or playlist in Music" : "Play connects to Music on your Mac") : player.state == .paused ? "Paused · Take your time" : "Press play to settle in")
                 .font(.system(size: 12))
                 .foregroundStyle(KeepTheme.secondaryInk)
         }

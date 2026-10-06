@@ -10,7 +10,7 @@ struct keepApp: App {
     @State private var tasks = DailyTaskStore(persistence: TaskPersistence())
     init() {
         let preferences = AppPreferences(persistence: SettingsPersistence())
-        let music = MusicPlayerModel()
+        let music = MusicPlayerModel(preferences: preferences)
         music.selectChannel(preferences.selectedChannel)
         _preferences = State(initialValue: preferences)
         _music = State(initialValue: music)

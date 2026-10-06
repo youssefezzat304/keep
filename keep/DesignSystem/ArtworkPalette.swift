@@ -20,6 +20,13 @@ extension EnvironmentValues {
 }
 
 extension KeepTheme {
+    static func timerSurface(mode: FocusTimer.Mode, isBreak: Bool = false, environment: EnvironmentValues) -> Color {
+        let palette = environment.artworkPalette
+        let tint = isBreak ? palette?.ambient : mode == .pomodoro ? palette?.primary : palette?.secondary
+        return artworkSurface(isBreak ? highlight : mode == .pomodoro ? accent : sage,
+            tint: tint?.color, amount: environment.colorScheme == .dark ? 0.24 : 0.32, environment: environment)
+    }
+
     /// Project fills can be pale in Light or deep in Dark; retain their hue in a readable ink shade.
     static func readableAccent(_ accent: Color, on backgrounds: [Color], environment: EnvironmentValues) -> Color {
         let original = accent.resolve(in: environment)
