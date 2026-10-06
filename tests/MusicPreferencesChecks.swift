@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 private struct SilentCatalog: MusicCatalog {
     func lofiTracks() async throws -> [MusicTrack] { throw MusicFailure.noTracks }
@@ -18,6 +19,9 @@ private actor SilentMusic: AppleMusicControlling {
     private(set) var commands: [AppleMusicCommand] = []
     private var state: AppleMusicSnapshot.State = .stopped
     var failure: MusicFailure?
+    private var shuffled = false
+    private var repeated: AppleMusicRepeat = .off
+    private var position = 12.0
     func setFailure(_ failure: MusicFailure?) { self.failure = failure }
     func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
         commands.append(command)
@@ -25,9 +29,47 @@ private actor SilentMusic: AppleMusicControlling {
         switch command {
         case .play, .next, .previous: state = .playing
         case .pause: state = .paused
+        case .playItem: state = .playing
+        case .seek(let seconds): position = seconds
+        case .shuffle(let enabled): shuffled = enabled
+        case .repeatMode(let mode): repeated = mode
         case .volume, .status: break
         }
-        return AppleMusicSnapshot(state: state, title: state == .stopped ? nil : "Quiet song", artist: "Preview artist")
+        return AppleMusicSnapshot(state: state, title: state == .stopped ? nil : "Quiet song", artist: "Preview artist",
+            trackID: "silent-song", artwork: state == .stopped ? nil : Data([1, 2, 3]),
+            position: position, duration: 180, shuffled: shuffled, repeatMode: repeated)
+    }
+}
+
+private actor LibraryFixture: AppleMusicControlling {
+    private(set) var requests: [AppleMusicLibraryRequest] = []
+    var failure: MusicFailure?
+    func setFailure(_ value: MusicFailure?) { failure = value }
+    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
+        AppleMusicSnapshot(state: .stopped, title: nil, artist: nil)
+    }
+    func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage {
+        requests.append(request)
+        if let failure { throw failure }
+        let item = AppleMusicItem(nativeID: 1, kind: request.kind, title: request.query.isEmpty ? "First" : request.query, artist: "Artist")
+        if request.offset == 0 { return AppleMusicLibraryPage(items: [item, item], hasMore: true) }
+        return AppleMusicLibraryPage(items: [item, AppleMusicItem(nativeID: 2, kind: request.kind, title: "Second", artist: "Artist")], hasMore: false)
+    }
+}
+
+private actor DelayedLibrary: AppleMusicControlling {
+    private var pending: CheckedContinuation<AppleMusicLibraryPage, Never>?
+    var isPending: Bool { pending != nil }
+    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
+        AppleMusicSnapshot(state: .stopped, title: nil, artist: nil)
+    }
+    func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage {
+        if request.query == "old" { return await withCheckedContinuation { pending = $0 } }
+        return AppleMusicLibraryPage(items: [AppleMusicItem(nativeID: 2, kind: .songs, title: "New search", artist: "Artist")], hasMore: false)
+    }
+    func finish() {
+        pending?.resume(returning: AppleMusicLibraryPage(items: [AppleMusicItem(nativeID: 1, kind: .songs, title: "Stale search", artist: "Artist")], hasMore: false))
+        pending = nil
     }
 }
 
@@ -160,6 +202,130 @@ private actor DelayedMusic: AppleMusicControlling {
         await canceled.shutdown()?.value
         try await Task.sleep(for: .milliseconds(20))
         expect(canceled.provider == .audius && canceled.state == .idle && canceled.track == nil, "Late Apple Music replies cannot replace the chosen provider or restart playback")
-        print("Passed \(checks) music/preferences checks (silent fixtures)")
+        try await libraryChecks()
+        try await artworkChecks()
+        print("Passed \(checks) music/preferences/library/artwork checks (silent fixtures)")
+    }
+
+    private static func libraryChecks() async throws {
+        let fixture = LibraryFixture()
+        var launches = 0
+        let library = AppleMusicLibraryModel(controller: fixture, launch: { launches += 1 })
+        expect(library.state == .idle && launches == 0, "Constructing the library remains passive")
+        await library.load(AppleMusicLibraryRequest())
+        expect(library.state == .ready && library.items.count == 1 && library.hasMore, "Deduplicate a library page without losing pagination")
+        await library.load(AppleMusicLibraryRequest(offset: 50), append: true)
+        expect(library.items.map(\.nativeID) == [1, 2] && !library.hasMore, "Append the next page without duplicates")
+        let requests = await fixture.requests
+        expect(requests.map(\.offset) == [0, 50], "Paging uses bounded native batches")
+        let list = AppleMusicItem(nativeID: 7, kind: .playlists, title: "Focus", artist: "Playlist")
+        await library.load(AppleMusicLibraryRequest(query: "a user's \"quoted\" search", playlist: list))
+        let forwarded = await fixture.requests.last
+        expect(forwarded?.playlist == list && forwarded?.query == "a user's \"quoted\" search", "Keep search text as typed data and retain playlist scope")
+        await fixture.setFailure(.appleMusicPermission)
+        await library.load(AppleMusicLibraryRequest())
+        expect(library.state == .failed(.appleMusicPermission) && library.items.isEmpty, "Denied library access clears stale results and offers Retry")
+        await fixture.setFailure(nil)
+        await library.load(AppleMusicLibraryRequest(kind: .playlists))
+        expect(library.state == .ready && library.items.first?.kind == .playlists, "Library retry can recover and switch to playlists")
+        let delayed = DelayedLibrary()
+        let search = AppleMusicLibraryModel(controller: delayed, launch: {})
+        let old = Task { await search.load(AppleMusicLibraryRequest(query: "old")) }
+        for _ in 0..<100 {
+            if await delayed.isPending { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        guard await delayed.isPending else { preconditionFailure("Delayed search did not start") }
+        await search.load(AppleMusicLibraryRequest(query: "new"))
+        await delayed.finish(); await old.value
+        expect(search.items.first?.title == "New search", "Older search responses cannot replace current results")
+        let close = Task { await search.load(AppleMusicLibraryRequest(query: "old")) }
+        for _ in 0..<100 {
+            if await delayed.isPending { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        search.cancel(); close.cancel(); await delayed.finish(); await close.value
+        expect(search.state == .idle, "Dismissed searches cannot repopulate library state")
+
+        let native = SilentMusic()
+        let model = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: native, launchAppleMusic: {})
+        model.volume = 0.35
+        model.playAppleItem(list)
+        try await waitUntil { model.state == .playing }
+        let commands = await native.commands
+        expect(commands.prefix(2) == [.volume(35), .playItem(list)], "Library Play selects Music and restores volume before playing the native item")
+        expect(model.track?.id == "silent-song" && model.appleArtwork == Data([1, 2, 3]) && model.appleDuration == 180,
+            "Now playing carries stable identity, available artwork, and timing")
+        model.seekApple(to: 999)
+        try await waitUntil { model.state == .playing && model.applePosition == 180 }
+        let seek = await native.commands
+        expect(seek.last == .seek(180), "Seeking stays within the actual track duration")
+        let count = seek.count
+        model.seekApple(to: .nan)
+        let afterInvalid = await native.commands
+        expect(afterInvalid.count == count, "Reject invalid seek values without native calls")
+        model.togglePlayback(); try await waitUntil { model.state == .paused }
+        model.toggleAppleShuffle(); try await waitUntil { model.state == .paused && model.appleShuffled }
+        expect(!model.wantsPlayback, "Shuffle changes preserve paused intent")
+        model.cycleAppleRepeat(); try await waitUntil { model.state == .paused && model.appleRepeat == .all }
+        model.cycleAppleRepeat(); try await waitUntil { model.state == .paused && model.appleRepeat == .one }
+        model.cycleAppleRepeat(); try await waitUntil { model.state == .paused && model.appleRepeat == .off }
+        expect(!model.wantsPlayback, "Repeat cycles off/all/one without starting playback")
+        model.selectProvider(.audius); await model.shutdown()?.value
+        expect(model.appleArtwork == nil && model.appleDuration == 0, "Provider changes clear Apple artwork and timing")
+        let retryNative = SilentMusic()
+        await retryNative.setFailure(.appleMusicConnection)
+        let retry = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: retryNative, launchAppleMusic: {})
+        retry.playAppleItem(list)
+        try await waitUntil { retry.state == .failed(.appleMusicConnection) }
+        await retryNative.setFailure(nil)
+        retry.retry()
+        try await waitUntil { retry.state == .playing }
+        let retriedCommands = await retryNative.commands
+        expect(retriedCommands.suffix(2) == [.volume(50), .playItem(list)], "Retry preserves the failed library selection")
+        await retry.shutdown()?.value
+        let external = SilentMusic()
+        _ = try await external.perform(.play) // Simulate Music already playing before Keep connects.
+        let observer = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: external, launchAppleMusic: {})
+        observer.selectProvider(.appleMusic)
+        await observer.observeAppleMusic()
+        expect(observer.state == .playing && observer.track?.title == "Quiet song", "Explicit Browse observes an existing Music selection")
+        await observer.shutdown()?.value
+        let observedCommands = await external.commands
+        expect(observedCommands == [.play, .status], "Browse neither changes volume nor claims/pauses externally started playback")
+    }
+
+    private static func artworkChecks() async throws {
+        let wallpapers = WallpaperLibrary()
+        let preferences = AppPreferences()
+        wallpapers.configure(preferences.snapshot.wallpaperConfiguration, preferences: preferences)
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil, width: 4, height: 4, bitsPerComponent: 8,
+                bytesPerRow: 16, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { preconditionFailure("No image fixture") }
+        context.setFillColor(red: 0.8, green: 0.4, blue: 0.1, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+        guard let cgImage = context.makeImage() else { preconditionFailure("No CG image fixture") }
+        let png = try ArtworkWash.png(cgImage)
+        wallpapers.setArtwork(url: nil, data: png)
+        try await waitUntil { wallpapers.trackImage != nil }
+        expect(wallpapers.image == nil && wallpapers.trackImage != nil, "Library cover art is available without replacing a chosen wallpaper")
+        let cover = wallpapers.trackImage
+        preferences.wallpaperSource = .audius
+        wallpapers.configure(preferences.snapshot.wallpaperConfiguration, preferences: preferences)
+        try await waitUntil { !wallpapers.isLoading }
+        expect(wallpapers.image != nil && wallpapers.backdrop(for: .audius) != nil && wallpapers.palette(for: .audius) != nil,
+            "Native artwork bytes feed the shared image, backdrop, and palette without a URL")
+        expect(wallpapers.image === cover, "Selecting Track artwork reuses the library's decoded cover")
+        let image = wallpapers.image
+        wallpapers.setArtwork(url: nil, data: png)
+        expect(wallpapers.image === image && !wallpapers.isLoading, "Unchanged native artwork is decoded only once")
+        wallpapers.setArtwork(url: nil, data: Data([0, 1]))
+        try await waitUntil { !wallpapers.isLoading }
+        expect(wallpapers.image == nil, "Corrupt native artwork uses the fallback without affecting audio")
+        wallpapers.setArtwork(url: nil, data: png)
+        wallpapers.setArtwork(url: nil, data: nil)
+        try await Task.sleep(for: .milliseconds(50))
+        expect(wallpapers.image == nil, "Replaced artwork decoding cannot restore a stale image")
+        wallpapers.shutdown()
     }
 }

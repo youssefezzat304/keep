@@ -5,6 +5,7 @@ struct MusicPlayerCard: View {
     var preferences = AppPreferences()
     var wallpapers = WallpaperLibrary()
     @State private var showsSavedChannels = false
+    @State private var showsAppleLibrary = false
     @State private var providerMenuHovered = false
     @FocusState private var providerMenuFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -60,6 +61,10 @@ struct MusicPlayerCard: View {
         .frame(minHeight: 288, maxHeight: .infinity)
         .onChange(of: player.provider) { _, provider in
             if provider != .audius { showsSavedChannels = false }
+            if provider != .appleMusic { showsAppleLibrary = false }
+        }
+        .sheet(isPresented: $showsAppleLibrary) {
+            AppleMusicLibraryView(player: player, preferences: preferences, wallpapers: wallpapers)
         }
     }
 
@@ -105,7 +110,7 @@ struct MusicPlayerCard: View {
                         .font(.system(size: 23, design: .serif))
                         .lineLimit(1)
                         .help(player.track?.title ?? player.provider.title)
-                    Text(player.track?.artist ?? (player.provider == .audius ? "Lofi for a little focus" : "Choose a song or playlist in Music"))
+                    Text(player.track?.artist ?? (player.provider == .audius ? "Lofi for a little focus" : "Browse your songs and playlists"))
                         .font(.system(size: 12))
                         .foregroundStyle(KeepTheme.secondaryInk)
                         .lineLimit(1)
@@ -144,7 +149,7 @@ struct MusicPlayerCard: View {
 
     @ViewBuilder private var favoriteActions: some View {
         if player.provider == .appleMusic {
-            musicControl("music.note.list", label: "Choose music in Apple Music") { player.openAppleMusic() }
+            musicControl("music.note.list", label: "Browse Apple Music library") { showsAppleLibrary = true }
         } else { HStack(spacing: 2) {
             musicControl(isFavorite ? "heart.fill" : "heart", label: isFavorite ? "Unsave current artist or playlist" : "Save current artist or playlist", disabled: favoriteTarget == nil || !preferences.canEdit) {
                 guard let target = favoriteTarget else { return }
@@ -246,7 +251,8 @@ struct MusicPlayerCard: View {
                 }
             }
             if player.provider == .appleMusic {
-                Button("Choose music in Music…") { player.openAppleMusic() }
+                Button("Browse Music library…") { showsAppleLibrary = true }
+                Button("Open Music…") { player.openAppleMusic() }
             }
         } label: {
             Label("Choose music provider", systemImage: "arrow.triangle.2.circlepath")
@@ -291,7 +297,7 @@ struct MusicPlayerCard: View {
             .foregroundStyle(KeepTheme.secondaryInk)
             .accessibilityElement(children: .combine)
         case .idle, .paused, .playing:
-            Text(player.state == .playing ? "Playing · \(player.provider.title)" : player.provider == .appleMusic && player.track == nil ? (player.appleMusicConnected ? "Choose a song or playlist in Music" : "Play connects to Music on your Mac") : player.state == .paused ? "Paused · Take your time" : "Press play to settle in")
+            Text(player.state == .playing ? "Playing · \(player.provider.title)" : player.provider == .appleMusic && player.track == nil ? "Browse your library or resume Music with Play" : player.state == .paused ? "Paused · Take your time" : "Press play to settle in")
                 .font(.system(size: 12))
                 .foregroundStyle(KeepTheme.secondaryInk)
         }

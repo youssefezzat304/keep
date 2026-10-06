@@ -42,7 +42,7 @@ struct SettingsView: View {
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
-                    settingRow("Apple Music", detail: "Uses the account signed in to Music on this Mac. Choose Apple Music in the player and press Play to allow playback control. Choose songs and playlists in Music; your Keep volume is saved for both providers.") {
+                    settingRow("Apple Music", detail: "Uses the account signed in to Music on this Mac. Choose Apple Music in the player, then browse your library or press Play to allow access. Search and play library songs and playlists inside Keep. Choose Track artwork above to use available cover art; your volume is saved for both providers.") {
                         Button("Open Music…") { player.openAppleMusic() }
                     }
                     Divider().overlay(KeepTheme.border).allowsHitTesting(false)

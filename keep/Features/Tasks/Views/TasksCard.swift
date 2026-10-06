@@ -216,11 +216,11 @@ private struct TaskRow: View {
                 }
             if let onStartTimer {
                 HStack(spacing: 4) {
-                    timerButton(.focus, label: "Start Focus", symbol: "timer", control: .focus,
+                    timerButton(.focus, label: "Start Focus", control: .focus,
                         fill: KeepTheme.timerSurface(mode: .pomodoro, environment: environment), ink: KeepTheme.ink, action: onStartTimer)
-                    timerButton(.flow, label: "Start Flow", symbol: "leaf", control: .flow,
+                    timerButton(.flow, label: "Start Flow", control: .flow,
                         fill: KeepTheme.timerSurface(mode: .flow, environment: environment), ink: KeepTheme.ink, action: onStartTimer)
-                    timerButton(.both, label: "Start both timers", symbol: "square.stack", control: .both,
+                    timerButton(.both, label: "Start both timers", control: .both,
                         fill: KeepTheme.taskBothTimerFill, ink: KeepTheme.taskBothTimerInk, action: onStartTimer)
                 }
                 .opacity(hovered || focused != nil || titleFocused ? 1 : 0)
@@ -233,16 +233,14 @@ private struct TaskRow: View {
         .onHover { hovered = $0 }
     }
 
-    private func timerButton(_ timers: WorkspaceModel.TaskTimers, label: String, symbol: String, control: Control,
+    private func timerButton(_ timers: WorkspaceModel.TaskTimers, label: String, control: Control,
                              fill: Color, ink: Color, action: @escaping (FocusTask, WorkspaceModel.TaskTimers) -> Void) -> some View {
         Button { action(task, timers) } label: {
-            HStack(spacing: 2) {
-                Image(systemName: "play.fill").font(.system(size: 9))
-                Image(systemName: symbol).font(.system(size: 9))
-            }
-            .foregroundStyle(ink).frame(width: 32, height: 30)
-            .background(fill, in: RoundedRectangle(cornerRadius: 8))
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            Image(systemName: "play.fill").font(.system(size: 11))
+                .offset(x: 1)
+                .foregroundStyle(ink).frame(width: 30, height: 30)
+                .background(fill, in: Circle())
+                .contentShape(Circle())
         }
         .buttonStyle(.plain).focusable().focused($focused, equals: control).focusEffectDisabled().disabled(!canStartTimer)
         .onKeyPress(keys: [.space, .return]) { _ in
@@ -250,7 +248,7 @@ private struct TaskRow: View {
             action(task, timers)
             return .handled
         }
-        .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(focused == control ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
+        .overlay { Circle().strokeBorder(focused == control ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
         .accessibilityLabel("\(label) for \(task.title)").help("\(label) for this task")
     }
 }

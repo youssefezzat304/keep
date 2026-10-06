@@ -11,6 +11,7 @@
         <key>com.apple.Music</key>
         <array>
             <string>com.apple.Music.playback</string>
+            <string>com.apple.Music.library.read</string>
         </array>
     </dict>
 </dict>

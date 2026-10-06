@@ -11,6 +11,11 @@ final class MusicPlayerModel {
     private(set) var queue: [MusicTrack] = []
     var provider: MusicProvider { preferences.musicProvider }
     private(set) var appleMusicConnected = false
+    private(set) var appleArtwork: Data?
+    private(set) var applePosition: Double = 0
+    private(set) var appleDuration: Double = 0
+    private(set) var appleShuffled = false
+    private(set) var appleRepeat: AppleMusicRepeat = .off
     var volume: Double {
         get { preferences.musicVolume }
         set {
@@ -38,6 +43,7 @@ final class MusicPlayerModel {
     @ObservationIgnored private var volumeRequest: Task<Void, Never>?
     @ObservationIgnored private var appleRelease: Task<Void, Never>?
     private var appleMusicEngaged = false
+    private var applePlayTarget: AppleMusicItem?
     private var index = 0
     private var hasItem = false
 
@@ -62,8 +68,55 @@ final class MusicPlayerModel {
 
     func toggleMute() { volume = volume > 0 ? 0 : unmutedVolume }
 
+    func makeAppleLibrary() -> AppleMusicLibraryModel {
+        AppleMusicLibraryModel(controller: appleMusic, launch: launchAppleMusic)
+    }
+
+    /// Explicit Browse may observe Music's existing playback without taking ownership or starting audio.
+    func observeAppleMusic() async {
+        guard provider == .appleMusic, state != .loading else { return }
+        let token = generation
+        do {
+            try await launchAppleMusic()
+            try Task.checkCancellation()
+            let snapshot = try await appleMusic.perform(.status)
+            try Task.checkCancellation()
+            guard generation == token, provider == .appleMusic else { return }
+            appleMusicConnected = true
+            applyApple(snapshot)
+            appleRefresh?.cancel()
+            refreshApple(token: token)
+        } catch {
+            guard !Task.isCancelled, generation == token, provider == .appleMusic else { return }
+            state = .failed((error as? MusicFailure) ?? .appleMusicConnection)
+        }
+    }
+
+    func playAppleItem(_ item: AppleMusicItem) {
+        guard preferences.canEdit else { return }
+        selectProvider(.appleMusic)
+        applePlayTarget = item
+        performApple(.playItem(item))
+    }
+
+    func seekApple(to seconds: Double) {
+        guard provider == .appleMusic, appleMusicConnected, appleDuration > 0, seconds.isFinite else { return }
+        performApple(.seek(min(appleDuration, max(0, seconds))))
+    }
+
+    func toggleAppleShuffle() {
+        guard provider == .appleMusic, appleMusicConnected else { return }
+        performApple(.shuffle(!appleShuffled))
+    }
+
+    func cycleAppleRepeat() {
+        guard provider == .appleMusic, appleMusicConnected else { return }
+        performApple(.repeatMode(appleRepeat.next))
+    }
+
     func togglePlayback() {
         if provider == .appleMusic {
+            if !wantsPlayback { applePlayTarget = nil }
             performApple(wantsPlayback ? .pause : .play)
             return
         }
@@ -83,15 +136,18 @@ final class MusicPlayerModel {
         } else { load(at: index, autoplay: true) }
     }
 
-    func retry() { if provider == .appleMusic { performApple(.play) } else { load(at: index, autoplay: true) } }
+    func retry() {
+        if provider == .appleMusic { performApple(applePlayTarget.map(AppleMusicCommand.playItem) ?? .play) }
+        else { load(at: index, autoplay: true) }
+    }
     func next() {
         guard canSkip else { return }
-        if provider == .appleMusic { performApple(.next) }
+        if provider == .appleMusic { applePlayTarget = nil; performApple(.next) }
         else { load(at: (index + 1) % queue.count, autoplay: wantsPlayback) }
     }
     func previous() {
         guard canSkip else { return }
-        if provider == .appleMusic { performApple(.previous) }
+        if provider == .appleMusic { applePlayTarget = nil; performApple(.previous) }
         else { load(at: (index + queue.count - 1) % queue.count, autoplay: wantsPlayback) }
     }
 
@@ -133,7 +189,10 @@ final class MusicPlayerModel {
             }
         }
         appleMusicEngaged = false
+        applePlayTarget = nil
         appleMusicConnected = false
+        appleArtwork = nil; applePosition = 0; appleDuration = 0
+        appleShuffled = false; appleRepeat = .off
         generation = UUID()
         playback.stop()
         wantsPlayback = false
@@ -149,14 +208,17 @@ final class MusicPlayerModel {
         generation = UUID()
         let token = generation
         let resumeAfterSkip = wantsPlayback
-        wantsPlayback = command != .pause
+        let startsPlayback: Bool
+        switch command { case .play, .playItem: startsPlayback = true; default: startsPlayback = false }
+        if startsPlayback { wantsPlayback = true }
+        else if command == .pause { wantsPlayback = false }
         state = .loading
         request = Task { [weak self, appleMusic] in
             do {
                 guard let self else { return }
                 await self.appleRelease?.value
                 try Task.checkCancellation()
-                if command == .play {
+                if startsPlayback {
                     try await self.launchAppleMusic()
                     try Task.checkCancellation()
                     guard self.generation == token else { return }
@@ -164,7 +226,7 @@ final class MusicPlayerModel {
                     _ = try await appleMusic.perform(.volume(Int((self.volume * 100).rounded())))
                 }
                 try Task.checkCancellation()
-                if command == .play { self.appleMusicEngaged = true }
+                if startsPlayback { self.appleMusicEngaged = true }
                 var snapshot = try await appleMusic.perform(command)
                 if (command == .next || command == .previous), !resumeAfterSkip {
                     snapshot = try await appleMusic.perform(.pause)
@@ -195,9 +257,16 @@ final class MusicPlayerModel {
         wantsPlayback = snapshot.state == .playing
         state = wantsPlayback ? .playing : .paused
         if let title = snapshot.title {
-            track = MusicTrack(id: "apple-music-current", title: title,
+            track = MusicTrack(id: snapshot.trackID ?? "apple-music-current", title: title,
                 artist: snapshot.artist ?? "Apple Music", permalink: URL(string: "music://"))
-        } else if snapshot.state == .stopped { track = nil }
+            appleArtwork = snapshot.artwork
+            applePosition = snapshot.position
+            appleDuration = snapshot.duration
+            appleShuffled = snapshot.shuffled
+            appleRepeat = snapshot.repeatMode
+        } else if snapshot.state == .stopped {
+            track = nil; appleArtwork = nil; applePosition = 0; appleDuration = 0
+        }
     }
 
     private func refreshApple(token: UUID) {

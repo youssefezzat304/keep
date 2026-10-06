@@ -175,7 +175,7 @@ The working-on card uses a neutral border. Display its task name as plain text u
 
 Use `warmHighlight` for restrained selected-content emphasis. Use sage with readable ink for completion or supportive status. Use terracotta to identify the active session or selected navigation item sparingly.
 
-Task rows reveal three compact play buttons on hover or keyboard focus, with labels/tooltips and equivalent accessibility actions. Focus and Flow use the same artwork-tinted semantic fills as their timer cards. Both uses the fixed warm-neutral `TaskBothTimerFill` and dark `TaskBothTimerInk` assets, unchanged by artwork or appearance. Reserve their width to avoid shifting task text. Task completion should also have a checkmark or explicit state. Pomodoro and flow modes need labels, not just different colors. Keep selected task titles legible even when struck through.
+Task rows reveal three 30-point circular buttons with only a play arrow on hover or keyboard focus, with labels/tooltips and equivalent accessibility actions. Focus and Flow use the same artwork-tinted semantic fills as their timer cards. Both uses the fixed warm-neutral `TaskBothTimerFill` and dark `TaskBothTimerInk` assets, unchanged by artwork or appearance. Reserve their width to avoid shifting task text. Task completion should also have a checkmark or explicit state. Pomodoro and flow modes need labels, not just different colors. Keep selected task titles legible even when struck through.
 
 ## 14. Graphics and data visualization
 

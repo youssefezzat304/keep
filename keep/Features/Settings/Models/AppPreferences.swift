@@ -15,7 +15,7 @@ enum WallpaperSource: String, Codable, CaseIterable, Identifiable {
     case cozy, folder, audius
     var id: String { rawValue }
     var title: String {
-        switch self { case .cozy: "Cozy corner"; case .folder: "My folder"; case .audius: "Audius artwork" }
+        switch self { case .cozy: "Cozy corner"; case .folder: "My folder"; case .audius: "Track artwork" }
     }
 }
 

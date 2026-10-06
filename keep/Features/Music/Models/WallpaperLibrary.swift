@@ -52,6 +52,9 @@ final class WallpaperLibrary {
         let palette: ArtworkPalette?
     }
     private(set) var image: NSImage?
+    private(set) var trackImage: NSImage?
+    private var nativeBackdrop: NSImage?
+    private var nativePalette: ArtworkPalette?
     private var decodedBackdrop: NSImage?
     private var bundledBackdrop: NSImage?
     private var decodedPalette: ArtworkPalette?
@@ -69,6 +72,10 @@ final class WallpaperLibrary {
     @ObservationIgnored private var bundledBackdropTask: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var artworkURL: URL?
+    @ObservationIgnored private var artworkData: Data?
+    @ObservationIgnored private var nativeArtworkTask: Task<Void, Never>?
+    @ObservationIgnored private var nativeGeneration = UUID()
+    private var nativeArtworkLoading = false
     @ObservationIgnored private let session: URLSession
 
     init(session: URLSession? = nil) {
@@ -124,25 +131,65 @@ final class WallpaperLibrary {
 
     /// One decoded artwork image feeds both the player and the window, across tabs/windows.
     func setArtworkURL(_ url: URL?) {
-        guard artworkURL != url else { return }
+        setArtwork(url: url, data: nil)
+    }
+
+    func setArtwork(url: URL?, data: Data?) {
+        guard artworkURL != url || artworkData != data else { return }
+        let dataChanged = artworkData != data
         artworkURL = url
+        artworkData = data
+        if dataChanged { decodeNativeArtwork(data) }
         if configuration?.source == .audius { loadArtwork() }
+    }
+
+    /// Native cover art is also available to the library sheet when a custom wallpaper is selected.
+    /// The same thumbnail, wash, and palette are reused if Track artwork becomes the backdrop.
+    private func decodeNativeArtwork(_ data: Data?) {
+        nativeArtworkTask?.cancel(); nativeGeneration = UUID()
+        let token = nativeGeneration
+        trackImage = nil; nativeBackdrop = nil; nativePalette = nil; nativeArtworkLoading = false
+        guard let data, !data.isEmpty, data.count <= 12 * 1024 * 1024 else { return }
+        nativeArtworkLoading = true
+        nativeArtworkTask = Task { [weak self] in
+            do {
+                let operation = Task.detached { try Self.artworkThumbnail(data) }
+                let thumbnail = try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
+                try Task.checkCancellation()
+                guard let self, self.nativeGeneration == token else { return }
+                self.trackImage = NSImage(data: thumbnail.image)
+                self.nativeBackdrop = NSImage(data: thumbnail.wash)
+                self.nativePalette = thumbnail.palette
+                self.nativeArtworkLoading = false
+                if self.configuration?.source == .audius { self.useNativeArtwork() }
+            } catch {
+                guard !Task.isCancelled, let self, self.nativeGeneration == token else { return }
+                self.nativeArtworkLoading = false
+                if self.configuration?.source == .audius { self.useNativeArtwork() }
+            }
+        }
+    }
+
+    private func useNativeArtwork() {
+        image = trackImage; decodedBackdrop = nativeBackdrop; decodedPalette = nativePalette
+        isLoading = nativeArtworkLoading
     }
 
     private func loadArtwork() {
         loadTask?.cancel(); generation = UUID()
         let token = generation
         image = nil; isLoading = false
-        guard let url = artworkURL, url.scheme == "https", let host = url.host, !host.isEmpty,
-              url.user == nil, url.password == nil else { return }
+        if artworkData != nil { useNativeArtwork(); return }
+        let url = artworkURL
+        guard let url, url.scheme == "https", url.host?.isEmpty == false, url.user == nil, url.password == nil else { return }
         isLoading = true
         loadTask = Task { [weak self, session] in
             do {
                 let request = URLRequest(url: url, timeoutInterval: 20)
                 let (data, response) = try await session.data(for: request)
+                guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode) else { throw CocoaError(.fileReadCorruptFile) }
                 try Task.checkCancellation()
-                guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode),
-                      data.count <= 12 * 1024 * 1024 else { throw CocoaError(.fileReadCorruptFile) }
+                guard !data.isEmpty, data.count <= 12 * 1024 * 1024 else { throw CocoaError(.fileReadCorruptFile) }
                 let operation = Task.detached { try Self.artworkThumbnail(data) }
                 let thumbnail = try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
                 try Task.checkCancellation()
@@ -180,7 +227,10 @@ final class WallpaperLibrary {
             showImage(at: index)
         }
     }
-    func shutdown() { loadTask?.cancel(); rotationTask?.cancel(); bundledBackdropTask?.cancel(); generation = UUID() }
+    func shutdown() {
+        loadTask?.cancel(); rotationTask?.cancel(); bundledBackdropTask?.cancel(); nativeArtworkTask?.cancel()
+        generation = UUID(); nativeGeneration = UUID()
+    }
 
     private func loadFolder(preferences: AppPreferences) {
         loadTask?.cancel(); rotationTask?.cancel(); generation = UUID()

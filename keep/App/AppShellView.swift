@@ -104,7 +104,10 @@ struct AppShellView: View {
             wallpapers.configure(configuration, preferences: preferences)
         }
         .onChange(of: music.track?.artworkURL, initial: true) { _, url in
-            wallpapers.setArtworkURL(url)
+            wallpapers.setArtwork(url: url, data: music.appleArtwork)
+        }
+        .onChange(of: music.appleArtwork) { _, data in
+            wallpapers.setArtwork(url: music.track?.artworkURL, data: data)
         }
         .onAppear { workspace.startUpdating() }
     }
