@@ -15,7 +15,7 @@ final class WorkspaceModel {
     private(set) var today: Date
     private(set) var lastTimesheetRemoval: TimesheetRemoval?
     var canTrack: Bool { !loadFailed }
-    var projects: [FocusProject] { FocusProject.defaults + ledger.customProjects }
+    var projects: [FocusProject] { (FocusProject.defaults + ledger.customProjects).filter { !ledger.deletedProjectIDs.contains($0.id) } }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
 
     @ObservationIgnored private var checkpoint: ContinuousClock.Instant?
@@ -44,13 +44,15 @@ final class WorkspaceModel {
             do { self.ledger = try persistence.load() }
             catch {
                 loadFailed = true
-                persistenceError = "Couldn’t load your saved workspace. Retry before recording, editing time, or creating projects."
+                persistenceError = "Couldn’t load your saved workspace. Retry before recording, editing time, or changing projects."
             }
         }
         if let settings = self.ledger.pomodoroSettings { pomodoro.configure(settings) }
+        reconcileProjectSelection()
     }
 
     func selectProject(_ project: FocusProject?, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard project.map({ !ledger.deletedProjectIDs.contains($0.id) }) ?? true else { return }
         synchronize(at: instant, date: date)
         selectedProject = project
         if isRecording(at: instant) { ensureCurrentRow(on: date) }
@@ -79,6 +81,21 @@ final class WorkspaceModel {
         ledgerDirty = true
         save(at: instant)
         return project
+    }
+
+    /// Removing a catalog project never erases time. Running timers continue unassigned.
+    func deleteProject(_ project: FocusProject, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, projects.contains(where: { $0.id == project.id }) else { return }
+        synchronize(at: instant, date: date)
+        ledger.deleteProject(id: project.id)
+        reconcileProjectSelection()
+        if isRecording(at: instant) { ensureCurrentRow(on: date) }
+        ledgerDirty = true
+        save(at: instant)
+    }
+
+    private func reconcileProjectSelection() {
+        if let selectedProject, ledger.deletedProjectIDs.contains(selectedProject.id) { self.selectedProject = nil }
     }
 
     func play(_ mode: FocusTimer.Mode, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
@@ -229,6 +246,7 @@ final class WorkspaceModel {
         if loadFailed, let persistence {
             do {
                 ledger = try persistence.load()
+                reconcileProjectSelection()
                 if let settings = ledger.pomodoroSettings { pomodoro.configure(settings) }
                 loadFailed = false
                 persistenceError = nil

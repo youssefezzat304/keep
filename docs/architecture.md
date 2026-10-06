@@ -10,8 +10,8 @@ The application has one native application target, with implemented timers, loca
 | --- | --- | --- |
 | App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or unfinished task input across launches |
 | Navigation | Selectable Focus, Dashboard, Habit tracker placeholder, and Settings; icon-only navigation below 900 points; disabled Stats | Statistics destination |
-| Dashboard | Timesheet / Calendar switch and shared week navigation; editable saved Timesheet; weekly Calendar with saved timer sessions, actual day totals, zoom, and live read-only details | Calendar editing, list/month views, sync |
-| Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; explicit task-name editor, captured in sessions | Project renaming/deletion and task-level aggregate editing |
+| Dashboard | Timesheet / Calendar / Projects switch; shared week navigation for time views; project creation/deletion; editable saved Timesheet; weekly Calendar with saved timer sessions, actual day totals, zoom, and live read-only details | Calendar editing, list/month views, sync |
+| Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; explicit task-name editor, captured in sessions | Project renaming and task-level aggregate editing |
 | Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
 | Flow timer | Elapsed time, independent controls, session recording, and priority over Pomodoro | A completion limit |
 | Music | Audius streaming and native Music-app control; in-Keep Music library songs/playlists/search, current cover art, seek/shuffle/repeat, transport, saved volume, loading/Retry, and Audius favorites | Full Apple Music catalog/recommendations, library writes, offline downloading, restoring queue/playback, zen mode |
@@ -69,7 +69,7 @@ keep/
       Models/                      AppPreferences, validated SettingsArchive/SettingsPersistence
       Views/                       SettingsView; native folder importer, channel-link editor, GlassinessSlider
     Dashboard/
-      Views/                       Shared week/page controls and weekly calendar UI
+      Views/                       Shared week/page controls, weekly calendar, and project catalog UI
       Models/                      RecordedSession timestamps, task/project/source and recorded civil timezone
     Habits/
       Views/                       HabitTrackerView placeholder; no tracking logic
@@ -81,6 +81,7 @@ keep/
   keep.entitlements                App-scoped read-only wallpaper bookmarks and scoped Music playback/read-only library automation
 tests/DailyTaskChecks.swift         Daily navigation, task isolation, and local persistence checks
 tests/SessionRecordingChecks.swift  Timer sessions, task launches, overlap/breaks, archives, removal/Undo
+tests/ProjectCatalogChecks.swift    Catalog creation/deletion, active timers, historical time, and archive checks
 tests/MusicPreferencesChecks.swift  Silent provider/volume/lifecycle and preferences-migration checks
 reference/                         Local, Git-ignored visual references
 ```
@@ -96,10 +97,11 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
         ├── NavBar
         │   └── Focus, Dashboard, Habit tracker, and Settings actions; disabled Stats
         ├── KeepScrollView → SettingsView → AppPreferences + WallpaperLibrary + MusicPlayerModel
-        ├── DashboardView (shared week and Timesheet / Calendar selection)
+        ├── DashboardView (shared week and Timesheet / Calendar / Projects selection)
         │   ├── KeepScrollView → TimesheetView
         │   │   └── TimesheetTable → TimesheetTimeCell → TimesheetEntryEditor
-        │   └── DashboardCalendarView → actual session hour grid + recorded detail sheet
+        │   ├── DashboardCalendarView → actual session hour grid + recorded detail sheet
+        │   └── DashboardProjectsView → project catalog + shared creation sheet + deletion confirmation
         ├── HabitTrackerView (placeholder)
         └── KeepScrollView → FocusSessionView
             ├── ActiveTargetHeader
@@ -114,7 +116,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 
 `TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns a window-local `FocusTaskEditor` shared with its header and timer actions; committed task text lives in the workspace. `FocusSessionView` reads shared projects/timers and composes the music and daily-task feature views.
 
-`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Dashboard/Habit tracker/Settings action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab remains mounted in the same fixed viewport; inactive content is invisible and hidden from hit testing and accessibility. Focus and Settings own vertical scroll views; Dashboard owns its two viewports. This preserves drafts and scroll positions without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
+`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Dashboard/Habit tracker/Settings action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab remains mounted in the same fixed viewport; inactive content is invisible and hidden from hit testing and accessibility. Focus and Settings own vertical scroll views; Dashboard owns its three viewports. This preserves drafts and scroll positions without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
 
 ## 4. Responsibility and dependency boundaries
 
@@ -156,9 +158,9 @@ Implemented timer and recording semantics:
 - Recorded intervals split at local calendar midnights, including DST days of 23 or 25 hours. Duration is mapped from the previous checkpoint’s civil date; later wall-clock changes affect subsequent date attribution.
 - Timers and selection are app-scoped, continue while Keep runs, and restart idle on relaunch. No time is counted while the app is quit. Closing a window does not end app-owned timers.
 
-`TimesheetLedger` stores one numeric seconds value per project ID/local day ID, together with project metadata. It also stores a separate `customProjects` catalog, so a created project survives relaunch before it has any time entries. `WorkspaceModel.projects` combines the four built-in projects with this saved catalog. Rows appear immediately when recording starts or a project is added manually. Daily, project, and weekly totals are derived from entries. The UI initially shows the current Monday–Sunday week; arrows navigate history and This week returns to the current week.
+`TimesheetLedger` stores one numeric seconds value per project ID/local day ID, together with project metadata. It also stores a separate `customProjects` catalog, so a created project survives relaunch before it has any time entries. `WorkspaceModel.projects` combines the four built-in projects with this saved catalog, excluding persisted `deletedProjectIDs`. The optional deleted-ID field preserves compatibility with earlier v1 archives and prevents built-in projects from reappearing after deletion. Deleted custom metadata and recorded entries/sessions remain intact; archive validation rejects unknown or unassigned deleted IDs. Rows appear immediately when recording starts or a project is added manually. Daily, project, and weekly totals are derived from entries. The UI initially shows the current Monday–Sunday week; arrows navigate history and This week returns to the current week.
 
-`DashboardView` owns one Monday–Sunday week offset and supplies the resulting `TimesheetWeek` to both views. Its header, week arrows, This week action, summary, and Timesheet / Calendar switch stay outside the scrolling content. Switching views or leaving Dashboard preserves the selected week, page, and mounted content. `TimesheetView` owns only its content and project-picker/creation presentation; all ledger mutations still route through the workspace.
+`DashboardView` owns one Monday–Sunday week offset and supplies the resulting `TimesheetWeek` to both time views. Its header, week arrows, This week action, summary, and Timesheet / Calendar / Projects switch stay outside the scrolling content. Switching views or leaving Dashboard preserves the selected week, page, and mounted content. `TimesheetView` owns only its content and project-picker/creation presentation; all ledger mutations still route through the workspace.
 
 `DashboardCalendarView` reads real `RecordedSession` values from the workspace ledger, filtered by the displayed week’s saved civil day IDs. Each interval captures project metadata, trimmed task text, Pomodoro focus or Flow source, start/end dates, and the recording timezone. The existing single recorder supplies both sessions and daily totals, so Flow priority and uncounted breaks cannot diverge. Continuous ticks coalesce by recording context/day; project/task/source changes, pauses, removals, and midnight create separate segments. Clock discontinuities preserve duration and create separate segments instead of fabricating one continuous wall-clock interval. The model preserves the recorded civil timezone for display, including repeated DST hours.
 
@@ -169,6 +171,8 @@ Calendar shows actual daily/session-week totals, seven weekday headers, weekend 
 The trailing × removes a project's entries and recorded sessions for the displayed week through `WorkspaceModel.removeTimesheetProject`. It settles recording before removal and saves immediately, preserving other projects, other weeks, catalog metadata, selection, and timer state. A running timer can create the row again with subsequent time. The model keeps one in-memory `TimesheetRemoval` for Undo across tabs/windows; Undo settles again and adds back removed time and sessions alongside newly recorded/edited values, then saves. Subsequent running time uses a new recording ID, so Undo cannot merge it into deleted history. Undo history is not restored after quitting. `TimesheetView` shows the removal/Undo notice and explains continued recording when applicable.
 
 `TimesheetPersistence` JSON-encodes the ledger, custom catalog, optional `PomodoroSettings`, and actual sessions into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog/session array and default timer settings, retaining their entries. Session validation checks IDs, finite ordered dates, civil-day boundaries, timezone, and task length; malformed records preserve the archive and block edits. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, current task text, inline/input drafts, and project selection are not restored. Daily task lists use their own persistence below.
+
+`DashboardProjectsView` presents an alphabetically sorted, scrollable catalog with project-colored folders/names, row delete controls, and a fixed Add project footer. It owns creation-sheet and native deletion-confirmation presentation. Adding uses the shared dialog without changing selection or inventing time. Deletion routes through `WorkspaceModel.deleteProject`: settle elapsed recording, persist the removed ID, and switch a deleted active selection to No project. Timer phases and committed task text are preserved; future running time is unassigned. Deleting an inactive project leaves the current session context intact. Timesheet/Calendar retain historical metadata and time, and Timesheet removal/Undo does not restore a deleted catalog project. Projects hides week controls and shows a project count; switching Dashboard pages retains the browsed week.
 
 `ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. The target border stays neutral; task text is a plain edit button until explicitly clicked. Submit, leaving the editor/Focus tab, project selection, or a timer action commits once through the workspace; timer actions commit before recording changes, and Escape discards the draft. Selecting a project never forces the task field into focus. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. The dialog offers 30 named color swatches, a selection checkmark, keyboard focus, and native Create/Cancel shortcuts. Cancel discards drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project without automatically opening or selecting task text; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
 
@@ -300,6 +304,8 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-session-checks
 ```
 
+Run the project-catalog checks using the same domain-source list as the session checks above, replacing `tests/SessionRecordingChecks.swift` with `tests/ProjectCatalogChecks.swift` and the output with `/tmp/keep-project-checks`.
+
 Run the silent music/preferences checks:
 
 ```sh
@@ -309,7 +315,7 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-music-preferences-checks
 ```
 
-`tests/DailyTaskChecks.swift`, `tests/SessionRecordingChecks.swift`, and `tests/MusicPreferencesChecks.swift` are the checked-in standalone check sources. Earlier timer/workspace/music/preferences harness sources were removed from the repository; the new music/preferences source above is separate from those historical harnesses; the verification receipts below describe earlier runs and do not imply those commands are available today. Reinspect the current tree before choosing checks for a change.
+`tests/DailyTaskChecks.swift`, `tests/SessionRecordingChecks.swift`, `tests/ProjectCatalogChecks.swift`, and `tests/MusicPreferencesChecks.swift` are the checked-in standalone check sources. Earlier timer/workspace/music/preferences harness sources were removed from the repository; the new music/preferences source above is separate from those historical harnesses; the verification receipts below describe earlier runs and do not imply those commands are available today. Reinspect the current tree before choosing checks for a change.
 
 On 2026-10-05, the unsigned Debug build, 45 timing checks, and 180 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, weekly row removal/Undo during recording, preserved other weeks/projects, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
 
@@ -347,3 +353,5 @@ Put agent working rules in `AGENTS.md`, visual rules in `docs/style.md`, and the
 
 
 Artwork/favorites verification on 2026-10-06: unsigned Debug build and 240 temporary palette/contrast checks passed (30 project hues in both appearances, timer/panel contrast under saturated/bright/dark samples, transparent/grayscale images, and separated red/blue sampling). Native offscreen default/wide/minimum Focus, Settings, warm/cool artwork, and light/dark treatments were inspected. An isolated in-memory preview verified playlist playback intent with a silent adapter, heart save/unsave without stopping playback, retained drawer state, collapse, project selection, appearance switching, and a glassiness change from 45% to 90% reflected in the live artwork preview. Pointer dragging and full keyboard/VoiceOver remain unverified: the native UI tool intermittently reports unavailable windows/capture failures and does not reliably deliver drags. No user archives were changed and no audio/network playback was used for this verification.
+
+Projects verification on 2026-10-06: unsigned Debug build, 28 checked-in project-catalog checks, and 48 session-recording regression checks passed. Catalog checks cover creation before time, duplicate names, selected/inactive deletion, concurrent timers, paused/resumed Flow, uncounted breaks, preserved history/Timesheet Undo, empty catalog reload, legacy archives, and protected invalid loads. Native offscreen screenshots inspected Light/Dark Projects, long names, empty state, and the three-tab time views at default 1000 × 900 and minimum 680 × 650 shell allocations. Live sheet/confirmation transitions, scrolling, keyboard operation, and VoiceOver remain unverified; no live user archives or audio were used.

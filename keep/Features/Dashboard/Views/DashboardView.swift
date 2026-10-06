@@ -1,13 +1,19 @@
 import SwiftUI
 
 enum DashboardPage: String, CaseIterable, Identifiable {
-    case timesheet, calendar
+    case timesheet, calendar, projects
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
-    var symbol: String { self == .timesheet ? "tablecells" : "calendar" }
+    var symbol: String {
+        switch self {
+        case .timesheet: "tablecells"
+        case .calendar: "calendar"
+        case .projects: "folder"
+        }
+    }
 }
 
-/// A single browsed week, with independently mounted Timesheet and Calendar viewports.
+/// A shared browsed week and mounted Timesheet, Calendar, and Projects viewports.
 struct DashboardView: View {
     let workspace: WorkspaceModel
     @State private var page: DashboardPage
@@ -33,20 +39,24 @@ struct DashboardView: View {
                 }
                 VStack(alignment: .leading, spacing: 12) { heading; status }
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 20) {
-                    weekPicker
-                    weekSummary
-                    Spacer(minLength: 0)
-                    pagePicker
-                }
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
+            if page == .projects {
+                HStack { Spacer(minLength: 0); pagePicker }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 20) {
                         weekPicker
-                        Spacer(minLength: 8)
                         weekSummary
+                        Spacer(minLength: 0)
+                        pagePicker
                     }
-                    pagePicker
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            weekPicker
+                            Spacer(minLength: 8)
+                            weekSummary
+                        }
+                        pagePicker
+                    }
                 }
             }
             ZStack(alignment: .topLeading) {
@@ -66,6 +76,12 @@ struct DashboardView: View {
                     .opacity(page == .calendar ? 1 : 0)
                     .allowsHitTesting(page == .calendar)
                     .accessibilityHidden(page != .calendar)
+
+                DashboardProjectsView(workspace: workspace)
+                    .accessibilityElement(children: page == .projects ? .contain : .ignore)
+                    .opacity(page == .projects ? 1 : 0)
+                    .allowsHitTesting(page == .projects)
+                    .accessibilityHidden(page != .projects)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -75,17 +91,17 @@ struct DashboardView: View {
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("Your week, at a glance.")
+            Text(page == .projects ? "Your projects." : "Your week, at a glance.")
                 .font(.system(size: 36, design: .serif))
                 .fixedSize(horizontal: false, vertical: true)
-            Text(page == .timesheet ? "Time spent across your projects, Monday to Sunday." : "A little room for everything you’re working on.")
+            Text(page == .projects ? "A place for each thing you’re working on." : page == .timesheet ? "Time spent across your projects, Monday to Sunday." : "A little room for everything you’re working on.")
                 .font(.system(size: 14)).foregroundStyle(KeepTheme.mutedInk)
         }
     }
 
     private var status: some View {
-        Label(workspace.isRecording() ? "Recording time" : "Recorded time",
-              systemImage: workspace.isRecording() ? "record.circle" : "clock")
+        Label(page == .projects ? "\(workspace.projects.count) projects" : workspace.isRecording() ? "Recording time" : "Recorded time",
+              systemImage: page == .projects ? "folder" : workspace.isRecording() ? "record.circle" : "clock")
             .font(.system(size: 11, weight: .medium))
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(KeepTheme.highlight.opacity(0.6), in: Capsule())

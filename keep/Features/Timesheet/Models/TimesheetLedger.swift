@@ -17,18 +17,20 @@ struct TimesheetRemoval {
 struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
     private(set) var customProjects: [FocusProject] = []
+    private(set) var deletedProjectIDs: Set<String> = []
     private(set) var pomodoroSettings: PomodoroSettings?
     private(set) var sessions: [RecordedSession] = []
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case entries, customProjects, pomodoroSettings, sessions }
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, deletedProjectIDs, pomodoroSettings, sessions }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         entries = try container.decode([TimesheetEntry].self, forKey: .entries)
         // Existing v1 records predate project creation and contain only entries.
         customProjects = try container.decodeIfPresent([FocusProject].self, forKey: .customProjects) ?? []
+        deletedProjectIDs = try container.decodeIfPresent(Set<String>.self, forKey: .deletedProjectIDs) ?? []
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
         sessions = try container.decodeIfPresent([RecordedSession].self, forKey: .sessions) ?? []
     }
@@ -40,6 +42,9 @@ struct TimesheetLedger: Codable {
     mutating func registerProject(_ project: FocusProject) {
         customProjects.append(project)
     }
+
+    /// Delete from the active catalog, preserving metadata and all recorded history.
+    mutating func deleteProject(id: String) { deletedProjectIDs.insert(id) }
 
     func seconds(projectID: String, dayID: String) -> TimeInterval {
         entries.first { $0.project.id == projectID && $0.dayID == dayID }?.seconds ?? 0
