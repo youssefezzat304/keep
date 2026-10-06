@@ -12,7 +12,7 @@ struct ActiveTargetHeader: View {
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
-        case project, task
+        case project, task, startBoth
     }
 
     private var selectedProject: FocusProject? { workspace.selectedProject }
@@ -142,15 +142,36 @@ struct ActiveTargetHeader: View {
                     })
                 }
             }
+
+            startBothButton
         }
         .padding(14)
-        .frame(width: 320)
+        .frame(width: 450)
         .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(KeepTheme.border, lineWidth: 1)
                 .allowsHitTesting(false)
         }
+    }
+
+    private var startBothButton: some View {
+        let bothRunning = workspace.pomodoro.interval == .focus
+            && workspace.pomodoro.phase() == .running && workspace.flow.phase() == .running
+        let isBreak = workspace.pomodoro.interval == .rest
+        return Button {
+            finishEditing()
+            workspace.startBothTimers()
+        } label: {
+            Label(bothRunning ? "Both running" : isBreak ? "Start focus + flow" : "Start both",
+                  systemImage: bothRunning ? "checkmark" : "play.fill")
+                .fixedSize()
+        }
+        .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+        .focused($focusedField, equals: .startBoth)
+        .disabled(!workspace.canTrack || bothRunning)
+        .accessibilityLabel(bothRunning ? "Both focus and flow timers are running" : isBreak ? "End the Pomodoro break and start focus and flow" : "Start or resume both timers")
+        .help("Start or resume focus and flow without resetting running timers. Flow records overlapping time once.")
     }
 }
 

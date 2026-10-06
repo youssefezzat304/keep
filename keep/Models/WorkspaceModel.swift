@@ -138,6 +138,17 @@ final class WorkspaceModel {
         save(at: instant)
     }
 
+    /// Launch the current target, including an unnamed target, without resetting running timers.
+    func startBothTimers(at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack else { return }
+        synchronize(at: instant, date: date)
+        pomodoro.playFocus(at: instant)
+        flow.play(at: instant)
+        ensureCurrentRow(on: date)
+        rememberCurrentTask(on: date)
+        save(at: instant)
+    }
+
     /// Assign and start atomically after settling the previous shared task. The other timer is untouched.
     func startTask(_ title: String, timers: TaskTimers, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)

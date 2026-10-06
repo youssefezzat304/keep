@@ -44,6 +44,8 @@ Canonical context: `AGENTS.md` owns working agreements, `docs/decisions.md` owns
 
 Focus composes ActiveTargetHeader, TimerWorkspaceCard and music/tasks. Its window-local task editor commits through WorkspaceModel before timer actions or leaving Focus. Dashboard supplies one week to Timesheet and Calendar; Projects has its own catalog viewport. Habits and Settings scroll within the same fixed shell.
 
+The 450-point Working on card includes a neutral Start both action. It commits the editor and calls `WorkspaceModel.startBothTimers`, including for unnamed targets. The workspace settles recording once, starts/resumes focus and Flow without resetting running timers, and leaves breaks for focus while preserving cycle progress. The button says Start focus + flow during a break and is disabled when both focus and Flow are running; individual timer controls remain independent.
+
 ## 4. Responsibility boundaries
 
 Views present state and pass actions; WorkspaceModel alone settles and mutates recording. Timesheet owns ledger/storage types, Dashboard owns Calendar presentation, and neither has an independent recorder. Habits, tasks, music, preferences and wallpaper loading have separate app-owned models and archives. Zen changes presentation only.

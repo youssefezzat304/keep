@@ -228,6 +228,12 @@ Move Calendar's explanation/zoom below the grid; exit Zen by double-clicking art
 
 2026-10-06 [CODE] Session details validate time fields in the recorded day/timezone, including a midnight endpoint. Workspace mutations settle active recording, adjust Timesheet by the duration delta (floor zero), preserve timer phases/manual adjustments, and rotate the recorder ID to protect edited/deleted blocks from subsequent ticks. Deletion requires confirmation. Passive task titles no longer participate in keyboard focus; actionable controls and accessibility actions remain. Zen's background accepts double-click without adding an Exit control. This supersedes D021's read-only Calendar limit.
 
+### D038 ACTIVE — 2026-10-06 [USER]
+
+Widen the Working on card and add a Start both button.
+
+2026-10-06 [CODE] The card is 450 points wide with a neutral labeled launch button beside the target details. It commits the draft, starts/resumes both timers for the current project/task (including unnamed targets), preserves running progress and Flow recording priority, and exits breaks into focus without clearing cycle progress. Breaks show Start focus + flow; running focus plus Flow disables the action. The Flow leaf and individual controls are unchanged. No shortcut was added.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -284,6 +290,8 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep.xcodeproj/project.pbxproj`
 
 ## [RECEIPTS]
+
+- 2026-10-06 [TOOL] Start both: unsigned Debug Xcode build and 83 standalone session-recording checks passed. Native offscreen renders checked at 1000×900, 680×650, and 1710×1080 in Light/Dark, including running and break labels and long task text. Live keyboard/VoiceOver interaction remains unverified.
 
 - 2026-10-05 [TOOL] `xcodebuild -list -project keep.xcodeproj` succeeded: application target and scheme `keep`; Debug and Release configurations. This is project discovery, not a compilation check.
 - 2026-10-05 [TOOL] Unsigned Debug `xcodebuild` succeeded; App Intents metadata extraction warning only.

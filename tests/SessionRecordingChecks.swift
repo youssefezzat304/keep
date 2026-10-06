@@ -178,6 +178,26 @@ import Foundation
         expect(taskActions.ledger.sessions.last?.task == "Together" && taskActions.ledger.sessions.last?.source == .flow, "Both action records once with Flow priority and the selected title")
         expect(close(taskActions.ledger.sessions.reduce(0) { $0 + $1.seconds }, 16), "Task changes and overlap preserve exact recorded totals and exclude breaks")
 
+        let together = WorkspaceModel(calendar: calendar, focusDuration: 10, breakDuration: 5, date: date)
+        together.selectProject(nil, at: instant, date: date)
+        together.startBothTimers(at: instant, date: date)
+        expect(together.taskName.isEmpty && together.pomodoro.phase(at: instant) == .running && together.flow.phase(at: instant) == .running, "Header launch supports an unnamed target")
+        together.startBothTimers(at: time(3), date: wall(3))
+        expect(close(together.pomodoro.elapsed(at: time(3)), 3) && close(together.flow.elapsed(at: time(3)), 3), "Repeated combined launch never resets running timers")
+        together.stop(.pomodoro, at: time(4), date: wall(4))
+        together.stop(.flow, at: time(4), date: wall(4))
+        together.startBothTimers(at: time(7), date: wall(7))
+        expect(close(together.pomodoro.elapsed(at: time(9)), 6) && close(together.flow.elapsed(at: time(9)), 6), "Combined launch resumes both and excludes paused time")
+        together.synchronize(at: time(13), date: wall(13))
+        expect(together.pomodoro.phase(at: time(13)) == .completed, "Focus completes while Flow continues")
+        together.startBreak(at: time(13), date: wall(13))
+        together.startBothTimers(at: time(14), date: wall(14))
+        expect(together.pomodoro.interval == .focus && together.pomodoro.completedFocusIntervals == 1, "Combined launch leaves a break without clearing cycle progress")
+        expect(close(together.flow.elapsed(at: time(14)), 11), "Leaving a break does not restart Flow")
+        together.stop(.flow, at: time(16), date: wall(16))
+        expect(close(together.ledger.sessions.reduce(0) { $0 + $1.seconds }, 13), "Combined launch records overlap only once")
+        expect(together.ledger.sessions.allSatisfy { $0.project == .unassigned && $0.source == .flow }, "Combined launch preserves the current project and Flow priority")
+
         guard let defaults = UserDefaults(suiteName: suite) else { fatalError("No defaults suite") }
         defer { defaults.removePersistentDomain(forName: suite) }
         let persistence = TimesheetPersistence(defaults: defaults)
@@ -207,6 +227,8 @@ import Foundation
         do { try blocked.deleteSession(id: entry.id); fatalError("Blocked deletion accepted") }
         catch { expect(blocked.loadFailed, "Corrupt load blocks calendar deletion") }
         blocked.play(.flow)
+        blocked.startBothTimers()
+        expect(blocked.pomodoro.phase() == .idle && blocked.flow.phase() == .idle, "Failed loads block combined launch")
         expect(defaults.data(forKey: persistence.key) == badData, "Invalid data is not overwritten")
         print("Passed \(checks) session recording checks")
     }
