@@ -116,6 +116,41 @@ private final class ExistingWindowDelegate: NSObject, NSWindowDelegate {}
         native.contentView = nil
         NotificationCenter.default.post(name: NSWindow.didEnterFullScreenNotification, object: native)
         expect(nativeMode.phase == .inactive, "Detached native callbacks cannot reopen Zen")
+
+        let escapeMode = ZenModeModel()
+        let escapeWindow = NativeZenWindow(contentRect: NSRect(x: 0, y: 0, width: 100, height: 100), styleMask: .titled, backing: .buffered, defer: false)
+        escapeWindow.isReleasedWhenClosed = false
+        let bridge = ZenWindowBridge.Coordinator(model: escapeMode)
+        bridge.connect(escapeWindow)
+        func key(_ code: UInt16 = 53, windowNumber: Int? = nil, modifiers: NSEvent.ModifierFlags = []) throws -> NSEvent {
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+                                              timestamp: 0, windowNumber: windowNumber ?? escapeWindow.windowNumber,
+                                              context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
+                                              isARepeat: false, keyCode: code) else { throw CocoaError(.coderInvalidValue) }
+            return event
+        }
+        let escape = try key()
+        let space = try key(49)
+        let modifiedEscape = try key(modifiers: .command)
+        let otherWindowEscape = try key(windowNumber: native.windowNumber)
+        expect(bridge.handleKeyDown(escape) != nil, "Normal workspace retains Escape behavior")
+        escapeMode.enter()
+        expect(bridge.handleKeyDown(space) != nil, "Other keys keep native behavior in Zen")
+        expect(bridge.handleKeyDown(modifiedEscape) != nil, "Modified Escape keeps its native behavior")
+        expect(bridge.handleKeyDown(otherWindowEscape) != nil, "Escape from another window cannot exit Zen")
+        expect(escapeMode.isPresented, "Ignored keys leave Zen active")
+        expect(bridge.handleKeyDown(escape) == nil, "Escape is consumed independently of SwiftUI focus")
+        expect(!escapeMode.isPresented && escapeMode.phase == .leaving, "Escape exits Zen during native entry")
+        escapeMode.didEnterFullScreen()
+        escapeMode.didExitFullScreen()
+        escapeMode.enter()
+        escapeMode.didEnterFullScreen()
+        NSApplication.shared.sendEvent(escape)
+        expect(!escapeMode.isPresented, "The installed local event monitor routes Escape to Zen exit")
+        expect(escapeWindow.toggles == 4, "Escape from active Zen starts the native return transition")
+        bridge.connect(nil)
+        expect(bridge.handleKeyDown(escape) != nil, "Detached windows release Escape handling")
+        escapeWindow.close()
         print("Passed \(checks) Zen mode checks")
     }
 }

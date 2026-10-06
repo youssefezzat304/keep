@@ -31,6 +31,7 @@ struct ZenWindowBridge: NSViewRepresentable {
         let model: ZenModeModel
         weak var window: NSWindow?
         private var observers: [NSObjectProtocol] = []
+        private var keyMonitor: Any?
         init(model: ZenModeModel) { self.model = model }
         var isFullScreen: Bool { window?.styleMask.contains(.fullScreen) == true }
         func toggleFullScreen() {
@@ -42,9 +43,12 @@ struct ZenWindowBridge: NSViewRepresentable {
         }
 
         func connect(_ next: NSWindow?) {
-            guard window !== next else { return }
+            // A weak window may already be nil when SwiftUI dismantles the reader.
+            guard next == nil || window !== next else { return }
             observers.forEach { NotificationCenter.default.removeObserver($0) }
             observers.removeAll()
+            if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+            keyMonitor = nil
             model.detach()
             window = next
             guard let next else { return }
@@ -53,6 +57,23 @@ struct ZenWindowBridge: NSViewRepresentable {
             observe(NSWindow.willExitFullScreenNotification, window: next) { $0.willExitFullScreen() }
             observe(NSWindow.didExitFullScreenNotification, window: next) { $0.didExitFullScreen() }
             observe(NSWindow.willCloseNotification, window: next) { $0.detach() }
+            // SwiftUI's exit command depends on the responder's focus. Zen must also
+            // exit when a timer, slider, saved row or the hidden shell has focus.
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                let consumed = MainActor.assumeIsolated {
+                    guard let self else { return false }
+                    return self.handleKeyDown(event) == nil
+                }
+                return consumed ? nil : event
+            }
+        }
+
+        func handleKeyDown(_ event: NSEvent) -> NSEvent? {
+            guard event.type == .keyDown, event.keyCode == 53,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  event.window === window, model.isPresented else { return event }
+            model.exit()
+            return nil
         }
 
         private func observe(_ name: Notification.Name, window: NSWindow, action: @escaping @MainActor (ZenModeModel) -> Void) {

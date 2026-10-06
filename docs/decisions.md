@@ -198,11 +198,23 @@ Activate the music-card chevron as Zen mode: fill the screen with the wallpaper 
 
 2026-10-06 [CODE] Zen is window-local, commits the Focus draft, shares workspace/music/wallpaper owners, and uses native full-screen transitions observed without replacing SwiftUI’s delegate. Exit Zen or Escape preserves recording/playback and only returns to windowed mode if Zen entered full screen. Compact glass controls support Light/Dark and Reduce Transparency. Settings now binds a standard SwiftUI Slider directly to saved glassiness; the custom NSSlider bridge/cell is removed.
 
-### D033 ACTIVE — 2026-10-06 [USER]
+### D033 PARTIALLY SUPERSEDED BY D035 — 2026-10-06 [USER]
 
 Make Zen as minimalist as the supplied wallpaper/music-overlay reference. Compress style.md and architecture.md by roughly 30–40%, removing incidental icon details and repetition while preserving essential development context.
 
 2026-10-06 [CODE] Zen uses small white timer readouts at bottom-right and music transport/volume/metadata at bottom-left; narrow layouts stack them. Readability comes from a bottom fade rather than large cards. Reset/break controls live in timer context menus; Exit/Escape, loading/Retry, Music library access, shared runtime owners, and native window transitions remain. The unused card presentation variants/material helper are removed. Architecture keeps ownership, persistence/timing/provider constraints and build/check commands; duplicate verification history remains solely in this ledger. Style keeps semantic palette, layout, accessibility and feature intent without icon inventories or code samples.
+
+### D034 PARTIALLY SUPERSEDED BY D035 — 2026-10-06 [USER]
+
+Add the favorite and saved-playlists buttons to Zen so artists/playlists can be saved and chosen without leaving the mode.
+
+2026-10-06 [CODE] Zen's Audius row uses the existing saved-channel archive and favorite target rules. A compact themed popover lists saved artists/playlists; selecting one explicitly plays it through the shared player, retains the picker and leaves timers/Zen intact. Unsaving does not interrupt playback. Apple Music retains its existing library browser; no library-write capability is added.
+
+### D035 ACTIVE — 2026-10-06 [USER]
+
+Remove Zen’s black bottom fade and Exit button, restore Escape exit, and replace the saved-playlists popover with an inline glass card like the music player.
+
+2026-10-06 [CODE] Wallpaper brightness is unchanged by Zen. Escape is handled by the existing window bridge with a scoped local event monitor, independent of SwiftUI focus; modified keys, inactive/other windows and library sheets retain native behavior. The saved-list card expands above music transport and uses MusicGlassPanel with its full-screen artwork origin, existing glassiness and Reduce Transparency behavior. This supersedes D033’s bottom fade/Exit button and D034’s popover presentation.
 
 ## [PROGRESS]
 
@@ -320,3 +332,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-06 [TOOL] Zen/native-slider verification: unsigned Debug build and git diff --check passed; 32 Zen model/native bridge checks, 62 silent music/preferences/library/artwork checks, 48 session-recording checks, and 3 isolated glassiness save/reload checks passed. Hidden native windows verified bridge attachment, delegate preservation, scoped notifications, rapid Exit, pre-existing full-screen preservation, and close/detach cleanup without changing Spaces. Native offscreen Light/Dark screenshots inspected Zen within the complete shell at 1000 × 900, 680 × 650, and 1710 × 1080, plus normal Focus and Settings previews at 0/50/100% glassiness. No live app control, user archives, audio, or network playback was used. Actual full-screen animation, Escape/keyboard/VoiceOver operation, native slider dragging, and release signing remain unverified.
 
 - 2026-10-06 [TOOL] Minimal Zen/document compression: unsigned Debug build, 32 Zen checks, 48 session-recording checks, 62 silent music/preferences/library/artwork checks, and git diff --check passed. Native offscreen screenshots inspected Light/Dark default, minimum and wide Zen shell layouts, normal Focus/Settings, paused timers and music errors. No live app control, user archives, audio or network playback was used; actual full-screen animation, pointer/context-menu, keyboard and VoiceOver interaction remain unverified. Architecture shrank from 10,459 to 6,819 words (34.8%); style from 3,260 to 2,208 (32.3%), retaining core constraints and commands.
+
+- 2026-10-06 [TOOL] Zen favorites: unsigned Debug build, 62 silent music/preferences/library/artwork checks and git diff --check passed. Native offscreen Light/Dark screenshots inspected the new music row at default/minimum/wide sizes plus empty and long-name saved-list content. A hidden-window accessibility-action harness could not find SwiftUI's heart in its accessibility tree, so action execution and live popover/pointer/keyboard/VoiceOver remain unverified. No live app control, user archives, real audio or network playback was used.
+
+- 2026-10-06 [TOOL] Bright Zen/Escape/glass refinement: unsigned Debug build, 42 Zen checks, 62 silent music/preferences/library/artwork checks and git diff --check passed. Hidden native checks dispatch Escape through NSApplication’s installed local event monitor and cover active/entering exit, other/inactive windows, modified keys and detachment. Offscreen screenshots inspected bright/no-Exit Zen at default/minimum/wide sizes in Light/Dark, plus separately composed inline glass-card content at 55%/0% glassiness. Programmatic mouse events in a hidden host did not open the drawer; actual expansion/collapse, pointer/VoiceOver operation, full-screen animation and onscreen Liquid Glass remain unverified. No live app control, user archives, real audio or network playback was used.

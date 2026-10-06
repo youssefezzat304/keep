@@ -99,9 +99,9 @@ Charts use simple bars, lines, dots or rings with directly labeled values/states
 
 ## 9. Zen
 
-Zen is an explicit minimalist exception to the normal paper layout. Fill the screen with the selected unblurred wallpaper, leaving nearly all of it unobstructed. Use a small music transport/volume row and one line of track metadata at bottom-left; compact labeled timer digits and play/pause controls sit at bottom-right. At narrow widths stack these controls without clipping. Use white functional text/icons with a restrained bottom readability fade and local focus/hover feedback rather than cards, provider badges, headings, or promotional copy.
+Zen is an explicit minimalist exception to the normal paper layout. Fill the screen with the selected unblurred wallpaper, leaving nearly all of it unobstructed. Use a small music transport/volume row and one line of track metadata at bottom-left; compact labeled timer digits and play/pause controls sit at bottom-right. At narrow widths stack these controls without clipping. Keep the wallpaper at its original brightness, without a black fade. Use small white functional text/icons with local shadows and focus/hover feedback; avoid provider badges, headings and promotional copy.
 
-Keep a small Exit control and Escape support. Timer reset/break actions may live in a context menu; music library browsing remains available where applicable. Controls operate the existing timers/player without resetting them. Preserve labels, disabled/loading/error states, Retry, and visible keyboard focus even in this stripped-down layout. Reduce Transparency strengthens the readability backing; wallpaper remains the visual focus.
+Escape exits Zen regardless of control focus; omit the Exit button. Timer reset/break actions may live in a context menu; music library browsing remains available where applicable. Audius hearts and a saved-list button stay in the compact music row; their saved list expands above transport in an artwork-aligned glass card, with the same glassiness setting and opaque Reduce Transparency fallback as the normal player. Controls operate the existing timers/player without resetting them. Preserve labels, disabled/loading/error states, Retry, and visible keyboard focus even in this stripped-down layout. Wallpaper remains the visual focus.
 
 ## 10. Appearance and motion
 

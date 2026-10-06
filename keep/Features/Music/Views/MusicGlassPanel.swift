@@ -6,6 +6,7 @@ struct MusicGlassPanel: ViewModifier {
     var wallpapers: WallpaperLibrary
     var artworkSize: CGSize
     var inset: CGFloat = 16
+    var artworkCoordinateSpace: String? = nil
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
 
@@ -17,10 +18,11 @@ struct MusicGlassPanel: ViewModifier {
             content
                 .background {
                     GeometryReader { panel in
+                        let origin = artworkCoordinateSpace.map { panel.frame(in: .named($0)).origin }
+                            ?? CGPoint(x: inset, y: artworkSize.height - panel.size.height - inset)
                         MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
                             .frame(width: artworkSize.width, height: artworkSize.height)
-                            // The transport is inset from the bottom of the full artwork card.
-                            .offset(x: -inset, y: panel.size.height + inset - artworkSize.height)
+                            .offset(x: -origin.x, y: -origin.y)
                             .blur(radius: 24 * (1 - preferences.glassiness), opaque: true)
                             .frame(width: panel.size.width, height: panel.size.height, alignment: .topLeading)
                             .overlay {

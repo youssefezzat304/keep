@@ -5,9 +5,22 @@ struct ZenMusicControls: View {
     let preferences: AppPreferences
     let wallpapers: WallpaperLibrary
     @State private var showsLibrary = false
+    @State private var showsSavedChannels = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.musicLibraryViewport) private var artworkSize
+
+    private var favoriteTarget: MusicChannel? { player.selectedChannel ?? player.track?.artistChannel }
+    private var isFavorite: Bool { favoriteTarget.map { target in preferences.snapshot.channels.contains { $0.id == target.id } } ?? false }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
+            if showsSavedChannels, player.provider == .audius {
+                ZenSavedMusicPicker(player: player, preferences: preferences)
+                    .modifier(MusicGlassPanel(preferences: preferences, wallpapers: wallpapers,
+                                              artworkSize: artworkSize, artworkCoordinateSpace: "zenArtwork"))
+                    .padding(.bottom, 9)
+                    .transition(.opacity)
+            }
             HStack(spacing: 3) {
                 control(player.wantsPlayback ? "pause.fill" : "play.fill", label: player.wantsPlayback ? "Pause music" : "Play music") { player.togglePlayback() }
                 control("backward.end.fill", label: "Previous track", disabled: !player.canSkip) { player.previous() }
@@ -19,6 +32,17 @@ struct ZenMusicControls: View {
                     .accessibilityValue("\(Int(player.volume * 100)) percent")
                 if player.provider == .appleMusic {
                     control("music.note.list", label: "Browse Music library") { showsLibrary = true }
+                } else {
+                    control(isFavorite ? "heart.fill" : "heart", label: isFavorite ? "Unsave current artist or playlist" : "Save current artist or playlist", disabled: favoriteTarget == nil || !preferences.canEdit) {
+                        guard let target = favoriteTarget else { return }
+                        if isFavorite { preferences.removeChannel(target) }
+                        else { preferences.saveChannel(target) }
+                    }
+                    .accessibilityValue(favoriteTarget.map { "\($0.name), \(isFavorite ? "saved" : "not saved")" } ?? "Play music to discover an artist")
+                    control("list.bullet", label: "Saved artists and playlists") {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { showsSavedChannels.toggle() }
+                    }
+                        .accessibilityValue(showsSavedChannels ? "Expanded" : "Collapsed")
                 }
             }
             HStack(spacing: 6) {
@@ -43,6 +67,10 @@ struct ZenMusicControls: View {
         .foregroundStyle(.white).shadow(color: .black.opacity(0.65), radius: 3, y: 1)
         .sheet(isPresented: $showsLibrary) {
             AppleMusicLibraryView(player: player, preferences: preferences, wallpapers: wallpapers)
+        }
+        .onChange(of: player.provider) { _, provider in
+            if provider != .audius { showsSavedChannels = false }
+            if provider != .appleMusic { showsLibrary = false }
         }
     }
 
