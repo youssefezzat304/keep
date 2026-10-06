@@ -2,6 +2,10 @@ import SwiftUI
 
 extension FocusProject {
     var accentColor: Color { accent.color }
+
+    func labelColor(in environment: EnvironmentValues) -> Color {
+        KeepTheme.readableAccent(accentColor, on: [KeepTheme.paper, KeepTheme.surface, KeepTheme.mutedWarm], environment: environment)
+    }
 }
 
 extension FocusProject.Accent {

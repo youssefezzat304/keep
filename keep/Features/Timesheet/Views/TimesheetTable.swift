@@ -3,6 +3,7 @@ import SwiftUI
 struct TimesheetTable: View {
     let workspace: WorkspaceModel
     let week: TimesheetWeek
+    @Environment(\.self) private var environment
     private let projectWidth: CGFloat = 205
     private let totalWidth: CGFloat = 100
     private let removeWidth: CGFloat = 44
@@ -48,6 +49,7 @@ struct TimesheetTable: View {
         .overlay {
             RoundedRectangle(cornerRadius: KeepTheme.cardRadius)
                 .strokeBorder(KeepTheme.border, lineWidth: 1)
+                .allowsHitTesting(false)
         }
         .accessibilityLabel("Weekly timesheet. Click a time to edit hours, minutes, and seconds. Scroll horizontally for all seven days on smaller windows.")
     }
@@ -96,6 +98,7 @@ struct TimesheetTable: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(project.name)
                         .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(project.labelColor(in: environment))
                         .lineLimit(1)
                     Text(project.category)
                         .font(.system(size: 11))

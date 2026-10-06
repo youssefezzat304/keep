@@ -4,6 +4,7 @@ struct ActiveTargetHeader: View {
     @Binding var taskName: String
     let workspace: WorkspaceModel
     var isCompact = false
+    @Environment(\.self) private var environment
     @State private var showsProjectPicker = false
     @State private var showsProjectCreation = false
     @State private var projectButtonHovered = false
@@ -14,6 +15,7 @@ struct ActiveTargetHeader: View {
     }
 
     private var selectedProject: FocusProject? { workspace.selectedProject }
+    private var projectColor: Color { selectedProject?.labelColor(in: environment) ?? KeepTheme.mutedInk }
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -52,10 +54,10 @@ struct ActiveTargetHeader: View {
             Button { showsProjectPicker = true } label: {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 18))
-                .foregroundStyle(KeepTheme.accentStrong)
-                .frame(width: 46, height: 44)
-                .background(KeepTheme.background.opacity(projectButtonHovered ? 0.85 : 0.5), in: RoundedRectangle(cornerRadius: 10))
-                .contentShape(RoundedRectangle(cornerRadius: 10))
+                    .foregroundStyle(projectColor)
+                    .frame(width: 46, height: 44)
+                    .background((selectedProject?.accentColor ?? KeepTheme.mutedWarm).opacity(projectButtonHovered ? 0.22 : 0.12), in: RoundedRectangle(cornerRadius: 10))
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .onHover { projectButtonHovered = $0 }
@@ -63,6 +65,7 @@ struct ActiveTargetHeader: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(focusedField == .project ? KeepTheme.focusRing : .clear, lineWidth: 2)
+                    .allowsHitTesting(false)
             }
             .accessibilityLabel("Select project. Current project: \(selectedProject?.name ?? "No project")")
             .help("Select a project")
@@ -85,7 +88,7 @@ struct ActiveTargetHeader: View {
                     .foregroundStyle(KeepTheme.mutedInk)
                 Text(selectedProject?.name ?? "No project")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(KeepTheme.secondaryInk)
+                    .foregroundStyle(projectColor)
                     .lineLimit(1)
                     .help(selectedProject?.name ?? "No project")
                 TextField("Task name", text: $taskName, prompt: Text("Name a task…").foregroundColor(KeepTheme.mutedInk))
@@ -102,6 +105,7 @@ struct ActiveTargetHeader: View {
         .overlay {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(focusedField != nil || showsProjectPicker ? KeepTheme.focusRing : KeepTheme.border, lineWidth: focusedField != nil || showsProjectPicker ? 2 : 1)
+                .allowsHitTesting(false)
         }
     }
 }

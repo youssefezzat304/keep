@@ -10,6 +10,7 @@ struct FocusTimerCard: View {
     let onBreak: () -> Void
     var pomodoroSettings: PomodoroSettings = .defaults
     var onSettings: ((PomodoroSettings) -> Bool)? = nil
+    @Environment(\.self) private var environment
     @State private var showsSettings = false
     @State private var settingsHovered = false
     @FocusState private var settingsFocused: Bool
@@ -87,8 +88,15 @@ struct FocusTimerCard: View {
                 }
             }
             .foregroundStyle(KeepTheme.ink)
-            .cardStyle(backgroundColor: isBreak ? KeepTheme.highlight : isPomodoro ? KeepTheme.accent : KeepTheme.sage)
+            .cardStyle(backgroundColor: surfaceColor)
         }
+    }
+
+    private var surfaceColor: Color {
+        let palette = environment.artworkPalette
+        let tint = isBreak ? palette?.ambient : isPomodoro ? palette?.primary : palette?.secondary
+        return KeepTheme.artworkSurface(isBreak ? KeepTheme.highlight : isPomodoro ? KeepTheme.accent : KeepTheme.sage,
+            tint: tint?.color, amount: environment.colorScheme == .dark ? 0.24 : 0.32, environment: environment)
     }
 
     private func controlRow(phase: FocusTimer.Phase, longBreakDue: Bool, upcomingBreakDuration: TimeInterval, includeBreak: Bool) -> some View {

@@ -111,9 +111,7 @@ struct SettingsView: View {
                         Text("\(Int(preferences.glassiness * 100))%")
                             .font(.system(size: 12)).monospacedDigit().foregroundStyle(KeepTheme.mutedInk)
                     }
-                    Slider(value: $preferences.glassiness, in: 0...1)
-                        .accessibilityLabel("Music card glassiness")
-                        .accessibilityValue("\(Int(preferences.glassiness * 100)) percent")
+                    GlassinessSlider(value: $preferences.glassiness).frame(height: 26)
                     HStack {
                         Text("Solid paper")
                         Spacer()
@@ -121,7 +119,7 @@ struct SettingsView: View {
                     }.font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
                     helper("Slide toward clear glass to reveal sharper artwork through the controls. Reduce Transparency on your Mac always uses solid paper.")
                     MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
-                        .frame(height: 288)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityElement(children: .contain)
                         .accessibilityLabel("Music card preview")
                 }
@@ -210,7 +208,7 @@ struct SettingsView: View {
         }
         .padding(22).frame(maxWidth: .infinity, alignment: .leading)
         .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
-        .overlay { RoundedRectangle(cornerRadius: KeepTheme.cardRadius).strokeBorder(KeepTheme.border, lineWidth: 1) }
+        .overlay { RoundedRectangle(cornerRadius: KeepTheme.cardRadius).strokeBorder(KeepTheme.border, lineWidth: 1).allowsHitTesting(false) }
     }
     private func settingRow<Content: View>(_ title: String, detail: String? = nil, @ViewBuilder content: () -> Content) -> some View {
         ViewThatFits(in: .horizontal) {

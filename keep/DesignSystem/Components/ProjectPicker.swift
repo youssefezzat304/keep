@@ -5,6 +5,7 @@ struct ProjectPicker: View {
     let selectedProject: FocusProject?
     let onSelect: (FocusProject?) -> Void
     let onCreate: (() -> Void)?
+    @Environment(\.self) private var environment
     @State private var search: String
     @State private var hoveredOption: String?
     @FocusState private var searchFocused: Bool
@@ -132,6 +133,7 @@ struct ProjectPicker: View {
                     .accessibilityHidden(true)
                 Text(project?.name ?? "No project")
                     .font(.system(size: 14, weight: isSelected ? .medium : .regular))
+                    .foregroundStyle(project?.labelColor(in: environment) ?? KeepTheme.mutedInk)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 8)

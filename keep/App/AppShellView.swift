@@ -13,6 +13,7 @@ struct AppShellView: View {
     @State private var preferences: AppPreferences
     @State private var wallpapers: WallpaperLibrary
     @State private var selectedTab: WorkspaceTab
+    @Environment(\.self) private var environment
 
     init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore = DailyTaskStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary()) {
         _workspace = State(initialValue: workspace)
@@ -73,16 +74,21 @@ struct AppShellView: View {
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 28))
+            .background(KeepTheme.artworkSurface(KeepTheme.paper,
+                tint: wallpapers.palette(for: preferences.wallpaperSource)?.ambient.color,
+                amount: environment.colorScheme == .dark ? 0.16 : 0.10,
+                text: KeepTheme.mutedInk, environment: environment), in: RoundedRectangle(cornerRadius: 28))
             .clipShape(RoundedRectangle(cornerRadius: 28))
             .overlay {
                 RoundedRectangle(cornerRadius: 28)
                     .strokeBorder(KeepTheme.border.opacity(0.5), lineWidth: 1)
+                    .allowsHitTesting(false)
             }
             .padding(16)
             .background { ArtworkBackdrop(preferences: preferences, wallpapers: wallpapers) }
         }
         .frame(minWidth: 680, minHeight: 650)
+        .environment(\.artworkPalette, wallpapers.palette(for: preferences.wallpaperSource))
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
         .preferredColorScheme(preferences.appearance.colorScheme)

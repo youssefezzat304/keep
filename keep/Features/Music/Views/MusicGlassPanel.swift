@@ -12,7 +12,7 @@ struct MusicGlassPanel: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if reduceTransparency || preferences.glassiness == 0 {
             content.background(KeepTheme.paper, in: shape)
-                .overlay { shape.strokeBorder(KeepTheme.border, lineWidth: 1) }
+                .overlay { shape.strokeBorder(KeepTheme.border, lineWidth: 1).allowsHitTesting(false) }
         } else {
             content
                 .background {
@@ -52,7 +52,7 @@ private struct MusicGlassFinish: ViewModifier {
             // The clear variant keeps the explicitly aligned artwork visible.
             content.glassEffect(.clear, in: shape)
         } else {
-            content.overlay { shape.strokeBorder(KeepTheme.paper.opacity(0.65), lineWidth: 1) }
+            content.overlay { shape.strokeBorder(KeepTheme.paper.opacity(0.65), lineWidth: 1).allowsHitTesting(false) }
         }
     }
 }

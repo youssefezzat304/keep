@@ -10,7 +10,7 @@ Keywords: **cozy · warm · editorial · autumnal · calm · tactile · understa
 
 Let typography, warm neutrals, deliberate spacing, and restrained accent colors carry the identity. The active focus target and timer should be easy to find; tasks and music should feel supportive rather than compete for attention.
 
-Use broad cream surfaces and terracotta emphasis. The outer window backdrop takes its colors from the music artwork, heavily blurred into a soft gradient-like wash; keep the main panel opaque for readable controls. Sage, butter yellow, and mist blue provide quiet secondary variation. Keep the interface comfortable for long focus sessions.
+Use broad cream surfaces and terracotta emphasis. The outer window backdrop takes its colors from the music artwork, heavily blurred into a soft gradient-like wash; keep the main panel opaque with a quiet tint from the same artwork for readable controls. Sage, butter yellow, and mist blue provide quiet secondary variation. Keep the interface comfortable for long focus sessions.
 
 ## 2. Color palette
 
@@ -49,7 +49,7 @@ Centralize colors in named asset-catalog colors or a shared theme namespace unde
 
 Named color assets are the source of truth. `keep/DesignSystem/KeepTheme.swift` exposes semantic references to them; use those references in views.
 
-Project identity uses 30 selectable colors: the existing terracotta, sage, mist blue, and butter yellow, plus 26 muted warm, green, blue, purple, and neutral hues in `Project*.colorset` assets. `FocusProjectStyle` maps the saved accent to its asset. These colors identify projects; keep interface surfaces, text, and actions on the semantic palette above. Color selection uses a visible checkmark and named accessibility labels.
+Project identity uses 30 selectable colors: the existing terracotta, sage, mist blue, and butter yellow, plus 26 muted warm, green, blue, purple, and neutral hues in `Project*.colorset` assets. `FocusProjectStyle` maps the saved accent to its asset. These colors identify projects. Match the folder icon and project names in the active target, picker, and Timesheet to their project hue; adjust lightness for readable shades in Light and Dark. Keep other text/actions on the semantic palette above. Color selection uses a visible checkmark and named accessibility labels.
 
 ```swift
 Text("Start focus")
@@ -147,9 +147,11 @@ Most cards need no shadow. Separate regions with warm surface colors, spacing, a
 
 Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid heavy dark outlines.
 
-The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a crop of the actual player artwork behind its controls, aligned with the image beneath, rather than a native material that picks up the outer window backdrop. Glassiness runs from solid paper to clear artwork by reducing both blur and paper opacity continuously; retain an appearance-specific readability wash, stronger in Dark so cream text remains readable over bright images. Liquid Glass adds Apple’s clear glass treatment over the artwork-backed panel. Respect Reduce Transparency with an opaque cream fallback, and keep text readable regardless of the artwork behind it.
+The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a crop of the actual player artwork behind its controls, aligned with the image beneath, rather than a native material that picks up the outer window backdrop. Glassiness runs from solid paper to clear artwork by reducing both blur and paper opacity continuously; retain an appearance-specific readability wash, stronger in Dark so cream text remains readable over bright images. Liquid Glass adds Apple’s clear glass treatment over the artwork-backed panel. Respect Reduce Transparency with an opaque paper fallback in the active appearance, and keep text readable regardless of the artwork behind it. Glassiness is a continuous native slider with a warm theme-colored track. Decorative borders must not intercept pointer input.
 
-The window backdrop uses the same selected image and fallback as the player. Blur it enough that objects and edges disappear; clamp image edges before blurring to avoid blank window edges. Generate a small blurred texture off the main actor and scale it smoothly to fill the window. Light appearance adds a subtle paper wash, while Dark adds an espresso tint. Keep panel margins and opaque semantic surfaces unchanged.
+Music favorites use an outline heart for unsaved sources and a filled heart for saved sources. A separate saved-list icon expands the controls upward inside the artwork card, revealing a compact scrollable artist/playlist list. Use a gentle 250 ms expansion/collapse and honor Reduce Motion. Selecting a saved listen starts playback and leaves the list visible until the same icon is toggled again.
+
+The window backdrop uses the same selected image and fallback as the player. Blur it enough that objects and edges disappear; clamp image edges before blurring to avoid blank window edges. Generate a small blurred texture off the main actor and scale it smoothly to fill the window. Light appearance adds a subtle paper wash, while Dark adds an espresso tint. Keep panel margins and opacity unchanged. Blend a small ambient tint into the paper panel, and blend distinct sampled artwork hues into the terracotta Pomodoro and sage Flow fills. Breaks keep a butter base with an ambient tint. Use lighter or darker semantic bases according to appearance and limit tinting before it weakens text contrast; labels still distinguish the timers.
 
 ## 12. Buttons and controls
 

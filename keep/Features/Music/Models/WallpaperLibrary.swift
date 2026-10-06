@@ -49,10 +49,13 @@ final class WallpaperLibrary {
     private struct DecodedArtwork: Sendable {
         let image: Data
         let wash: Data
+        let palette: ArtworkPalette?
     }
     private(set) var image: NSImage?
     private var decodedBackdrop: NSImage?
     private var bundledBackdrop: NSImage?
+    private var decodedPalette: ArtworkPalette?
+    private var bundledPalette: ArtworkPalette?
     private(set) var count = 0
     private(set) var isLoading = false
     private(set) var error: String?
@@ -79,14 +82,21 @@ final class WallpaperLibrary {
         source == .cozy || image == nil ? bundledBackdrop : decodedBackdrop
     }
 
+    func palette(for source: WallpaperSource) -> ArtworkPalette? {
+        source == .cozy || image == nil ? bundledPalette : decodedPalette
+    }
+
     private func prepareBundledBackdrop() {
         guard let image = NSImage(named: "CozyCorner")?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
         bundledBackdropTask = Task { [weak self] in
-            let operation = Task.detached { try ArtworkWash.render(image) }
+            let operation = Task.detached {
+                (try ArtworkWash.render(image), try ArtworkPaletteSampler.sample(image))
+            }
             do {
                 let data = try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
                 try Task.checkCancellation()
-                self?.bundledBackdrop = NSImage(data: data)
+                self?.bundledBackdrop = NSImage(data: data.0)
+                self?.bundledPalette = data.1
             } catch {
                 // The semantic background remains available if the bundled image cannot be decoded.
             }
@@ -139,6 +149,7 @@ final class WallpaperLibrary {
                 guard let self, self.generation == token else { return }
                 self.image = NSImage(data: thumbnail.image)
                 self.decodedBackdrop = NSImage(data: thumbnail.wash)
+                self.decodedPalette = thumbnail.palette
                 self.isLoading = false
             } catch {
                 guard !Task.isCancelled, let self, self.generation == token else { return }
@@ -231,6 +242,7 @@ final class WallpaperLibrary {
                 guard let self, self.generation == token else { return }
                 guard let image = NSImage(data: data.image) else { throw CocoaError(.fileReadCorruptFile) }
                 self.image = image; self.decodedBackdrop = NSImage(data: data.wash)
+                self.decodedPalette = data.palette
                 self.isLoading = false; self.error = nil
                 self.armRotation()
             } catch {
@@ -277,7 +289,8 @@ final class WallpaperLibrary {
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceThumbnailMaxPixelSize: 2048
               ] as CFDictionary) else { throw CocoaError(.fileReadCorruptFile) }
-        return try DecodedArtwork(image: ArtworkWash.png(thumbnail), wash: ArtworkWash.render(thumbnail))
+        return try DecodedArtwork(image: ArtworkWash.png(thumbnail), wash: ArtworkWash.render(thumbnail),
+                                  palette: ArtworkPaletteSampler.sample(thumbnail))
     }
 
     nonisolated private static func thumbnail(in folder: URL, candidates: [URL]) throws -> DecodedArtwork {

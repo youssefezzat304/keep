@@ -4,6 +4,11 @@ struct MusicPlayerCard: View {
     @Bindable var player: MusicPlayerModel
     var preferences = AppPreferences()
     var wallpapers = WallpaperLibrary()
+    @State private var showsSavedChannels = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var favoriteTarget: MusicChannel? { player.selectedChannel ?? player.track?.artistChannel }
+    private var isFavorite: Bool { favoriteTarget.map { target in preferences.snapshot.channels.contains { $0.id == target.id } } ?? false }
 
     var body: some View {
         GeometryReader { geometry in
@@ -28,6 +33,11 @@ struct MusicPlayerCard: View {
                     }
                     Spacer()
                     VStack(alignment: .leading, spacing: 10) {
+                        if showsSavedChannels {
+                            savedChannels
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                            Divider().overlay(KeepTheme.border).allowsHitTesting(false)
+                        }
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(player.track?.title ?? "Slow afternoons")
@@ -40,11 +50,27 @@ struct MusicPlayerCard: View {
                                     .lineLimit(1)
                             }
                             Spacer(minLength: 8)
-                            if let url = player.track?.permalink ?? URL(string: "https://audius.co") {
-                                Link("Audius ↗", destination: url)
-                                    .font(.system(size: 11, weight: .medium))
+                            VStack(alignment: .trailing, spacing: 4) {
+                                HStack(spacing: 2) {
+                                    musicControl(isFavorite ? "heart.fill" : "heart", label: isFavorite ? "Unsave current artist or playlist" : "Save current artist or playlist", disabled: favoriteTarget == nil || !preferences.canEdit) {
+                                        guard let target = favoriteTarget else { return }
+                                        if isFavorite { preferences.removeChannel(target) }
+                                        else { preferences.saveChannel(target) }
+                                    }
                                     .foregroundStyle(KeepTheme.accentStrong)
-                                    .help("Open on Audius")
+                                    .accessibilityValue(favoriteTarget.map { "\($0.name), \(isFavorite ? "saved" : "not saved")" } ?? "Play music to discover an artist")
+                                    musicControl(showsSavedChannels ? "list.bullet.circle.fill" : "list.bullet.circle", label: "Saved music") {
+                                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { showsSavedChannels.toggle() }
+                                    }
+                                    .accessibilityValue(showsSavedChannels ? "Expanded" : "Collapsed")
+                                }
+                                if let url = player.track?.permalink ?? URL(string: "https://audius.co") {
+                                    Link("Audius ↗", destination: url)
+                                        .buttonStyle(.plain)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(KeepTheme.accentStrong)
+                                        .help("Open on Audius")
+                                }
                             }
                         }
                         status
@@ -81,7 +107,56 @@ struct MusicPlayerCard: View {
             .clipShape(RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: 288, maxHeight: .infinity)
+        .frame(minHeight: showsSavedChannels ? 460 : 288, maxHeight: .infinity)
+    }
+
+    private var savedChannels: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Your saved listens").font(.system(size: 21, design: .serif))
+                Spacer()
+                Text("\(preferences.snapshot.channels.count)").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    if preferences.snapshot.channels.isEmpty {
+                        Text("Keep a favorite close. Save an artist or playlist with the heart, or add an Audius link in Settings.")
+                            .font(.system(size: 13)).foregroundStyle(KeepTheme.secondaryInk)
+                            .fixedSize(horizontal: false, vertical: true).padding(.vertical, 12)
+                    }
+                    ForEach(preferences.snapshot.channels) { channel in
+                        Button { playSavedChannel(channel) } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: channel.symbol).font(.system(size: 17)).frame(width: 22)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(channel.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                                    Text(channel.subtitle).font(.system(size: 11)).foregroundStyle(KeepTheme.secondaryInk)
+                                }
+                                Spacer(minLength: 4)
+                                Image(systemName: player.selectedChannel?.id == channel.id ? "checkmark" : "play.fill")
+                                    .font(.system(size: 11))
+                            }
+                            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(KeepTheme.paper.opacity(0.65), in: RoundedRectangle(cornerRadius: 10))
+                            .contentShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(MusicControlStyle()).disabled(!preferences.canEdit)
+                        .accessibilityLabel("Play saved \(channel.subtitle.lowercased()): \(channel.name)")
+                        .accessibilityAddTraits(player.selectedChannel?.id == channel.id ? .isSelected : [])
+                    }
+                }
+            }
+            .frame(height: 160)
+            .accessibilityLabel("Saved Audius artists and playlists")
+        }
+    }
+
+    private func playSavedChannel(_ channel: MusicChannel) {
+        preferences.selectChannel(channel)
+        if player.selectedChannel?.id != channel.id { player.selectChannel(channel, autoplay: true) }
+        else if case .failed = player.state { player.retry() }
+        else if !player.wantsPlayback { player.togglePlayback() }
+        // Keep the drawer open through loading, playback, track changes, and pause.
     }
 
     private var channelMenu: some View {
@@ -102,15 +177,6 @@ struct MusicPlayerCard: View {
                 } label: {
                     Label(channel.name, systemImage: player.selectedChannel?.id == channel.id ? "checkmark" : channel.symbol)
                 }
-            }
-            if let artist = player.track?.artistChannel {
-                Divider()
-                Button {
-                    preferences.saveChannel(artist)
-                } label: {
-                    Label(preferences.snapshot.channels.contains(where: { $0.id == artist.id }) ? "Artist saved" : "Save this artist", systemImage: "bookmark")
-                }
-                .disabled(!preferences.canEdit || preferences.snapshot.channels.contains { $0.id == artist.id })
             }
             if preferences.snapshot.channels.isEmpty {
                 Text("Save artists & playlists in Settings")
@@ -179,7 +245,7 @@ private struct MusicControlStyle: ButtonStyle {
         configuration.label
             .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
             .background(KeepTheme.mutedWarm.opacity(configuration.isPressed ? 0.5 : hovered ? 0.3 : 0), in: RoundedRectangle(cornerRadius: 8))
-            .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(isFocused ? KeepTheme.focusRing : .clear, lineWidth: 2) }
+            .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(isFocused ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
             .onHover { hovered = $0 }
     }
 }
