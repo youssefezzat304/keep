@@ -1,16 +1,12 @@
 # Keep — Visual Style Guide
 
-Keep follows a **cozy retro editorial** direction: a quiet focus journal with warm paper surfaces, autumn colors, clear typography, and softly rounded cards.
+Keep follows a cozy retro editorial direction: warm paper, autumn colors, clear typography, softly rounded cards, and generous quiet space. `reference/main-theme.jpg` informs atmosphere and palette, not a prescribed page layout.
 
-Preserve the reference guide's editorial restraint while drawing the palette and warmth from `reference/main-theme.jpg`. The colors below are reference-inspired design choices, not exact sampled values. The image informs atmosphere, not a prescribed dashboard layout.
+## 1. Visual hierarchy
 
-Keywords: **cozy · warm · editorial · autumnal · calm · tactile · understated**.
+Typography, warm neutrals, spacing, and restrained accents carry the identity. The active target and timers are the primary anchors; tasks and music support them. Use a cream workspace over a heavily blurred artwork backdrop. Keep the normal panel opaque with a quiet tint from the same image, so controls remain readable during long focus sessions.
 
-## 1. General direction
-
-Let typography, warm neutrals, deliberate spacing, and restrained accent colors carry the identity. The active focus target and timer should be easy to find; tasks and music should feel supportive rather than compete for attention.
-
-Use broad cream surfaces and terracotta emphasis. The outer window backdrop takes its colors from the music artwork, heavily blurred into a soft gradient-like wash; keep the main panel opaque with a quiet tint from the same artwork for readable controls. Sage, butter yellow, and mist blue provide quiet secondary variation. Keep the interface comfortable for long focus sessions.
+Terracotta identifies important actions and active selections. Sage, butter, mist blue, and existing project accents provide variation without turning every region into a competing accent. Let content and hierarchy determine emphasis. Avoid adding decorative copy, badges, illustrations, or controls solely to fill empty space.
 
 ## 2. Color palette
 
@@ -43,183 +39,73 @@ The base terracotta is intentionally soft. Use dark ink on it: small white text 
 
 Use `mutedForeground` primarily on `paper` and `surface`; use stronger ink for text on peach or colored fills. The quiet `border` is decorative, not a substitute for a sufficiently visible interactive boundary.
 
-## 3. Semantic color usage
+## 3. Tokens and project identity
 
-Centralize colors in named asset-catalog colors or a shared theme namespace under `keep/DesignSystem/`. Choose one source of truth and have any helpers reference it.
+Named asset-catalog colors are authoritative; KeepTheme exposes semantic references. Reuse shared tokens instead of scattered RGB literals, generic color fills, or independent feature palettes. Opacity must not weaken text or interactive boundaries.
 
-Named color assets are the source of truth. `keep/DesignSystem/KeepTheme.swift` exposes semantic references to them; use those references in views.
+Project identity uses the saved accent mapped by FocusProjectStyle. Match project names and folder marks across the active target, picker, Timesheet, Calendar, and project catalog. Preserve hue while adjusting lightness for readable Light/Dark shades. Other text/actions remain on the semantic palette. Color choices need names and an explicit selected state; color alone is insufficient.
 
-Project identity uses 30 selectable colors: the existing terracotta, sage, mist blue, and butter yellow, plus 26 muted warm, green, blue, purple, and neutral hues in `Project*.colorset` assets. `FocusProjectStyle` maps the saved accent to its asset. These colors identify projects. Match the folder icon and project names in the active target, picker, and Timesheet to their project hue; adjust lightness for readable shades in Light and Dark. Keep other text/actions on the semantic palette above. Color selection uses a visible checkmark and named accessibility labels.
-
-```swift
-Text("Start focus")
-    .foregroundStyle(KeepTheme.ink)
-    .padding(.horizontal, 20)
-    .padding(.vertical, 10)
-    .background(KeepTheme.accent, in: RoundedRectangle(cornerRadius: 12))
-```
-
-`AccentColor` and the other colors used by the first draft are populated. Keep theme additions in the same asset/namespace pattern rather than declaring independent palettes in feature views.
-
-Avoid scattered RGB literals, generic `.red`/`.blue` card fills, and opacity adjustments that accidentally weaken text contrast. A palette change should be possible through shared tokens.
+Use stronger ink on peach or colored fills. Quiet borders separate decoration; essential controls need the stronger control-boundary token. Preserve the distinction between normal, selected, focused, disabled, and destructive states rather than relying on subtle hue shifts.
 
 ## 4. Typography
 
-Use two complementary roles:
+Use native system serif for editorial headings and occasional static statistics; use system sans-serif for controls, tasks, navigation, and metadata. Running timers use clean, stable-width monospaced digits. Custom fonts need a visual reason, licensing, and fallbacks.
 
-1. A restrained serif for editorial headings and occasional prominent numbers.
-2. A clean sans-serif for controls, task content, metadata, and navigation.
+Prefer calm expressive headings, regular/medium utility text, and few weights. Use subtle tracking for short labels, uppercase sparingly, and no decorative scripts or futuristic display fonts. Keep the interface adult and understated.
 
-Start with native system fonts rather than adding font dependencies. SwiftUI's system serif design can supply the editorial role; the default system design supplies functional text. Custom fonts require a clear visual reason, suitable licensing, and reliable fallbacks.
+Ordinary content starts around 15–17 points; metadata around 12–13. These are starting ranges, not rigid sizes: preserve readability, wrapping, and comfortable line spacing. Do not shrink task or helper text to fit a fixed card. Timer digits adapt to their available column and should remain easy to scan. Do not animate every digit or announce every second to assistive technologies.
 
-```swift
-Text("Today's focus")
-    .font(.system(.largeTitle, design: .serif))
+## 5. Layout and surfaces
 
-Text("Current task")
-    .font(.body)
-```
+Use solid fills, quiet warm rules, clean shapes, and negative space. Paper comes from color and typography, without literal texture. Normal Focus progresses from navigation to target to timers to supporting cards. References do not authorize unrelated sidebars, profiles, illustrations, or new features.
 
-## 5. Typographic character
+Prefer an 8-point spacing rhythm, 16–24 points inside cards, and 24–32 between major regions. Soft rounding starts around 8 points for fields, 12 for buttons, 20 for cards, and 24–28 for large surfaces. Use pills for compact selections/statuses where useful, not every control.
 
-Prefer expressive but calm headings, regular or medium utility text, and a clear hierarchy. Use subtle tracking for occasional short labels.
+The shell keeps equal outer margins and a fixed viewport across tabs. Below the established breakpoints, reflow headings and stack paired cards; preserve horizontal scrolling for readable tables. Music/tasks grow into taller windows rather than leaving arbitrary empty space. Inner lists scroll without changing outer geometry. Check the default 1000 × 900, minimum 680 × 650, and wide 1710 × 1080 sizes, including long text, empty and error states.
 
-Avoid decorative scripts, futuristic display fonts, excessive uppercase, and a large number of font weights. The cozy palette should not make the interface childish.
+Most cards need no shadow. Separate regions with surface colors, spacing and borders. Use a restrained warm shadow only for layering in menus/popovers/dialogs. Avoid heavy outlines and fake depth. Decorative borders and image layers must never intercept input.
 
-## 6. Body text
+## 6. Artwork and music
 
-Comfort and legibility take priority over density. Start around 15–17 points for ordinary workspace content, with larger sizes for extended reading or explanatory text. Use semantic text styles where appropriate and allow multiline content to wrap.
+The normal window backdrop shares the player's selected image/fallback, heavily blurred until objects disappear. Clamp image edges before preparing a small off-main texture; scale it smoothly to fill the window. Light adds a paper wash and Dark an espresso tint. Artwork changes preserve panel geometry and mounted content.
 
-Give longer text comfortable line spacing. Do not shrink task text or helper text to make a rigid card fit; adapt the layout instead.
+Blend quiet ambient artwork color into the opaque panel and distinct supporting hues into the timer fills. Pomodoro focus retains a terracotta base, Flow sage, and breaks butter. Use appearance-aware bases and limit tint before text contrast weakens. Project labels retain their own identity rather than taking arbitrary artwork colors.
 
-## 7. Micro-labels and metadata
+The music panel is an explicit exception to the flat treatment. Align a crop of the actual card artwork beneath its controls instead of showing the unrelated outer backdrop through a native material. Glassiness continuously reduces both blur and paper opacity, retaining a readability wash, stronger in Dark. Liquid Glass adds Apple's clear treatment. At zero or under Reduce Transparency use opaque paper in the active appearance. Glassiness uses the same native SwiftUI Slider as music volume, with theme tint and a comfortable control area.
 
-Use understated sans-serif captions for session mode, task counts, elapsed time labels, and music details. A starting range is 12–13 points, with sufficient contrast on the actual surface.
+Keep transport controls at the artwork's bottom, provider attribution/switching at the top, and Zen entry available from Focus. Favorites show an explicit saved state. Their drawer expands inside the existing card allocation, stays open while selections play, and collapses only when toggled. Larger cards show list and transport together; constrained cards replace details/transport with the list and retain its toggle. The list scrolls; playback continues. Unsaving never interrupts playback. Passive source choices never autoplay, while selecting a saved listen explicitly plays it.
 
-Examples:
+## 7. Controls and feature layouts
 
-```text
-CURRENT TASK
-POMODORO
-ELAPSED TIME
-```
+Use native Button, Toggle, text input, Slider, menus, popovers and dialogs for behavior/accessibility. Centralize reused button/input styles in DesignSystem, pass feature actions from the caller, and preserve keyboard operation and visible focus. Comfortable primary targets are generally 36–44 points high. Selected appearance and main actions use terracotta with appropriate contrasting ink; quiet actions use cream/warm neutrals; destructive actions use distinct wording and the danger token.
 
-Use uppercase sparingly. Avoid pale reference-image labels that become difficult to read at real application sizes.
+Settings is a centered column of paper sections, native switches, and warm fields/menu buttons. Glass controls belong under Appearance, with a shared live player preview. Calendar pickers use roomy themed date cells, clear selection, Today indication, muted adjacent dates, and native popover behavior; avoid inconsistent system graphical-picker chrome.
 
-## 8. Expressive numbers and timers
+Dashboard's compact page switch has warm neutral surroundings and a terracotta selection. Calendar uses fine rules, restrained weekend shading, visible weekday headers, and project-colored session blocks with readable task/project/time details. Only real recorded sessions appear; old/manual totals remain in Timesheet without invented timestamps.
 
-The timer is a primary visual anchor. Use generous sizing that adapts to the available window space. A serif can work for static statistics, but running timer digits should prioritize easy scanning and stable widths.
+Task selection is one flat suggestion list beneath the name/search input, with task/project labels and pin controls; pinned entries come first. Avoid nested suggestion cards or separate recent-activity sections. Keep the working-on card neutral until a control actually receives focus, and show its task as plain text until explicit editing. Do not auto-select text or leave a permanent editor outline.
 
-```swift
-Text("25:00")
-    .font(.system(size: 72, weight: .regular))
-    .monospacedDigit()
-```
+Only Today's task rows reveal the three circular timer-launch actions on hover or keyboard focus, with accessible equivalents and tooltips. Focus/Flow colors follow their timer surfaces; Both remains fixed neutral across appearance/artwork changes. Reserve action space so text does not shift. Past/future tasks expose no timer launch actions. Completion uses explicit checks as well as color, and struck-through titles remain readable.
 
-Treat the size as a starting point, not a universal fixed value. Do not announce every second to assistive technologies or animate every digit change decoratively.
+## 8. Habit tracker and data
 
-## 9. Flat visual treatment and layout
+Habit activity, weekly progress and selected-habit stats share one paper surface with faded separators. Center a compact full-current-year grid with month labels and Monday-first columns. Monthly intensity counts completed habits; Weekly fills one square per completed goal, up to seven, with exact counts exposed. Future/rest states are subdued but still visible. Do not scale a lone completion into a filled column.
 
-Use solid fills, quiet borders, clean shapes, and generous negative space. The feeling of paper should come from cream color and typography, without literal paper textures.
+Weekly progress fits its seven day controls, leaving room for stats alongside; stack at narrow widths. Give habits varied existing project accents and metric surfaces quiet sage, blue, honey, and rose. Keep readable accent ink in both appearances. Empty circular check-in controls have visible outlines; completed and partial states use checks, rings or amounts, not color alone.
 
-Within Keep's existing shell, establish a clear progression from navigation to active target to timer to supporting cards. Do not copy the reference image's sidebar, profile, holiday lists, or illustrations unless separately requested.
+Creation uses seven selectable weekday dots with letters/selected states, a theme-consistent goal selector, checkbox and shared calendar. Check-in goals toggle; amount goals expose numeric progress. Use the same grouped activity-mode switch treatment as Dashboard.
 
-Prefer an 8-point spacing rhythm, with 16–24 points inside cards and 24–32 points between major regions. Adapt spacing to window size rather than stacking fixed widths and heights that cause clipping.
+Charts use simple bars, lines, dots or rings with directly labeled values/states. Reserve strong emphasis for the main metric and use supporting tokens elsewhere. Add symbols or labels when series colors are ambiguous. Avoid pseudo-3D charts and speculative analytics widgets.
 
-Check the default 1000 × 900 window, the previous 900 × 800 size, and smaller supported sizes. Reflow or provide scrolling when content cannot fit comfortably.
+## 9. Zen
 
-## 10. Corners
+Zen is an explicit minimalist exception to the normal paper layout. Fill the screen with the selected unblurred wallpaper, leaving nearly all of it unobstructed. Use a small music transport/volume row and one line of track metadata at bottom-left; compact labeled timer digits and play/pause controls sit at bottom-right. At narrow widths stack these controls without clipping. Use white functional text/icons with a restrained bottom readability fade and local focus/hover feedback rather than cards, provider badges, headings, or promotional copy.
 
-Use soft rounding that echoes the image without turning every control into a pill.
+Keep a small Exit control and Escape support. Timer reset/break actions may live in a context menu; music library browsing remains available where applicable. Controls operate the existing timers/player without resetting them. Preserve labels, disabled/loading/error states, Retry, and visible keyboard focus even in this stripped-down layout. Reduce Transparency strengthens the readability backing; wallpaper remains the visual focus.
 
-| Role | Starting radius |
-| --- | --- |
-| Compact fields and small controls | 8 pt |
-| Buttons | 12 pt |
-| Cards | 20 pt |
-| Large workspace surfaces | 24–28 pt |
+## 10. Appearance and motion
 
-The existing 12-point button and 20-point card radii fit this direction. Use pills only for compact statuses or selections where the shape is useful.
-
-## 11. Shadows
-
-Most cards need no shadow. Separate regions with warm surface colors, spacing, and occasional borders.
-
-Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid heavy dark outlines.
-
-The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a crop of the actual player artwork behind its controls, aligned with the image beneath, rather than a native material that picks up the outer window backdrop. Glassiness runs from solid paper to clear artwork by reducing both blur and paper opacity continuously; retain an appearance-specific readability wash, stronger in Dark so cream text remains readable over bright images. Liquid Glass adds Apple’s clear glass treatment over the artwork-backed panel. Respect Reduce Transparency with an opaque paper fallback in the active appearance, and keep text readable regardless of the artwork behind it. Glassiness uses the same native SwiftUI Slider as music volume, with the theme tint and a 44-point control area; preserve Apple’s standard thumb and tracking behavior. Decorative borders must not intercept pointer input.
-
-Music favorites use an outline heart for unsaved sources and a filled heart for saved sources. Use circular hover/focus backgrounds for the heart and clean `list.bullet` icon. The saved-list button expands the glass panel upward within the card’s existing bounds, revealing a scrollable artist/playlist list. When space is tight, the list replaces track details and transport controls; keep the toggle visible in its heading and keep playback running. Larger cards show the list and transport together. Never grow the artwork card or outer page to accommodate favorites. Use a gentle 250 ms expansion/collapse and honor Reduce Motion. Selecting a saved listen starts playback and leaves the list visible until the same icon is toggled again. Place provider attribution at the top-left of the artwork with a small circular provider switcher beside it. Its menu retains passive Audius source choices. The top-right 46-point circle uses `chevron.up.chevron.right.chevron.down.chevron.left`, matching timer corner controls; it opens full-screen Zen mode from Focus.
-
-Zen fills the screen with the selected, unblurred wallpaper. Center the two compact timers above the music controls on readable native material with a warm paper wash; omit navigation, tasks, and the outer workspace panel. Retain an Exit Zen button, Escape support, visible keyboard focus, and solid paper when Reduce Transparency is enabled.
-
-The window backdrop uses the same selected image and fallback as the player. Blur it enough that objects and edges disappear; clamp image edges before blurring to avoid blank window edges. Generate a small blurred texture off the main actor and scale it smoothly to fill the window. Light appearance adds a subtle paper wash, while Dark adds an espresso tint. Keep panel margins and opacity unchanged. Blend a small ambient tint into the paper panel, and blend distinct sampled artwork hues into the terracotta Pomodoro and sage Flow fills. Breaks keep a butter base with an ambient tint. Use lighter or darker semantic bases according to appearance and limit tinting before it weakens text contrast; labels still distinguish the timers.
-
-## 12. Buttons and controls
-
-- Use terracotta with dark ink for the main action.
-- Use cream or warm-neutral fills for secondary actions.
-- Use sage or a clear checkmark for completed states.
-- Keep destructive actions distinct from ordinary terracotta actions through wording and the `danger` token.
-- Provide visible hover, pressed, selected, disabled, and keyboard-focus states.
-
-Use native `Button`, `Toggle`, text fields, and other controls for behavior and accessibility. If a custom `ButtonStyle` is needed, centralize it in the design system and preserve keyboard operation and focus feedback.
-
-Settings uses a centered column, rounded paper menu buttons and fields, terracotta selected appearance choices, and native switches. Place “A little glass” beneath Dark mode within Appearance, separated by a warm rule and a smaller subsection heading. Use the same warm buttons in the task calendar: roomy weekday/date cells, a terracotta selection, a Today dot, and muted adjacent-month dates. Keep the calendar inside a native popover while styling its contents in SwiftUI. Avoid the default graphical date-picker chrome.
-
-Dashboard uses a compact Timesheet / Calendar switch with rounded paper surroundings and terracotta selection. The weekly Calendar keeps cream hour-grid surfaces, fine warm rules, subtly shaded weekends, and a terracotta Today marker. Session blocks use soft project-color fills, readable ink, a narrow colored edge, and restrained task/project/duration text. Keep the weekday headers visible above the scrolling timeline; display actual timer sessions, with readable start times and durations. Older and manually edited daily totals stay in Timesheet without invented calendar blocks.
-
-Avoid glossy fills, oversized shadows, and subtle color changes as the only indication of interaction. Make pointer targets comfortable, generally around 36–44 points high for primary controls.
-
-## 13. Selection, tasks, and session emphasis
-
-The task selector uses one flat suggestion list beneath its input, with inline task/project labels and pins; avoid nested cards or separate recent-activity sections. Pinned entries remain first.
-
-The working-on card uses a neutral border. Display its task name as plain text until the user explicitly edits it; avoid automatic text selection or a persistent focus outline. Keep focus feedback local to the control actually being used.
-
-Use `warmHighlight` for restrained selected-content emphasis. Use sage with readable ink for completion or supportive status. Use terracotta to identify the active session or selected navigation item sparingly.
-
-Today’s task rows reveal three 30-point circular buttons with only a play arrow on hover or keyboard focus, with labels/tooltips and equivalent accessibility actions. Focus and Flow use the same artwork-tinted semantic fills as their timer cards. Both uses the fixed warm-neutral `TaskBothTimerFill` and dark `TaskBothTimerInk` assets, unchanged by artwork or appearance. Reserve their width to avoid shifting task text. Task completion should also have a checkmark or explicit state. Pomodoro and flow modes need labels, not just different colors. Keep selected task titles legible even when struck through.
-
-## 14. Graphics and data visualization
-
-If statistics are implemented, use simple bars, lines, dots, or progress rings. Label values and states directly, and use the same semantic palette as the rest of the app.
-
-Reserve terracotta for the main metric and use sage, butter yellow, or mist blue as supporting series where contrast permits. Add symbols, labels, or patterns when color alone would be ambiguous.
-
-Avoid pseudo-3D charts, gradient fills, excessive decoration, and speculative analytics widgets.
-
-Habit tracker uses one paper surface with faded horizontal/vertical separators. Center the full current-year activity grid; use small 6–11-point squares, 3-point gaps, and month labels beneath Monday-first week columns. Monthly daily intensity uses fern; stacked weekly totals use periwinkle. Keep future dates subdued and expose exact counts in tooltips/accessibility labels. Weekly progress fits its seven day controls in 480 points, leaving room for the stats (up to 560 points) beside it; stack stats below at narrow widths. Give habit icons and their rows distinct existing project accents, and vary the small metric backgrounds with sage, blue, honey, and rose. Use readable accent ink in both appearances. Circular completion controls have clear accent outlines for empty dates, including subdued future/rest states, and retain checkmarks and partial rings/amounts so progress never relies on color alone. The creation sheet uses seven selectable weekday dots, with letters and selected checkmarks. Use the grouped Dashboard-style activity switch, themed paper checkboxes, and the same styled calendar used for choosing task dates. Weekly bars fill one square per goal (seven or more fills the column), with an explicit scale and exact tooltips. Reuse semantic light/dark tokens and native controls.
-
-## 15. Icons and illustrations
-
-Below 900 points of window width, navigation displays icons only while retaining accessible names and tooltips. Use the shared thin overlay scrollbars throughout the app: rounded 5-point thumbs with transparent tracks and native scrolling behavior.
-
-Prefer consistent SF Symbols for functional controls. Use a restrained weight and scale, and provide accessible labels for icon-only actions.
-
-The reference's autumn illustrations contribute warmth, but illustrations are optional. If requested, keep them flat, simple, and within the warm palette; they should never obstruct timer information or task controls.
-
-## 16. Motion
-
-Use brief, quiet state transitions, generally around 120–200 milliseconds. Motion should explain selection, expansion, or a session state change.
-
-Avoid bouncing controls, continuous decorative movement, and animated countdown digits that distract from focus. Respect the system Reduce Motion preference and provide an immediate-state alternative where appropriate.
-
-## 17. SwiftUI implementation
-
-Use SwiftUI composition and shared design-system components rather than a parallel styling framework.
-
-- Keep global color, typography, spacing, and radius choices centralized when reused.
-- Evolve `CardStyle` and `PrimaryButton` for shared appearance rather than duplicating their styling in every feature view.
-- Keep feature actions outside shared styling components.
-- Prefer flexible frames, layout priorities, and sensible wrapping over fixed card heights that crop content.
-- Preserve useful previews with realistic long task names and representative states when behavior exists.
-
-Do not add a web renderer, Tailwind, CSS tokens, or shadcn/ui to implement this visual guide. Its semantic-token principles translate to SwiftUI and asset catalogs.
-
-## 18. Appearance modes
-
-Settings offers Light, Dark, and System. Light is the default and keeps the palette above; System follows macOS. Named assets supply explicit dark variants. Popovers and sheets inherit the shell’s selection.
+Settings offers Light (default), Dark, and System. Named assets supply dark variants, and sheets/popovers inherit the shell selection. System follows macOS independently of explicit window overrides; keep source implementation details in architecture.md.
 
 | Semantic asset | Dark value |
 | --- | --- |
@@ -230,39 +116,17 @@ Settings offers Light, Dark, and System. Light is the default and keeps the pale
 | Sage / SageForeground / MistBlue | `#344B3A` / `#D9E8D0` / `#30484B` |
 | Border / ControlBorder / FocusRing | `#59483E` / `#AA8D76` / `#F3BD8F` |
 
-Dark appearance uses espresso surroundings, brown paper, cream ink, and muted coral/sage fills. AccentStrong becomes a light coral for readable links/actions on dark surfaces. Do not reuse light pastel panels behind cream text. The music control surface keeps sufficient warm tint over arbitrary artwork; Reduce Transparency always forces opaque paper in the active appearance.
 
-## 19. Native macOS behavior
+Dark uses espresso surroundings, brown paper, cream ink, and muted coral/sage. AccentStrong becomes light coral for readable links/actions. Never reuse light pastel panels behind cream text. Music retains enough warm tint for arbitrary artwork and an opaque Reduce Transparency fallback. Zen's white overlay intentionally stays consistent across appearance modes.
 
-Custom appearance should preserve native usability: keyboard navigation, focus, standard shortcuts where applicable, text selection, menu behavior, and appropriate accessibility semantics.
+Motion should explain selection, expansion or state changes through short, quiet transitions. Favor roughly 120–200 milliseconds; favorites can use a slightly longer gentle expansion. Respect Reduce Motion with immediate alternatives. Avoid bouncing, continuous decoration, or distracting countdown animations. Wallpaper loading and tint changes must not replace content or interrupt input.
 
-Use native menus, popovers, and dialogs when they provide useful behavior. Adapt their surrounding typography and tokens where supported without replacing them solely to force a visual treatment.
+## 11. Accessibility and implementation
 
-## 20. Accessibility
+Target 4.5:1 contrast for ordinary text and 3:1 for large text, essential icons/control boundaries, and focus indicators. Check actual foreground/background pairs, including arbitrary artwork, hover, disabled and selected states. Decorative pastels never excuse unreadable content or invisible controls.
 
-- Target at least 4.5:1 contrast for ordinary text and 3:1 for large text.
-- Provide at least 3:1 contrast for essential control boundaries, icons, and focus indicators against adjacent colors.
-- Keep keyboard focus visible and interactions keyboard-operable.
-- Use meaningful labels, state descriptions, and semantic controls for VoiceOver.
-- Support system accessibility settings, including Reduce Motion and Increase Contrast where relevant.
-- Never encode task completion, mode, selection, or errors through color alone.
+Keep controls keyboard-operable with meaningful labels/state descriptions, native shortcuts, selection and menu behavior. Preserve text selection where useful and respect Reduce Motion, Reduce Transparency, and Increase Contrast. No task completion, timer mode, selection or error may be encoded by color alone.
 
-Verify actual foreground/background combinations, including hover and disabled states. Pastel decorative fills do not excuse unreadable text or invisible controls.
+Use shared SwiftUI components, flexible layouts and realistic long-name/state previews. Keep global styling in DesignSystem; avoid fixed heights that crop content or a parallel styling framework.
 
-## 21. Things to avoid
-
-- Neon colors, cold blue/purple AI gradients, and gradient text.
-- Glass effects, gloss, heavy shadows, and fake depth.
-- Saturated red and blue placeholder cards as finished styling.
-- Excessive badges, pills, icons, and decoration.
-- Literal paper textures, ornate serif text, or cartoon styling throughout the UI.
-- Low-contrast pale text copied from the reference image.
-- Layout changes made solely to imitate unrelated reference content.
-
-## 22. Final style test
-
-Before completing a UI change, check that it feels like a calm focus journal: peach surroundings, cream workspace, warm ink, terracotta emphasis, soft supporting colors, and restrained editorial typography.
-
-The timer and active task should be immediately clear. Supporting areas should be readable, comfortable, and quiet. Confirm the appearance in the affected window sizes and states before calling the visual work complete.
-
-Task selection uses a warm native popover with a task-name/search field, Pinned and Recent activity groups, readable task names, project-colored folder/label pairs, and explicit pin/unpin controls. Keep the working-on target neutral until actual keyboard focus. The music provider circle uses `waveform.mid`. Keep functional metadata and controls after removing the requested motivational/helper copy.
+Avoid neon, cold decorative gradients, gradient text, excessive badges/pills/icons, literal paper textures, ornate scripts, low-contrast reference text and unrelated page structures. Glass and readability fades are limited to the explicitly described music, backdrop and Zen uses. Before finishing, inspect relevant window sizes/appearances and confirm the active target/timers are clear while supporting areas stay comfortable and quiet.

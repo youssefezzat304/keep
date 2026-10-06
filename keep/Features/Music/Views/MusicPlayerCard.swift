@@ -4,7 +4,6 @@ struct MusicPlayerCard: View {
     @Bindable var player: MusicPlayerModel
     var preferences = AppPreferences()
     var wallpapers = WallpaperLibrary()
-    var presentation: WorkspaceCardPresentation = .standard
     var onEnterZen: (() -> Void)? = nil
     @State private var showsSavedChannels = false
     @State private var showsAppleLibrary = false
@@ -21,10 +20,8 @@ struct MusicPlayerCard: View {
             // The drawer only consumes the space already allocated to this card.
             let panelHeight = max(0, geometry.size.height - 90)
             ZStack(alignment: .bottom) {
-                if presentation == .standard {
-                    MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                }
+                MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
 
                 VStack(alignment: .leading, spacing: 12) {
                     artworkHeader
@@ -52,7 +49,7 @@ struct MusicPlayerCard: View {
                         }
                     }
                     .padding(16)
-                    .modifier(MusicCardSurface(presentation: presentation, preferences: preferences, wallpapers: wallpapers, artworkSize: geometry.size))
+                    .modifier(MusicGlassPanel(preferences: preferences, wallpapers: wallpapers, artworkSize: geometry.size))
                     .frame(maxHeight: panelHeight, alignment: .bottom)
                 }
                 .padding(16)
@@ -62,7 +59,7 @@ struct MusicPlayerCard: View {
             .clipShape(RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: presentation == .zen ? 260 : 288, maxHeight: .infinity)
+        .frame(minHeight: 288, maxHeight: .infinity)
         .onChange(of: player.provider) { _, provider in
             if provider != .audius { showsSavedChannels = false }
             if provider != .appleMusic { showsAppleLibrary = false }
@@ -93,17 +90,15 @@ struct MusicPlayerCard: View {
                 musicControl("photo.badge.arrow.down", label: "Next wallpaper", disabled: !wallpapers.canAdvance) { wallpapers.next() }
                     .background(KeepTheme.paper.opacity(0.95), in: Circle())
             }
-            if presentation == .standard {
-                Button { onEnterZen?() } label: {
-                    Image(systemName: "chevron.up.chevron.right.chevron.down.chevron.left")
-                        .font(.system(size: 22, weight: .light))
-                        .frame(width: 46, height: 46)
-                        .background(KeepTheme.paper.opacity(0.85), in: Circle())
-                }
-                .buttonStyle(MusicControlStyle(isCircular: true)).disabled(onEnterZen == nil)
-                .accessibilityLabel("Enter Zen mode")
-                .help("Enter full-screen Zen mode")
+            Button { onEnterZen?() } label: {
+                Image(systemName: "chevron.up.chevron.right.chevron.down.chevron.left")
+                    .font(.system(size: 22, weight: .light))
+                    .frame(width: 46, height: 46)
+                    .background(KeepTheme.paper.opacity(0.85), in: Circle())
             }
+            .buttonStyle(MusicControlStyle(isCircular: true)).disabled(onEnterZen == nil)
+            .accessibilityLabel("Enter Zen mode")
+            .help("Enter full-screen Zen mode")
         }
         .frame(height: 46)
     }
@@ -348,15 +343,4 @@ private struct MusicControlStyle: ButtonStyle {
 
 #Preview {
     MusicPlayerCard(player: MusicPlayerModel()).padding().frame(width: 450, height: 330)
-}
-
-private struct MusicCardSurface: ViewModifier {
-    let presentation: WorkspaceCardPresentation
-    let preferences: AppPreferences
-    let wallpapers: WallpaperLibrary
-    let artworkSize: CGSize
-    @ViewBuilder func body(content: Content) -> some View {
-        if presentation == .zen { content.modifier(ZenGlassSurface()) }
-        else { content.modifier(MusicGlassPanel(preferences: preferences, wallpapers: wallpapers, artworkSize: artworkSize)) }
-    }
 }
