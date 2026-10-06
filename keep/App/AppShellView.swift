@@ -15,9 +15,10 @@ struct AppShellView: View {
     @State private var preferences: AppPreferences
     @State private var wallpapers: WallpaperLibrary
     @State private var selectedTab: WorkspaceTab
+    @State private var zen: ZenModeModel
     @Environment(\.self) private var environment
 
-    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore? = nil, habits: HabitStore = HabitStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary()) {
+    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore? = nil, habits: HabitStore = HabitStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary(), zen: ZenModeModel? = nil) {
         _workspace = State(initialValue: workspace)
         _music = State(initialValue: music)
         _tasks = State(initialValue: tasks ?? DailyTaskStore(habits: habits))
@@ -25,79 +26,89 @@ struct AppShellView: View {
         _preferences = State(initialValue: preferences)
         _wallpapers = State(initialValue: wallpapers)
         _selectedTab = State(initialValue: initialTab)
+        _zen = State(initialValue: zen ?? ZenModeModel())
     }
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 24) {
-                NavBar(
-                    selection: selectedTab,
-                    onSelectFocus: { selectedTab = .focus },
-                    onSelectDashboard: { selectedTab = .dashboard },
-                    onSelectHabits: { selectedTab = .habits },
-                    isCompact: geometry.size.width < 900,
-                    onSelectSettings: { selectedTab = .settings }
-                )
+            ZStack {
+                VStack(spacing: 24) {
+                    NavBar(
+                        selection: selectedTab,
+                        onSelectFocus: { selectedTab = .focus },
+                        onSelectDashboard: { selectedTab = .dashboard },
+                        onSelectHabits: { selectedTab = .habits },
+                        isCompact: geometry.size.width < 900,
+                        onSelectSettings: { selectedTab = .settings }
+                    )
 
-                if let message = workspace.persistenceError {
-                    HStack {
-                        Text(message).font(.system(size: 13))
-                        Spacer()
-                        Button("Retry") { workspace.retryPersistence() }
+                    if let message = workspace.persistenceError {
+                        HStack {
+                            Text(message).font(.system(size: 13))
+                            Spacer()
+                            Button("Retry") { workspace.retryPersistence() }
+                        }
+                        .padding(12)
+                        .background(KeepTheme.highlight, in: RoundedRectangle(cornerRadius: 10))
+                        .accessibilityElement(children: .contain)
                     }
-                    .padding(12)
-                    .background(KeepTheme.highlight, in: RoundedRectangle(cornerRadius: 10))
-                    .accessibilityElement(children: .contain)
-                }
 
-                // Each tab keeps its content and scroll position inside the same viewport.
-                ZStack(alignment: .top) {
-                    GeometryReader { viewport in
+                    // Each tab keeps its content and scroll position inside the same viewport.
+                    ZStack(alignment: .top) {
+                        GeometryReader { viewport in
+                            KeepScrollView {
+                                FocusSessionView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers, isCompact: geometry.size.width < 820, isActive: selectedTab == .focus && !zen.isPresented, minimumHeight: viewport.size.height, onEnterZen: { zen.enter() })
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        }
+                        .opacity(selectedTab == .focus ? 1 : 0)
+                        .allowsHitTesting(selectedTab == .focus)
+                        .accessibilityHidden(selectedTab != .focus)
+
+                        DashboardView(workspace: workspace)
+                            .opacity(selectedTab == .dashboard ? 1 : 0)
+                            .allowsHitTesting(selectedTab == .dashboard)
+                            .accessibilityHidden(selectedTab != .dashboard)
+
+                        HabitTrackerView(store: habits, today: workspace.today)
+                            .opacity(selectedTab == .habits ? 1 : 0)
+                            .allowsHitTesting(selectedTab == .habits)
+                            .accessibilityHidden(selectedTab != .habits)
+
                         KeepScrollView {
-                            FocusSessionView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers, isCompact: geometry.size.width < 820, isActive: selectedTab == .focus, minimumHeight: viewport.size.height)
+                            SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, isVisible: selectedTab == .settings)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
+                        .opacity(selectedTab == .settings ? 1 : 0)
+                        .allowsHitTesting(selectedTab == .settings)
+                        .accessibilityHidden(selectedTab != .settings)
                     }
-                    .opacity(selectedTab == .focus ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .focus)
-                    .accessibilityHidden(selectedTab != .focus)
-
-                    DashboardView(workspace: workspace)
-                        .opacity(selectedTab == .dashboard ? 1 : 0)
-                        .allowsHitTesting(selectedTab == .dashboard)
-                        .accessibilityHidden(selectedTab != .dashboard)
-
-                    HabitTrackerView(store: habits, today: workspace.today)
-                        .opacity(selectedTab == .habits ? 1 : 0)
-                        .allowsHitTesting(selectedTab == .habits)
-                        .accessibilityHidden(selectedTab != .habits)
-
-                    KeepScrollView {
-                        SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, isVisible: selectedTab == .settings)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                    }
-                    .opacity(selectedTab == .settings ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .settings)
-                    .accessibilityHidden(selectedTab != .settings)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .environment(\.musicLibraryViewport, geometry.size)
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(KeepTheme.artworkSurface(KeepTheme.paper,
+                    tint: wallpapers.palette(for: preferences.wallpaperSource)?.ambient.color,
+                    amount: environment.colorScheme == .dark ? 0.16 : 0.10,
+                    text: KeepTheme.mutedInk, environment: environment), in: RoundedRectangle(cornerRadius: 28))
+                .clipShape(RoundedRectangle(cornerRadius: 28))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28)
+                        .strokeBorder(KeepTheme.border.opacity(0.5), lineWidth: 1)
+                        .allowsHitTesting(false)
+                }
+                .padding(16)
+                .background { ArtworkBackdrop(preferences: preferences, wallpapers: wallpapers) }
+                .opacity(zen.isPresented ? 0 : 1)
+                .allowsHitTesting(!zen.isPresented)
+                .accessibilityHidden(zen.isPresented)
+                if zen.isPresented {
+                    ZenModeView(workspace: workspace, music: music, preferences: preferences, wallpapers: wallpapers, onExit: { zen.exit() })
+                }
             }
-            .environment(\.musicLibraryViewport, geometry.size)
-            .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(KeepTheme.artworkSurface(KeepTheme.paper,
-                tint: wallpapers.palette(for: preferences.wallpaperSource)?.ambient.color,
-                amount: environment.colorScheme == .dark ? 0.16 : 0.10,
-                text: KeepTheme.mutedInk, environment: environment), in: RoundedRectangle(cornerRadius: 28))
-            .clipShape(RoundedRectangle(cornerRadius: 28))
-            .overlay {
-                RoundedRectangle(cornerRadius: 28)
-                    .strokeBorder(KeepTheme.border.opacity(0.5), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
-            .padding(16)
-            .background { ArtworkBackdrop(preferences: preferences, wallpapers: wallpapers) }
         }
+        .background { ZenWindowBridge(model: zen).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(true) }
         .frame(minWidth: 680, minHeight: 650)
         .environment(\.artworkPalette, wallpapers.palette(for: preferences.wallpaperSource))
         .foregroundStyle(KeepTheme.ink)

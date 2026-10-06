@@ -224,7 +224,11 @@ struct SettingsView: View {
                 Text("\(Int(preferences.glassiness * 100))%")
                     .font(.system(size: 12)).monospacedDigit().foregroundStyle(KeepTheme.mutedInk)
             }
-            GlassinessSlider(value: $preferences.glassiness).frame(height: 44)
+            Slider(value: $preferences.glassiness, in: 0...1)
+                .tint(KeepTheme.accentStrong)
+                .frame(height: 44)
+                .accessibilityLabel("Glassiness")
+                .accessibilityValue("\(Int(preferences.glassiness * 100)) percent")
             HStack {
                 Text("Solid paper")
                 Spacer()

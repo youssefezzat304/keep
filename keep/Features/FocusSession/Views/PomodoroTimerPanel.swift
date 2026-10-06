@@ -3,6 +3,7 @@ import SwiftUI
 struct PomodoroTimerPanel: View {
     let workspace: WorkspaceModel
     var beforeAction: () -> Void = {}
+    var presentation: WorkspaceCardPresentation = .standard
 
     var body: some View {
         FocusTimerCard(
@@ -14,7 +15,8 @@ struct PomodoroTimerPanel: View {
             onReset: { beforeAction(); workspace.reset(.pomodoro) },
             onBreak: { beforeAction(); workspace.startBreak() },
             pomodoroSettings: workspace.pomodoroSettings,
-            onSettings: { beforeAction(); return workspace.updatePomodoroSettings($0) }
+            onSettings: { beforeAction(); return workspace.updatePomodoroSettings($0) },
+            presentation: presentation
         )
     }
 }

@@ -10,6 +10,7 @@ struct FocusTimerCard: View {
     let onBreak: () -> Void
     var pomodoroSettings: PomodoroSettings = .defaults
     var onSettings: ((PomodoroSettings) -> Bool)? = nil
+    var presentation: WorkspaceCardPresentation = .standard
     @Environment(\.self) private var environment
     @State private var showsSettings = false
     @State private var settingsHovered = false
@@ -27,13 +28,15 @@ struct FocusTimerCard: View {
             let longBreakDue = timer.breakIsLong(at: instant)
             let upcomingBreakDuration = timer.upcomingBreakDuration(at: instant)
 
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: presentation == .zen ? 14 : 18) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(isPomodoro ? "Pomodoro" : "Flow state")
                             .font(.system(size: 25, weight: .regular, design: .serif))
-                        Text(isBreak ? "Take a little breather." : isPomodoro ? "A little focus, a little rest." : "Find your rhythm. Stay a while.")
-                            .font(.system(size: 13))
+                        if presentation == .standard {
+                            Text(isBreak ? "Take a little breather." : isPomodoro ? "A little focus, a little rest." : "Find your rhythm. Stay a while.")
+                                .font(.system(size: 13))
+                        }
                     }
                     Spacer(minLength: 8)
                     if isPomodoro {
@@ -59,7 +62,7 @@ struct FocusTimerCard: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(timer.display(at: instant))
-                        .font(.system(size: 72, weight: .light))
+                        .font(.system(size: presentation == .zen ? 60 : 72, weight: .light))
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
@@ -75,7 +78,7 @@ struct FocusTimerCard: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 104, alignment: .leading)
+                .frame(height: presentation == .zen ? 90 : 104, alignment: .leading)
 
                 ViewThatFits(in: .horizontal) {
                     controlRow(phase: phase, longBreakDue: longBreakDue, upcomingBreakDuration: upcomingBreakDuration, includeBreak: true)
@@ -88,7 +91,14 @@ struct FocusTimerCard: View {
                 }
             }
             .foregroundStyle(KeepTheme.ink)
-            .cardStyle(backgroundColor: surfaceColor)
+            .padding(presentation == .zen ? 20 : 22)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                if presentation == .standard {
+                    RoundedRectangle(cornerRadius: KeepTheme.cardRadius).fill(surfaceColor)
+                }
+            }
+            .modifier(TimerZenSurface(presentation: presentation))
         }
     }
 
@@ -174,5 +184,13 @@ struct FocusTimerCard: View {
         case .stopped: "Stopped · continue whenever you're ready"
         case .completed: timer.nextBreakIsLong ? "Nicely done. Time for a longer breather." : "Nicely done. Time for a breather."
         }
+    }
+}
+
+private struct TimerZenSurface: ViewModifier {
+    let presentation: WorkspaceCardPresentation
+    @ViewBuilder func body(content: Content) -> some View {
+        if presentation == .zen { content.modifier(ZenGlassSurface()) }
+        else { content }
     }
 }
