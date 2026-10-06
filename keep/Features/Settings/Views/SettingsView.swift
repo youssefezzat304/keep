@@ -5,6 +5,8 @@ struct SettingsView: View {
     @Bindable var preferences: AppPreferences
     @Bindable var player: MusicPlayerModel
     var wallpapers: WallpaperLibrary
+    var isVisible = true
+    @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFolder = false
     @State private var importError: String?
     @State private var channelURL = ""
@@ -30,6 +32,8 @@ struct SettingsView: View {
                 .background(KeepTheme.highlight, in: RoundedRectangle(cornerRadius: 12))
             }
 
+            musicPermissions
+
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {
                     settingRow("Dark mode", detail: "System follows your Mac’s appearance.") {
@@ -42,7 +46,7 @@ struct SettingsView: View {
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
-                    settingRow("Apple Music", detail: "Uses the account signed in to Music on this Mac. Choose Apple Music in the player, then browse your library or press Play to allow access. Search and play library songs and playlists inside Keep. Choose Track artwork above to use available cover art; your volume is saved for both providers.") {
+                    settingRow("Apple Music", detail: "Uses the account signed in to Music on this Mac. Search and play your library inside Keep. Choose Track artwork to use available cover art; your volume is saved for both providers.") {
                         Button("Open Music…") { player.openAppleMusic() }
                     }
                     Divider().overlay(KeepTheme.border).allowsHitTesting(false)
@@ -108,6 +112,7 @@ struct SettingsView: View {
                     }
                 }
 
+
                 section("Saved Audius channels", symbol: "bookmark") {
                     helper("Save an artist profile or playlist link, then find it in the player’s channel menu. Audio starts only when you press Play.")
                     HStack(spacing: 10) {
@@ -163,6 +168,48 @@ struct SettingsView: View {
             }
         }
         .onDisappear { channelRequest?.cancel() }
+        .task(id: isVisible) {
+            if isVisible { await player.checkAppleMusicAccess() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if isVisible, phase == .active { Task { await player.checkAppleMusicAccess() } }
+        }
+    }
+
+    private var musicPermissions: some View {
+        section("Permissions", symbol: "lock.shield") {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Apple Music").font(.system(size: 14, weight: .medium))
+                    helper("Allow Keep to read your Music library and control playback. Requesting access won’t start a song.")
+                }
+                Spacer(minLength: 0)
+                Text(player.appleMusicAccess.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(player.appleMusicAccess == .allowed ? KeepTheme.ink : KeepTheme.secondaryInk)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(KeepTheme.mutedWarm, in: Capsule())
+                    .accessibilityLabel("Music permission: \(player.appleMusicAccess.title)")
+            }
+            HStack(spacing: 10) {
+                Button(player.appleMusicAccess == .denied ? "Open System Settings…" : player.appleMusicAccess == .allowed ? "Check access" : "Allow Music access…") {
+                    if player.appleMusicAccess == .denied { player.openMusicAutomationSettings() }
+                    else { Task { await player.checkAppleMusicAccess(requestPermission: player.appleMusicAccess != .allowed) } }
+                }
+                .buttonStyle(KeepButtonStyle(emphasis: player.appleMusicAccess == .allowed ? .quiet : .primary))
+                .disabled(player.appleMusicAccess == .checking)
+                Button(player.appleMusicAccess == .denied ? "Check access" : "System Settings…") {
+                    if player.appleMusicAccess == .denied { Task { await player.checkAppleMusicAccess() } }
+                    else { player.openMusicAutomationSettings() }
+                }
+                .help(player.appleMusicAccess == .denied ? "Check Music access again" : "Open Privacy & Security → Automation")
+            }
+            if player.appleMusicAccess == .denied {
+                helper("Enable Music under Keep in System Settings → Privacy & Security → Automation, then return here.")
+            } else if player.appleMusicAccess == .failed {
+                helper("Open Music and try again. You can also check access in System Settings → Privacy & Security → Automation.")
+            }
+        }
     }
 
     private var glassSettings: some View {

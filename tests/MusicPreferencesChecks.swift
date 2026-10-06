@@ -22,6 +22,13 @@ private actor SilentMusic: AppleMusicControlling {
     private var shuffled = false
     private var repeated: AppleMusicRepeat = .off
     private var position = 12.0
+    private var permission: AppleMusicAccess = .notRequested
+    private(set) var accessRequests: [Bool] = []
+    func setAccess(_ value: AppleMusicAccess) { permission = value }
+    func access(requestPermission: Bool) async -> AppleMusicAccess {
+        accessRequests.append(requestPermission)
+        return permission
+    }
     func setFailure(_ failure: MusicFailure?) { self.failure = failure }
     func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
         commands.append(command)
@@ -38,6 +45,53 @@ private actor SilentMusic: AppleMusicControlling {
         return AppleMusicSnapshot(state: state, title: state == .stopped ? nil : "Quiet song", artist: "Preview artist",
             trackID: "silent-song", artwork: state == .stopped ? nil : Data([1, 2, 3]),
             position: position, duration: 180, shuffled: shuffled, repeatMode: repeated)
+    }
+}
+
+/// Music accepts Play before its cloud track/cover is ready, and can briefly reject reads.
+private actor TransitioningMusic: AppleMusicControlling {
+    private(set) var commands: [AppleMusicCommand] = []
+    private var reads = 0
+    private var title = "Chosen library song"
+    private var artwork: Data? = nil
+    private let failPlayRead: Bool
+    init(failPlayRead: Bool = false) { self.failPlayRead = failPlayRead }
+    func changeSelection() { title = "Next song in Music"; artwork = Data([7, 8, 9]) }
+    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
+        commands.append(command)
+        if case .playItem = command {
+            if failPlayRead { throw MusicFailure.appleMusicConnection }
+            return AppleMusicSnapshot(state: .stopped, title: nil, artist: nil)
+        }
+        if command == .status {
+            reads += 1
+            if reads <= 2 { throw MusicFailure.appleMusicConnection }
+            if reads >= 4, artwork == nil { artwork = Data([4, 5, 6]) }
+            return AppleMusicSnapshot(state: .playing, title: title, artist: "Library artist",
+                trackID: title, artwork: artwork, position: 20, duration: 240)
+        }
+        return AppleMusicSnapshot(state: .stopped, title: nil, artist: nil)
+    }
+}
+
+private actor UnreadyMusic: AppleMusicControlling {
+    let failure: MusicFailure
+    init(_ failure: MusicFailure) { self.failure = failure }
+    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
+        if command == .status { throw failure }
+        return AppleMusicSnapshot(state: .stopped, title: nil, artist: nil)
+    }
+}
+
+private actor DelayedMusicAccess: AppleMusicControlling {
+    private var pending: CheckedContinuation<AppleMusicAccess, Never>?
+    var isPending: Bool { pending != nil }
+    func access(requestPermission: Bool) async -> AppleMusicAccess {
+        await withCheckedContinuation { pending = $0 }
+    }
+    func finish() { pending?.resume(returning: .allowed); pending = nil }
+    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
+        AppleMusicSnapshot(state: .stopped, title: nil, artist: nil)
     }
 }
 
@@ -204,7 +258,99 @@ private actor DelayedMusic: AppleMusicControlling {
         expect(canceled.provider == .audius && canceled.state == .idle && canceled.track == nil, "Late Apple Music replies cannot replace the chosen provider or restart playback")
         try await libraryChecks()
         try await artworkChecks()
+        try await synchronizationChecks()
+        try await permissionChecks()
         print("Passed \(checks) music/preferences/library/artwork checks (silent fixtures)")
+    }
+
+    private static func synchronizationChecks() async throws {
+        let song = AppleMusicItem(nativeID: 42, kind: .songs, title: "Chosen library song", artist: "Library artist")
+        for failPlayRead in [false, true] {
+            let native = TransitioningMusic(failPlayRead: failPlayRead)
+            let model = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: native,
+                launchAppleMusic: {}, appleRefreshInterval: .milliseconds(10))
+            model.playAppleItem(song)
+            var errorFlashed = false
+            for _ in 0..<1000 {
+                if case .failed = model.state { errorFlashed = true }
+                if model.state == .playing && model.appleArtwork != nil { break }
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            expect(!errorFlashed && model.state == .playing, "Brief startup/read transitions show loading without flashing an error")
+            expect(model.track?.title == song.title && model.appleMusicConnected && model.appleDuration == 240,
+                "Library Play automatically recovers transient Music reads and receives delayed artwork")
+            let commands = await native.commands
+            expect(commands.filter { $0 == .playItem(song) }.count == 1 && !commands.contains(.play),
+                "Synchronization never requires or silently sends a second Play")
+            await native.changeSelection()
+            try await waitUntil { model.track?.title == "Next song in Music" }
+            expect(model.appleArtwork == Data([7, 8, 9]), "A Music-app song change updates metadata and artwork without a card action")
+            model.selectProvider(.audius)
+            await model.shutdown()?.value
+            try await Task.sleep(for: .milliseconds(30))
+            expect(model.state == .idle && model.appleArtwork == nil, "Recovering polls stop when the provider changes")
+        }
+        let stalled = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: UnreadyMusic(.appleMusicConnection),
+            launchAppleMusic: {}, appleRefreshInterval: .milliseconds(5), appleRecoveryGrace: .milliseconds(30))
+        stalled.playAppleItem(song)
+        try await Task.sleep(for: .milliseconds(12))
+        expect(stalled.state == .loading && stalled.wantsPlayback, "Keep Play intent and the spinner while Music prepares a track")
+        try await waitUntil { stalled.state == .failed(.appleMusicConnection) }
+        expect(!stalled.wantsPlayback, "Persistent failures leave loading and expose an actionable error")
+        await stalled.shutdown()?.value
+        let denied = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: UnreadyMusic(.appleMusicPermission),
+            launchAppleMusic: {}, appleRefreshInterval: .milliseconds(5))
+        denied.playAppleItem(song)
+        try await waitUntil { denied.state == .failed(.appleMusicPermission) }
+        expect(denied.appleMusicAccess == .denied, "Permission denial bypasses the transient loading grace")
+        await denied.shutdown()?.value
+    }
+
+    private static func permissionChecks() async throws {
+        let native = SilentMusic()
+        var launches = 0
+        var running = false
+        let model = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: native,
+            launchAppleMusic: { if !running { launches += 1; running = true } }, isMusicRunning: { running })
+        await model.checkAppleMusicAccess()
+        let closedRequests = await native.accessRequests
+        expect(model.appleMusicAccess == .notChecked && launches == 0 && closedRequests.isEmpty,
+            "Passive settings checks do not launch Music or ask for access")
+        running = true
+        await model.checkAppleMusicAccess()
+        let passive = await native.accessRequests
+        expect(model.appleMusicAccess == .notRequested && passive == [false], "Settings checks existing access without prompting")
+        model.selectProvider(.appleMusic)
+        await native.setAccess(.allowed)
+        running = false
+        await model.checkAppleMusicAccess(requestPermission: true)
+        let allowedCommands = await native.commands
+        let allowedRequests = await native.accessRequests
+        expect(model.appleMusicAccess == .allowed && launches == 1 && allowedRequests == [false, true],
+            "Only an explicit permission action launches Music and requests consent")
+        expect(allowedCommands == [.status] && !model.wantsPlayback && model.provider == .appleMusic,
+            "Granting permission connects observation without playing or changing volume")
+        await native.setAccess(.denied)
+        await native.setFailure(.appleMusicPermission)
+        await model.checkAppleMusicAccess()
+        expect(model.appleMusicAccess == .denied, "Revoked Music access is reflected in Settings")
+        await native.setFailure(nil)
+        await native.setAccess(.allowed)
+        await model.checkAppleMusicAccess()
+        expect(model.appleMusicAccess == .allowed && model.appleMusicConnected, "Returning after enabling Music access reconnects observation")
+        await model.shutdown()?.value
+
+        let delayed = DelayedMusicAccess()
+        let canceled = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), appleMusic: delayed,
+            launchAppleMusic: {}, isMusicRunning: { true })
+        let check = Task { await canceled.checkAppleMusicAccess() }
+        for _ in 0..<100 {
+            if await delayed.isPending { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        guard await delayed.isPending else { preconditionFailure("Access check did not start") }
+        canceled.shutdown(); await delayed.finish(); await check.value
+        expect(canceled.appleMusicAccess == .notChecked, "Late access replies cannot overwrite shutdown state")
     }
 
     private static func libraryChecks() async throws {

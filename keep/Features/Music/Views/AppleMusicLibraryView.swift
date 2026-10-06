@@ -1,10 +1,15 @@
 import SwiftUI
 
+extension EnvironmentValues {
+    @Entry var musicLibraryViewport = CGSize(width: 1000, height: 900)
+}
+
 struct AppleMusicLibraryView: View {
     @Bindable var player: MusicPlayerModel
     let preferences: AppPreferences
     let wallpapers: WallpaperLibrary
     @State private var library: AppleMusicLibraryModel
+    @Environment(\.musicLibraryViewport) private var viewport
     @Environment(\.dismiss) private var dismiss
     @State private var kind: AppleMusicItem.Kind = .songs
     @State private var query = ""
@@ -35,6 +40,9 @@ struct AppleMusicLibraryView: View {
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
             if player.track != nil { nowPlaying }
+            else if player.state == .loading {
+                ProgressView("Connecting to Music…").controlSize(.small)
+            }
             if case .failed(let failure) = player.state {
                 HStack(alignment: .top) {
                     Text(failure.message).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
@@ -71,14 +79,9 @@ struct AppleMusicLibraryView: View {
             }
             .padding(12).background(KeepTheme.mutedWarm, in: RoundedRectangle(cornerRadius: 10))
             libraryContent.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            HStack(alignment: .top) {
-                Text("Library search includes music added to Music. Discover more or manage your account in Music.")
-                    .font(.system(size: 11)).foregroundStyle(KeepTheme.secondaryInk).fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 12)
-                Button("Open Music") { player.openAppleMusic() }
-            }
+
         }
-        .padding(24).frame(width: 560, height: 580)
+        .padding(24).frame(width: min(620, viewport.width - 48), height: min(720, viewport.height - 64))
         .foregroundStyle(KeepTheme.ink).background(KeepTheme.paper)
         .buttonStyle(KeepButtonStyle())
         .preferredColorScheme(preferences.appearance.colorScheme)
@@ -179,8 +182,10 @@ struct AppleMusicLibraryView: View {
             }
             .buttonStyle(KeepButtonStyle(emphasis: .quiet))
             HStack {
-                Text(player.state == .playing ? "Playing" : player.state == .loading ? "Connecting…" : "Paused")
-                    .font(.system(size: 11)).foregroundStyle(KeepTheme.secondaryInk)
+                HStack(spacing: 7) {
+                    if player.state == .loading { ProgressView().controlSize(.small) }
+                    Text(player.state == .playing ? "Playing" : player.state == .loading ? "Connecting…" : "Paused")
+                }.font(.system(size: 11)).foregroundStyle(KeepTheme.secondaryInk)
                 Spacer()
                 Button { player.toggleMute() } label: { Image(systemName: player.volume == 0 ? "speaker.slash" : "speaker.wave.2") }
                     .accessibilityLabel(player.volume == 0 ? "Unmute music" : "Mute music").disabled(!preferences.canEdit)

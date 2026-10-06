@@ -71,7 +71,7 @@ struct AppShellView: View {
                         .accessibilityHidden(selectedTab != .habits)
 
                     KeepScrollView {
-                        SettingsView(preferences: preferences, player: music, wallpapers: wallpapers)
+                        SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, isVisible: selectedTab == .settings)
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                     .opacity(selectedTab == .settings ? 1 : 0)
@@ -80,6 +80,7 @@ struct AppShellView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .environment(\.musicLibraryViewport, geometry.size)
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(KeepTheme.artworkSurface(KeepTheme.paper,

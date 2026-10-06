@@ -1,10 +1,28 @@
 import AppKit
+import CoreServices
 
 /// Serial, off-main-actor Apple events using playback and read-only library access.
 /// No scripts, credentials, catalog writes, or system output-volume changes.
 actor AppleMusicController: AppleMusicControlling {
     private var artworkID: String?
     private var cachedArtwork: Data?
+    private var artworkAttempt = Date.distantPast
+    private var artworkAttempts = 0
+
+    /// Probe the actual scoped read events. Only an explicit request may prompt.
+    func access(requestPermission: Bool) async -> AppleMusicAccess {
+        do {
+            try Task.checkCancellation()
+            _ = try sendRaw(eventClass: "core", eventID: "getd", object: property("pPlS"),
+                requestPermission: requestPermission)
+            try Task.checkCancellation()
+            _ = try sendRaw(eventClass: "core", eventID: "cnte", object: libraryObject(),
+                parameters: ["kocl": NSAppleEventDescriptor(typeCode: code("cTrk"))], requestPermission: requestPermission)
+            return .allowed
+        } catch let error as EventFailure {
+            return error.code == -1744 ? .notRequested : error.code == -1743 ? .denied : .failed
+        } catch { return .failed }
+    }
     func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
         try Task.checkCancellation()
         switch command {
@@ -45,6 +63,13 @@ actor AppleMusicController: AppleMusicControlling {
         if artworkID != id {
             artworkID = id
             cachedArtwork = nil
+            artworkAttempt = .distantPast
+            artworkAttempts = 0
+        }
+        // A cloud track can begin playing before Music has loaded its cover.
+        if cachedArtwork == nil, Date().timeIntervalSince(artworkAttempt) >= (artworkAttempts < 3 ? 2 : 15) {
+            artworkAttempt = Date()
+            artworkAttempts += 1
             do {
                 if try count("cArt", in: track) > 0 {
                     let artwork = try element("cArt", container: track, selector: NSAppleEventDescriptor(int32: 1))
@@ -52,8 +77,8 @@ actor AppleMusicController: AppleMusicControlling {
                     if !data.isEmpty, data.count <= 12 * 1024 * 1024 { cachedArtwork = data }
                 }
             } catch {
-                // Missing artwork must not stop playback; retry when the track changes.
-                NSLog("Keep: Music artwork unavailable (%@)", String(describing: error))
+                // Retry delayed artwork without interrupting audio or repeatedly logging.
+                if artworkAttempts == 1 { NSLog("Keep: Music artwork unavailable (%@)", String(describing: error)) }
             }
         }
         return AppleMusicSnapshot(state: state, title: title, artist: artist, trackID: id, artwork: cachedArtwork,
@@ -203,19 +228,31 @@ actor AppleMusicController: AppleMusicControlling {
     private func send(eventClass: String, eventID: String, object: NSAppleEventDescriptor? = nil,
                       value: NSAppleEventDescriptor? = nil, parameters: [String: NSAppleEventDescriptor] = [:],
                       timeout: TimeInterval = 10) throws -> NSAppleEventDescriptor {
+        do {
+            return try sendRaw(eventClass: eventClass, eventID: eventID, object: object,
+                value: value, parameters: parameters, timeout: timeout, requestPermission: true)
+        } catch let error as EventFailure { throw failure(for: error.code) }
+    }
+
+    private struct EventFailure: Error { let code: Int }
+
+    private func sendRaw(eventClass: String, eventID: String, object: NSAppleEventDescriptor? = nil,
+                         value: NSAppleEventDescriptor? = nil, parameters: [String: NSAppleEventDescriptor] = [:],
+                         timeout: TimeInterval = 10, requestPermission: Bool) throws -> NSAppleEventDescriptor {
         let target = NSAppleEventDescriptor(bundleIdentifier: "com.apple.Music")
         let event = NSAppleEventDescriptor(eventClass: code(eventClass), eventID: code(eventID),
             targetDescriptor: target, returnID: -1, transactionID: 0)
         if let object { event.setParam(object, forKeyword: code("----")) }
         if let value { event.setParam(value, forKeyword: code("data")) }
         for (key, value) in parameters { event.setParam(value, forKeyword: code(key)) }
-        do {
-            let reply = try event.sendEvent(options: [.waitForReply, .canInteract], timeout: timeout)
-            let error = reply.paramDescriptor(forKeyword: code("errn"))?.int32Value ?? 0
-            if error != 0 { throw failure(for: Int(error)) }
-            return reply
-        } catch let error as MusicFailure { throw error }
-        catch { throw failure(for: (error as NSError).code) }
+        var options: NSAppleEventDescriptor.SendOptions = [.waitForReply, .canInteract]
+        if !requestPermission { options.insert(.init(rawValue: UInt(kAEDoNotPromptForUserConsent))) }
+        let reply: NSAppleEventDescriptor
+        do { reply = try event.sendEvent(options: options, timeout: timeout) }
+        catch { throw EventFailure(code: (error as NSError).code) }
+        let error = reply.paramDescriptor(forKeyword: code("errn"))?.int32Value ?? 0
+        if error != 0 { throw EventFailure(code: Int(error)) }
+        return reply
     }
 
     private func failure(for code: Int) -> MusicFailure {
