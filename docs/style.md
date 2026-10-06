@@ -147,7 +147,7 @@ Most cards need no shadow. Separate regions with warm surface colors, spacing, a
 
 Use a soft, low-opacity warm shadow only when a popover, menu, or dialog needs layering. Avoid heavy dark outlines.
 
-The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a crop of the actual player artwork behind its controls, aligned with the image beneath, rather than a native material that picks up the outer window backdrop. Glassiness runs from solid paper to clear artwork by reducing both blur and paper opacity continuously; retain an appearance-specific readability wash, stronger in Dark so cream text remains readable over bright images. Liquid Glass adds Apple’s clear glass treatment over the artwork-backed panel. Respect Reduce Transparency with an opaque paper fallback in the active appearance, and keep text readable regardless of the artwork behind it. Glassiness is a continuous native slider with a warm theme-colored track. Decorative borders must not intercept pointer input.
+The outer artwork color wash and the music card are explicit exceptions to the otherwise flat treatment: the user requested controls floating on a blurry card over cozy artwork. Use a crop of the actual player artwork behind its controls, aligned with the image beneath, rather than a native material that picks up the outer window backdrop. Glassiness runs from solid paper to clear artwork by reducing both blur and paper opacity continuously; retain an appearance-specific readability wash, stronger in Dark so cream text remains readable over bright images. Liquid Glass adds Apple’s clear glass treatment over the artwork-backed panel. Respect Reduce Transparency with an opaque paper fallback in the active appearance, and keep text readable regardless of the artwork behind it. Glassiness is a continuous native slider with a warm theme-colored track, a 28-point thumb, and a 44-point tracking area. Decorative borders must not intercept pointer input.
 
 Music favorites use an outline heart for unsaved sources and a filled heart for saved sources. Use circular hover/focus backgrounds for the heart and clean `list.bullet` icon. The saved-list button expands the glass panel upward within the card’s existing bounds, revealing a scrollable artist/playlist list. When space is tight, the list replaces track details and transport controls; keep the toggle visible in its heading and keep playback running. Larger cards show the list and transport together. Never grow the artwork card or outer page to accommodate favorites. Use a gentle 250 ms expansion/collapse and honor Reduce Motion. Selecting a saved listen starts playback and leaves the list visible until the same icon is toggled again. Place Audius attribution at the top-left of the artwork and the passive source menu in a 46-point circular bookmark button at the top-right, matching timer corner controls.
 
@@ -163,13 +163,15 @@ The window backdrop uses the same selected image and fallback as the player. Blu
 
 Use native `Button`, `Toggle`, text fields, and other controls for behavior and accessibility. If a custom `ButtonStyle` is needed, centralize it in the design system and preserve keyboard operation and focus feedback.
 
-Settings uses a centered column, rounded paper menu buttons and fields, terracotta selected appearance choices, and native switches. Use the same warm buttons in the task calendar: roomy weekday/date cells, a terracotta selection, a Today dot, and muted adjacent-month dates. Keep the calendar inside a native popover while styling its contents in SwiftUI. Avoid the default graphical date-picker chrome.
+Settings uses a centered column, rounded paper menu buttons and fields, terracotta selected appearance choices, and native switches. Place “A little glass” beneath Dark mode within Appearance, separated by a warm rule and a smaller subsection heading. Use the same warm buttons in the task calendar: roomy weekday/date cells, a terracotta selection, a Today dot, and muted adjacent-month dates. Keep the calendar inside a native popover while styling its contents in SwiftUI. Avoid the default graphical date-picker chrome.
 
-Dashboard uses a compact Timesheet / Calendar switch with rounded paper surroundings and terracotta selection. The weekly Calendar keeps cream hour-grid surfaces, fine warm rules, subtly shaded weekends, and a terracotta Today marker. Session blocks use soft project-color fills, readable ink, a narrow colored edge, and restrained task/project/duration text. Keep the weekday headers visible above the scrolling timeline; clearly label sample sessions while the Calendar remains a visual draft.
+Dashboard uses a compact Timesheet / Calendar switch with rounded paper surroundings and terracotta selection. The weekly Calendar keeps cream hour-grid surfaces, fine warm rules, subtly shaded weekends, and a terracotta Today marker. Session blocks use soft project-color fills, readable ink, a narrow colored edge, and restrained task/project/duration text. Keep the weekday headers visible above the scrolling timeline; display actual timer sessions, with readable start times and durations. Older and manually edited daily totals stay in Timesheet without invented calendar blocks.
 
 Avoid glossy fills, oversized shadows, and subtle color changes as the only indication of interaction. Make pointer targets comfortable, generally around 36–44 points high for primary controls.
 
 ## 13. Selection, tasks, and session emphasis
+
+The working-on card uses a neutral border. Display its task name as plain text until the user explicitly edits it; avoid automatic text selection or a persistent focus outline. Keep focus feedback local to the control actually being used.
 
 Use `warmHighlight` for restrained selected-content emphasis. Use sage with readable ink for completion or supportive status. Use terracotta to identify the active session or selected navigation item sparingly.
 
@@ -184,6 +186,8 @@ Reserve terracotta for the main metric and use sage, butter yellow, or mist blue
 Avoid pseudo-3D charts, gradient fills, excessive decoration, and speculative analytics widgets.
 
 ## 15. Icons and illustrations
+
+Below 900 points of window width, navigation displays icons only while retaining accessible names and tooltips. Use the shared thin overlay scrollbars throughout the app: rounded 5-point thumbs with transparent tracks and native scrolling behavior.
 
 Prefer consistent SF Symbols for functional controls. Use a restrained weight and scale, and provide accessible labels for icon-only actions.
 

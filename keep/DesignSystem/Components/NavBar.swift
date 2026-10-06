@@ -4,6 +4,8 @@ struct NavBar: View {
     let selection: WorkspaceTab
     let onSelectFocus: () -> Void
     let onSelectDashboard: () -> Void
+    let onSelectHabits: () -> Void
+    var isCompact = false
     let onSelectSettings: () -> Void
     @FocusState private var focusedTab: String?
 
@@ -22,17 +24,23 @@ struct NavBar: View {
 
             tab("Focus", symbol: "sun.max", isSelected: selection == .focus, action: onSelectFocus)
             tab("Dashboard", symbol: "square.grid.2x2", isSelected: selection == .dashboard, action: onSelectDashboard)
+            tab("Habit tracker", symbol: "repeat", isSelected: selection == .habits, action: onSelectHabits)
             futureDestination("Stats", symbol: "chart.bar")
             tab("Settings", symbol: "slider.horizontal.3", isSelected: selection == .settings, action: onSelectSettings)
         }
         .foregroundStyle(KeepTheme.ink)
     }
 
+    @ViewBuilder private func navigationLabel(_ title: String, symbol: String) -> some View {
+        if isCompact { Image(systemName: symbol).font(.system(size: 16)).frame(width: 18) }
+        else { Label(title, systemImage: symbol).fixedSize() }
+    }
+
     private func tab(_ title: String, symbol: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: symbol)
+            navigationLabel(title, symbol: symbol)
                 .font(.system(size: 13, weight: isSelected ? .medium : .regular))
-                .padding(.horizontal, 14)
+                .padding(.horizontal, isCompact ? 12 : 14)
                 .frame(height: 36)
                 .background(isSelected ? KeepTheme.mutedWarm : .clear, in: RoundedRectangle(cornerRadius: 10))
                 .contentShape(RoundedRectangle(cornerRadius: 10))
@@ -43,24 +51,27 @@ struct NavBar: View {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(focusedTab == title ? KeepTheme.focusRing : .clear, lineWidth: 2)
         }
+        .accessibilityLabel(title)
+        .help(title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func futureDestination(_ title: String, symbol: String) -> some View {
         Button {} label: {
-            Label(title, systemImage: symbol)
+            navigationLabel(title, symbol: symbol)
                 .font(.system(size: 13))
-                .padding(.horizontal, 10)
+                .padding(.horizontal, isCompact ? 12 : 10)
                 .frame(height: 36)
         }
         .buttonStyle(.plain)
         .foregroundStyle(KeepTheme.mutedInk)
         .disabled(true)
+        .accessibilityLabel(title)
         .help("\(title) will be available later")
     }
 }
 
 #Preview {
-    NavBar(selection: .dashboard, onSelectFocus: {}, onSelectDashboard: {}, onSelectSettings: {})
+    NavBar(selection: .dashboard, onSelectFocus: {}, onSelectDashboard: {}, onSelectHabits: {}, onSelectSettings: {})
         .padding().background(KeepTheme.paper)
 }

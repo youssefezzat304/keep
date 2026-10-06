@@ -61,7 +61,7 @@ struct ProjectPicker: View {
             }
 
             ScrollViewReader { scroll in
-                ScrollView {
+                KeepScrollView {
                     VStack(alignment: .leading, spacing: 5) {
                         projectOption(nil)
 

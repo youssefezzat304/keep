@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ActiveTargetHeader: View {
-    @Binding var taskName: String
+    @Bindable var editor: FocusTaskEditor
     let workspace: WorkspaceModel
     var isCompact = false
     @Environment(\.self) private var environment
@@ -30,12 +30,24 @@ struct ActiveTargetHeader: View {
             }
         }
         .foregroundStyle(KeepTheme.ink)
-        .sheet(isPresented: $showsProjectCreation, onDismiss: { focusedField = .task }) {
+        .onChange(of: focusedField) { _, field in
+            if editor.isEditing && field != .task { finishEditing() }
+        }
+        .onChange(of: editor.isEditing) { _, editing in
+            if !editing { focusedField = nil }
+        }
+        .onDisappear { finishEditing() }
+        .sheet(isPresented: $showsProjectCreation, onDismiss: { focusedField = nil }) {
             ProjectCreationDialog { name, accent in
                 let project = try workspace.createProject(name: name, accent: accent)
                 workspace.selectProject(project)
             }
         }
+    }
+
+    private func finishEditing() {
+        editor.commit(to: workspace)
+        focusedField = nil
     }
 
     private var heading: some View {
@@ -51,7 +63,7 @@ struct ActiveTargetHeader: View {
 
     private var targetField: some View {
         HStack(spacing: 12) {
-            Button { showsProjectPicker = true } label: {
+            Button { finishEditing(); showsProjectPicker = true } label: {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 18))
                     .foregroundStyle(projectColor)
@@ -76,7 +88,7 @@ struct ActiveTargetHeader: View {
                 } : nil) { project in
                     workspace.selectProject(project)
                     showsProjectPicker = false
-                    focusedField = .task
+                    focusedField = nil
                 }
                 .onExitCommand { showsProjectPicker = false }
             }
@@ -91,12 +103,29 @@ struct ActiveTargetHeader: View {
                     .foregroundStyle(projectColor)
                     .lineLimit(1)
                     .help(selectedProject?.name ?? "No project")
-                TextField("Task name", text: $taskName, prompt: Text("Name a task…").foregroundColor(KeepTheme.mutedInk))
-                    .font(.system(size: 14, weight: .medium))
-                    .textFieldStyle(.plain)
-                    .focused($focusedField, equals: .task)
-                    .accessibilityLabel("Task name")
-                    .onSubmit { focusedField = nil }
+                if editor.isEditing {
+                    TextField("Task name", text: $editor.text, prompt: Text("Your next good idea").foregroundColor(KeepTheme.mutedInk))
+                        .font(.system(size: 14, weight: .medium))
+                        .textFieldStyle(.plain)
+                        .focused($focusedField, equals: .task)
+                        .accessibilityLabel("Task name")
+                        .onSubmit { finishEditing() }
+                        .onExitCommand { editor.cancel(); focusedField = nil }
+                } else {
+                    Button {
+                        editor.begin(in: workspace)
+                        focusedField = .task
+                    } label: {
+                        Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Edit task name")
+                    .accessibilityValue(workspace.taskName.isEmpty ? "No task name" : workspace.taskName)
+                    .help("Click to name your task")
+                }
             }
         }
         .padding(14)
@@ -104,20 +133,20 @@ struct ActiveTargetHeader: View {
         .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay {
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(focusedField != nil || showsProjectPicker ? KeepTheme.focusRing : KeepTheme.border, lineWidth: focusedField != nil || showsProjectPicker ? 2 : 1)
+                .strokeBorder(KeepTheme.border, lineWidth: 1)
                 .allowsHitTesting(false)
         }
     }
 }
 
 #Preview {
-    ActiveTargetHeader(taskName: .constant("Your next good idea"), workspace: WorkspaceModel())
+    ActiveTargetHeader(editor: FocusTaskEditor(), workspace: WorkspaceModel())
         .padding().background(KeepTheme.paper).preferredColorScheme(.light)
 }
 
 #Preview("No project") {
     let workspace = WorkspaceModel()
     workspace.selectProject(nil)
-    return ActiveTargetHeader(taskName: .constant(""), workspace: workspace)
+    return ActiveTargetHeader(editor: FocusTaskEditor(), workspace: workspace)
         .padding().background(KeepTheme.paper).preferredColorScheme(.light)
 }

@@ -50,7 +50,7 @@ struct DashboardView: View {
                 }
             }
             ZStack(alignment: .topLeading) {
-                ScrollView {
+                KeepScrollView {
                     TimesheetView(workspace: workspace, week: week)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .padding(.bottom, 4)
@@ -61,7 +61,7 @@ struct DashboardView: View {
                 .allowsHitTesting(page == .timesheet)
                 .accessibilityHidden(page != .timesheet)
 
-                DashboardCalendarView(week: week, today: workspace.today, calendar: workspace.calendar)
+                DashboardCalendarView(week: week, workspace: workspace)
                     .accessibilityElement(children: page == .calendar ? .contain : .ignore)
                     .opacity(page == .calendar ? 1 : 0)
                     .allowsHitTesting(page == .calendar)
@@ -84,8 +84,8 @@ struct DashboardView: View {
     }
 
     private var status: some View {
-        Label(page == .calendar ? "Calendar preview" : workspace.isRecording() ? "Recording time" : "Recorded time",
-              systemImage: page == .calendar ? "sparkles" : workspace.isRecording() ? "record.circle" : "clock")
+        Label(workspace.isRecording() ? "Recording time" : "Recorded time",
+              systemImage: workspace.isRecording() ? "record.circle" : "clock")
             .font(.system(size: 11, weight: .medium))
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(KeepTheme.highlight.opacity(0.6), in: Capsule())
@@ -132,11 +132,11 @@ struct DashboardView: View {
 
     private var weekSummary: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(page == .calendar ? "SAMPLE WEEK" : "WEEK TOTAL")
+            Text(page == .calendar ? "SESSION TIME" : "WEEK TOTAL")
                 .font(.system(size: 9, weight: .medium)).tracking(1.3).foregroundStyle(KeepTheme.mutedInk)
-            Text(TimesheetDuration.total(page == .calendar ? DashboardCalendarSamples.total : workspace.ledger.total(dayIDs: week.dayIDs)))
+            Text(TimesheetDuration.total(page == .calendar ? workspace.ledger.sessions.filter { week.dayIDs.contains($0.dayID) }.reduce(0) { $0 + $1.seconds } : workspace.ledger.total(dayIDs: week.dayIDs)))
                 .font(.system(size: 25, design: .serif)).foregroundStyle(KeepTheme.accentStrong).monospacedDigit()
-            let count = page == .calendar ? Set(DashboardCalendarSamples.sessions.map { $0.project.id }).count : workspace.ledger.projects(dayIDs: week.dayIDs).count
+            let count = page == .calendar ? Set(workspace.ledger.sessions.filter { week.dayIDs.contains($0.dayID) }.map { $0.project.id }).count : workspace.ledger.projects(dayIDs: week.dayIDs).count
             Text("\(count) \(count == 1 ? "project" : "projects")")
                 .font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)
         }

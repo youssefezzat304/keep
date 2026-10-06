@@ -3,6 +3,7 @@ import SwiftUI
 struct TimerWorkspaceCard: View {
     let workspace: WorkspaceModel
     var isCompact = false
+    var beforeAction: () -> Void = {}
 
     var body: some View {
         if isCompact {
@@ -13,8 +14,8 @@ struct TimerWorkspaceCard: View {
     }
 
     @ViewBuilder private var panels: some View {
-        PomodoroTimerPanel(workspace: workspace)
-        FlowTimerPanel(workspace: workspace)
+        PomodoroTimerPanel(workspace: workspace, beforeAction: beforeAction)
+        FlowTimerPanel(workspace: workspace, beforeAction: beforeAction)
     }
 }
 

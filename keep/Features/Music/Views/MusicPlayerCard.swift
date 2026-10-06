@@ -158,7 +158,7 @@ struct MusicPlayerCard: View {
     }
 
     private func savedList(height: CGFloat) -> some View {
-        ScrollView {
+        KeepScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 if preferences.snapshot.channels.isEmpty {
                     Text("Keep a favorite close. Save an artist or playlist with the heart, or add an Audius link in Settings.")

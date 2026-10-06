@@ -35,6 +35,10 @@ struct SettingsView: View {
                     settingRow("Dark mode", detail: "System follows your Mac’s appearance.") {
                         appearanceChoices
                     }
+                    Divider().overlay(KeepTheme.border).allowsHitTesting(false)
+                    Label("A little glass", systemImage: "rectangle.on.rectangle")
+                        .font(.system(size: 18, design: .serif))
+                    glassSettings
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
@@ -100,30 +104,6 @@ struct SettingsView: View {
                     }
                 }
 
-                section("A little glass", symbol: "rectangle.on.rectangle") {
-                    settingRow("Card material") {
-                        KeepSelectionMenu(label: "Music card material", selection: $preferences.glassStyle,
-                                          options: MusicGlassStyle.allCases, title: { $0.title }).frame(width: 190)
-                    }
-                    HStack {
-                        Text("Glassiness").font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        Text("\(Int(preferences.glassiness * 100))%")
-                            .font(.system(size: 12)).monospacedDigit().foregroundStyle(KeepTheme.mutedInk)
-                    }
-                    GlassinessSlider(value: $preferences.glassiness).frame(height: 26)
-                    HStack {
-                        Text("Solid paper")
-                        Spacer()
-                        Text("Clear glass")
-                    }.font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
-                    helper("Slide toward clear glass to reveal sharper artwork through the controls. Reduce Transparency on your Mac always uses solid paper.")
-                    MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityElement(children: .contain)
-                        .accessibilityLabel("Music card preview")
-                }
-
                 section("Saved Audius channels", symbol: "bookmark") {
                     helper("Save an artist profile or playlist link, then find it in the player’s channel menu. Audio starts only when you press Play.")
                     HStack(spacing: 10) {
@@ -179,6 +159,32 @@ struct SettingsView: View {
             }
         }
         .onDisappear { channelRequest?.cancel() }
+    }
+
+    private var glassSettings: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            settingRow("Card material") {
+                KeepSelectionMenu(label: "Music card material", selection: $preferences.glassStyle,
+                                  options: MusicGlassStyle.allCases, title: { $0.title }).frame(width: 190)
+            }
+            HStack {
+                Text("Glassiness").font(.system(size: 13, weight: .medium))
+                Spacer()
+                Text("\(Int(preferences.glassiness * 100))%")
+                    .font(.system(size: 12)).monospacedDigit().foregroundStyle(KeepTheme.mutedInk)
+            }
+            GlassinessSlider(value: $preferences.glassiness).frame(height: 44)
+            HStack {
+                Text("Solid paper")
+                Spacer()
+                Text("Clear glass")
+            }.font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
+            helper("Slide toward clear glass to reveal sharper artwork through the controls. Reduce Transparency on your Mac always uses solid paper.")
+            MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Music card preview")
+        }
     }
 
     private var appearanceChoices: some View {

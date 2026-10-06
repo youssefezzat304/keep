@@ -10,6 +10,7 @@ struct TimesheetEntry: Identifiable, Codable {
 struct TimesheetRemoval {
     let project: FocusProject
     let entries: [TimesheetEntry]
+    let sessions: [RecordedSession]
 }
 
 /// Numeric source of truth. UI strings and totals are derived, never stored separately.
@@ -17,10 +18,11 @@ struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
     private(set) var customProjects: [FocusProject] = []
     private(set) var pomodoroSettings: PomodoroSettings?
+    private(set) var sessions: [RecordedSession] = []
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case entries, customProjects, pomodoroSettings }
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, pomodoroSettings, sessions }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,6 +30,7 @@ struct TimesheetLedger: Codable {
         // Existing v1 records predate project creation and contain only entries.
         customProjects = try container.decodeIfPresent([FocusProject].self, forKey: .customProjects) ?? []
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
+        sessions = try container.decodeIfPresent([RecordedSession].self, forKey: .sessions) ?? []
     }
 
     mutating func setPomodoroSettings(_ settings: PomodoroSettings) {
@@ -83,8 +86,28 @@ struct TimesheetLedger: Codable {
         }
     }
 
+    mutating func removeSessions(projectID: String, dayIDs: [String]) -> [RecordedSession] {
+        let days = Set(dayIDs)
+        let removed = sessions.filter { $0.project.id == projectID && days.contains($0.dayID) }
+        sessions.removeAll { $0.project.id == projectID && days.contains($0.dayID) }
+        return removed
+    }
+
+    mutating func restoreSessions(_ removed: [RecordedSession]) {
+        // A running recorder may have recreated a segment with the same identifier.
+        for session in removed {
+            if let index = sessions.firstIndex(where: { $0.id == session.id }) {
+                let new = sessions.remove(at: index)
+                sessions.append(session)
+                sessions.append(RecordedSession(id: UUID().uuidString, recordingID: new.recordingID, dayID: new.dayID, project: new.project,
+                    task: new.task, source: new.source, timeZoneID: new.timeZoneID, start: new.start, end: new.end))
+            } else { sessions.append(session) }
+        }
+    }
+
     /// Split elapsed time across local midnight, including DST days of unequal length.
-    mutating func record(project: FocusProject, from start: Date, seconds: TimeInterval, calendar: Calendar) {
+    mutating func record(project: FocusProject, from start: Date, seconds: TimeInterval, calendar: Calendar,
+                         sessionID: UUID? = nil, task: String = "", source: RecordedSession.Source = .pomodoro) {
         guard seconds.isFinite && seconds > 0 else { return }
         var cursor = start
         var remaining = seconds
@@ -94,6 +117,19 @@ struct TimesheetLedger: Codable {
             guard segment > 0 else { return }
             let dayID = TimesheetWeek.dayID(for: cursor, calendar: calendar)
             setSeconds(self.seconds(projectID: project.id, dayID: dayID) + segment, project: project, dayID: dayID)
+            if let sessionID {
+                let id = "\(sessionID.uuidString)/\(dayID)"
+                let end = cursor.addingTimeInterval(segment)
+                if let index = sessions.indices.last, sessions[index].recordingID == sessionID, sessions[index].dayID == dayID,
+                   abs(sessions[index].end.timeIntervalSince(cursor)) < 0.01 {
+                    sessions[index].end = end
+                } else {
+                    // Discontinuous wall clocks or a removed row start a separate block.
+                    let uniqueID = sessions.contains { $0.id == id } ? UUID().uuidString : id
+                    sessions.append(RecordedSession(id: uniqueID, recordingID: sessionID, dayID: dayID, project: project, task: task,
+                        source: source, timeZoneID: calendar.timeZone.identifier, start: cursor, end: end))
+                }
+            }
             remaining -= segment
             cursor = day.end
         }

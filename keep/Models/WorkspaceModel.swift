@@ -7,6 +7,7 @@ final class WorkspaceModel {
     private(set) var pomodoro = FocusTimer(mode: .pomodoro)
     private(set) var flow = FocusTimer(mode: .flow)
     private(set) var selectedProject: FocusProject? = FocusProject.defaults.first
+    private(set) var taskName = ""
     private(set) var ledger: TimesheetLedger
     private(set) var persistenceError: String?
     private(set) var loadFailed = false
@@ -21,8 +22,16 @@ final class WorkspaceModel {
     @ObservationIgnored private var lastSave: ContinuousClock.Instant?
     @ObservationIgnored private var ledgerDirty = false
     @ObservationIgnored private var updateTask: Task<Void, Never>?
+    @ObservationIgnored private var recordingContext: RecordingContext?
+    @ObservationIgnored private var recordingSessionID = UUID()
     @ObservationIgnored private let persistence: TimesheetPersistence?
     @ObservationIgnored let calendar: Calendar
+
+    private struct RecordingContext: Equatable {
+        let project: FocusProject
+        let task: String
+        let source: RecordedSession.Source
+    }
 
     init(ledger: TimesheetLedger = TimesheetLedger(), persistence: TimesheetPersistence? = nil, calendar: Calendar = .autoupdatingCurrent, focusDuration: TimeInterval = 1500, breakDuration: TimeInterval = 300, date: Date = .now) {
         self.ledger = ledger
@@ -44,6 +53,13 @@ final class WorkspaceModel {
         synchronize(at: instant, date: date)
         selectedProject = project
         if isRecording(at: instant) { ensureCurrentRow(on: date) }
+        save(at: instant)
+    }
+
+    func setTaskName(_ name: String, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, name != taskName else { return }
+        synchronize(at: instant, date: date)
+        taskName = String(name.prefix(200))
         save(at: instant)
     }
 
@@ -125,7 +141,9 @@ final class WorkspaceModel {
         synchronize(at: instant, date: date)
         let removed = ledger.removeEntries(projectID: project.id, dayIDs: dayIDs)
         guard !removed.isEmpty else { return }
-        lastTimesheetRemoval = TimesheetRemoval(project: project, entries: removed)
+        let sessions = ledger.removeSessions(projectID: project.id, dayIDs: dayIDs)
+        lastTimesheetRemoval = TimesheetRemoval(project: project, entries: removed, sessions: sessions)
+        recordingContext = nil
         ledgerDirty = true
         save(at: instant)
     }
@@ -134,6 +152,7 @@ final class WorkspaceModel {
         guard canTrack, let removal = lastTimesheetRemoval else { return }
         synchronize(at: instant, date: date)
         ledger.restoreEntries(removal.entries)
+        ledger.restoreSessions(removal.sessions)
         lastTimesheetRemoval = nil
         ledgerDirty = true
         save(at: instant)
@@ -154,13 +173,17 @@ final class WorkspaceModel {
                 recorded = min(elapsed, max(0, pomodoro.focusDuration - pomodoro.elapsed(at: checkpoint)))
             } else { recorded = 0 }
             if recorded > 0 {
-                ledger.record(project: selectedProject ?? .unassigned, from: checkpointDate, seconds: recorded, calendar: calendar)
+                let source: RecordedSession.Source = flow.phase(at: checkpoint) == .running ? .flow : .pomodoro
+                ledger.record(project: selectedProject ?? .unassigned, from: checkpointDate, seconds: recorded,
+                    calendar: calendar, sessionID: recordingSessionID,
+                    task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), source: source)
                 ledgerDirty = true
             }
         }
         pomodoro.settleCompletion(at: instant)
         checkpoint = instant
         checkpointDate = date
+        updateRecordingContext(at: instant)
         if let lastSave, instant - lastSave < .seconds(5) { return }
         save(at: instant)
     }
@@ -206,6 +229,7 @@ final class WorkspaceModel {
     }
 
     private func save(at instant: ContinuousClock.Instant = .now) {
+        updateRecordingContext(at: instant)
         guard !loadFailed, ledgerDirty, let persistence else { return }
         do {
             try persistence.save(ledger)
@@ -213,5 +237,15 @@ final class WorkspaceModel {
             lastSave = instant
             persistenceError = nil
         } catch { persistenceError = "Couldn’t save your changes. Retry to keep them on this Mac." }
+    }
+
+    private func updateRecordingContext(at instant: ContinuousClock.Instant) {
+        let source: RecordedSession.Source?
+        if flow.phase(at: instant) == .running { source = .flow }
+        else if pomodoro.interval == .focus, pomodoro.phase(at: instant) == .running { source = .pomodoro }
+        else { source = nil }
+        let context = source.map { RecordingContext(project: selectedProject ?? .unassigned,
+            task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), source: $0) }
+        if context != recordingContext { recordingSessionID = UUID(); recordingContext = context }
     }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 enum WorkspaceTab {
     case focus
     case dashboard
+    case habits
     case settings
 }
 
@@ -31,6 +32,8 @@ struct AppShellView: View {
                     selection: selectedTab,
                     onSelectFocus: { selectedTab = .focus },
                     onSelectDashboard: { selectedTab = .dashboard },
+                    onSelectHabits: { selectedTab = .habits },
+                    isCompact: geometry.size.width < 900,
                     onSelectSettings: { selectedTab = .settings }
                 )
 
@@ -48,8 +51,8 @@ struct AppShellView: View {
                 // Each tab keeps its content and scroll position inside the same viewport.
                 ZStack(alignment: .top) {
                     GeometryReader { viewport in
-                        ScrollView {
-                            FocusSessionView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers, isCompact: geometry.size.width < 820, minimumHeight: viewport.size.height)
+                        KeepScrollView {
+                            FocusSessionView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers, isCompact: geometry.size.width < 820, isActive: selectedTab == .focus, minimumHeight: viewport.size.height)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
                     }
@@ -62,7 +65,12 @@ struct AppShellView: View {
                         .allowsHitTesting(selectedTab == .dashboard)
                         .accessibilityHidden(selectedTab != .dashboard)
 
-                    ScrollView {
+                    HabitTrackerView()
+                        .opacity(selectedTab == .habits ? 1 : 0)
+                        .allowsHitTesting(selectedTab == .habits)
+                        .accessibilityHidden(selectedTab != .habits)
+
+                    KeepScrollView {
                         SettingsView(preferences: preferences, player: music, wallpapers: wallpapers)
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                     }

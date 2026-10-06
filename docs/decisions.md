@@ -3,12 +3,12 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-06 [CODE] Current state: Dashboard contains the saved editable Timesheet and a labeled weekly Calendar visual draft. Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved artists/playlists through AVPlayer. Settings saves Light/Dark/System appearance, folder/Audius wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork; the panel/timers take contrast-limited artwork tints. Music has a heart toggle and an animated saved-source drawer; project names/icons share readable project hues.
+- 2026-10-06 [CODE] Current state: Dashboard contains the saved editable Timesheet and a weekly Calendar of actual timer sessions; mock sessions are removed. Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved artists/playlists through AVPlayer. Settings saves Light/Dark/System appearance, folder/Audius wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork; the panel/timers take contrast-limited artwork tints. Music has a heart toggle and an animated saved-source drawer; project names/icons share readable project hues. Appearance includes the glass subsection and a larger slider thumb. Compact navigation uses icons, scrollbars share thin transparent tracks, and Habit tracker has a placeholder destination.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. The daily-task standalone checks remain checked in; earlier timer/workspace/music/preferences check sources have been removed.
+- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Audius is the sole external integration; no third-party packages or Xcode test target. Daily-task and session-recording standalone checks are checked in; earlier timer/workspace/music/preferences check sources have been removed.
 - 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
-- 2026-10-05 [CODE] Timers/project selection/ledger, music, and saved daily tasks are app-shared; appearance/music preferences and channel selection persist; timer/music runtime, task-day selection, and window-local input/task-name drafts are not restored on relaunch. Next feature is UNCONFIRMED.
+- 2026-10-05 [CODE] Timers/project selection/ledger, music, and saved daily tasks are app-shared; appearance/music preferences and channel selection persist; timer/music runtime, committed task text, task-day selection, and window-local editor/input drafts are not restored on relaunch. Recorded session metadata persists with daily totals. Next feature is UNCONFIRMED.
 
 ## [DECISIONS]
 
@@ -104,7 +104,7 @@ Restyle the task date picker and Settings controls to match Keep, center Setting
 
 2026-10-05 [CODE] Settings now shares a centered 900-point column, rounded paper menu buttons/inputs, selected appearance buttons, native switches, and a live player preview in the glass section. The calendar uses styled SwiftUI date buttons in a native popover, month arrows, a Today dot/action, and a validated YYYY-MM-DD jump field. Calendar arithmetic respects the first weekday, leap dates, and DST; day buttons support arrow focus navigation. `MusicGlassPanel` aligns an explicit copy of the player image with the transport and continuously reduces blur/paper opacity toward clear; an appearance-specific wash protects legibility, and Reduce Transparency stays opaque. Liquid Glass uses the clear native finish. This supersedes D014’s default graphical DatePicker and D015’s material-thickness/tint mapping; saved settings and task-day behavior remain unchanged.
 
-### D018 ACTIVE — 2026-10-05 [USER]
+### D018 PARTIALLY SUPERSEDED BY D021 — 2026-10-05 [USER]
 
 Rename the top-level Timesheet tab to Dashboard, add a Timesheet / Calendar switch, and build a weekly Calendar in Keep’s cozy style. Both views live inside Dashboard. The user chose a visual draft with sample sessions rather than adding session recording.
 
@@ -121,6 +121,12 @@ Tint the timers and main panel from the background artwork, respecting Dark mode
 Music heart/list hover backgrounds must be circular; use a clean list icon without an outline circle. Favorites must occupy existing card space at every window size, replacing track/transport details when necessary, and remain open after a source is selected. Move Audius attribution to the top-left artwork badge and make the existing top-right source menu a circular icon for now.
 
 2026-10-06 [CODE] The music card keeps a constant 288-point minimum. A bounded vertical `ViewThatFits` chooses a list-plus-transport layout or a compact list with visible heart/toggle; only the list scrolls. Its local expansion state does not affect card/page dimensions. This supersedes D019’s initial 460-point expanded minimum. Saved-source playback and passive-menu behavior remain unchanged.
+
+### D021 ACTIVE — 2026-10-06 [USER]
+
+Clear Calendar mock data and connect it to real timers. Merge “A little glass” into Appearance, enlarge the glassiness slider’s grab area, remove persistent working-on outlines/text selection, use compact icon navigation and consistent thin transparent-track scrollbars, and add Habit tracker beside Dashboard.
+
+2026-10-06 [CODE] The single workspace recorder now saves actual `RecordedSession` intervals alongside existing daily totals. Continuous ticks coalesce, while project/task/source changes, pauses, removals, and midnight separate segments. Flow retains recording priority and Pomodoro breaks stay uncounted. Calendar reads saved intervals and live duration/details; sample code is removed. Older archives load without sessions, and manual totals do not invent timestamps. Weekly removal/Undo includes sessions. Task text is app-shared runtime state, committed once from an explicitly opened local editor before timer actions or leaving Focus; project selection never forces task text into focus. Appearance contains the glass subsection with a 28-point thumb/44-point tracking area. `KeepScrollView` supplies native overlay scrollbars with rounded 5-point thumbs and transparent tracks. Navigation is icon-only below 900 points with accessible names/tooltips. Habit tracker opens an honest placeholder; tracking behavior was not requested. This supersedes D018’s sample-only scope and D007/D014’s window-local committed task text.
 
 ## [PROGRESS]
 
@@ -154,8 +160,8 @@ Music heart/list hover backgrounds must be circular; use a clean list icon witho
 
 These questions are not blockers for unrelated work; resolve them when the relevant feature is requested.
 
-- 2026-10-05 [CODE] UNCONFIRMED: detailed session history, restoring timer runtime, automatic interval starts, and future notifications. Current focus/break/sleep/relaunch behavior is documented in D008, D011, and architecture.
-- 2026-10-05 [CODE] UNCONFIRMED: project renaming/deletion, task-level time records, and future storage migration. Project switches currently apply prospectively, and selection preserves task text.
+- 2026-10-05 [CODE] UNCONFIRMED: Calendar session editing, habit-tracking behavior, restoring timer runtime, automatic interval starts, and future notifications. Real session recording is implemented under D021. Current focus/break/sleep/relaunch behavior is documented in D008, D011, and architecture.
+- 2026-10-05 [CODE] UNCONFIRMED: project renaming/deletion, task-level aggregate editing, and future storage migration. Task text is captured in actual sessions under D021. Project switches currently apply prospectively, and selection preserves task text.
 - 2026-10-05 [CODE] UNCONFIRMED: statistics scope, offline audio and account/gated playback. Appearance, music preferences, and saved channels are implemented under D015.
 
 ## [WORKING SET]
@@ -167,7 +173,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep/App/`
 - 2026-10-05 [CODE] `keep/Models/`
 - 2026-10-05 [CODE] `keep/Features/FocusSession/`
-- 2026-10-05 [CODE] `keep/Features/Dashboard/`, `keep/Features/Timesheet/`, `keep/Features/Music/`, `keep/Features/Tasks/`, and `keep/Features/Settings/`
+- 2026-10-05 [CODE] `keep/Features/Dashboard/`, `keep/Features/Habits/`, `keep/Features/Timesheet/`, `keep/Features/Music/`, `keep/Features/Tasks/`, and `keep/Features/Settings/`
 - 2026-10-05 [CODE] `tests/`
 - 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
@@ -208,3 +214,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-06 [TOOL] Artwork/favorites unsigned Debug build and 240 temporary palette/contrast checks passed. Inspected default/wide/minimum, warm/cool, and light/dark native renders. Silent in-memory preview verified saved playlist playback intent, heart save/unsave, drawer staying open/collapsing, project selection, appearance, and 45% → 90% glassiness updating the artwork. Pointer drag/full keyboard/VoiceOver remain unverified due native UI-tool window/capture/input failures; no user archives changed or audio played.
 
 - 2026-10-06 [TOOL] Music drawer refinement: unsigned Debug build passed. Silent native preview inspected default 1000 × 900 / narrow 680 × 650 Focus and 600 × 288 / 600 × 560 player cards in Light/Dark. Favorites preserved card bounds and narrow scroll position, switched between compact and list-plus-transport layouts, retained playback/list state through selection/collapse, and updated heart removal. Circular source menu choices worked. Full keyboard/VoiceOver remain unverified after native input/capture failures; no user archives or real audio/network playback were used.
+
+- 2026-10-06 [TOOL] unsigned Debug build and 38 checked-in session-recording checks passed. Checks cover coalescing, captured tasks/projects, Flow priority, focus/break exclusion, pauses, delayed completion, midnight, 23/25-hour DST days, wall-clock jumps, manual totals without invented timestamps, running removal/Undo, legacy archives, reloads, and protected corrupt loads. An isolated in-memory native preview verified actual Flow time and updating session details in Calendar, task-name commit before Play, explicit inline editing without persistent highlight, default/minimum layouts, Appearance’s merged glass subsection, Light/Dark, thin transparent-track scrollbars, and the Habit tracker placeholder. An actual thumb drag changed glassiness from 45% to 73%; final styling retains native tracking and a larger bright thumb. Native UI tools intermittently rejected later drags with noWindowsAvailable; full VoiceOver remains unverified. No user archives were changed or real audio/network playback used.

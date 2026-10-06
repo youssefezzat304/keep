@@ -58,7 +58,7 @@ struct TasksCard: View {
             }
 
             GeometryReader { listArea in
-                ScrollView {
+                KeepScrollView {
                     VStack(spacing: 0) {
                         ForEach(tasks) { task in
                             HStack(spacing: 14) {
@@ -101,7 +101,6 @@ struct TasksCard: View {
                         }
                     }
                 }
-                .scrollIndicators(.hidden)
                 .id(day)
                 .accessibilityLabel("Tasks for \(selectedDate.formatted(date: .long, time: .omitted))")
             }

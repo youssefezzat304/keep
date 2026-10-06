@@ -25,6 +25,20 @@ struct TimesheetPersistence {
             entry.dayID.range(of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", options: .regularExpression) != nil &&
             seen.insert(entry.id).inserted
         }) else { throw CocoaError(.coderReadCorrupt) }
+        var sessionIDs: Set<String> = []
+        guard ledger.sessions.allSatisfy({ session in
+            guard session.start.timeIntervalSince1970.isFinite, session.end.timeIntervalSince1970.isFinite,
+                  session.start >= .distantPast, session.end <= .distantFuture,
+                  session.seconds > 0 else { return false }
+            var calendar = Calendar(identifier: .gregorian)
+            guard let zone = TimeZone(identifier: session.timeZoneID) else { return false }
+            calendar.timeZone = zone
+            guard let day = calendar.dateInterval(of: .day, for: session.start) else { return false }
+            return !session.id.isEmpty && sessionIDs.insert(session.id).inserted &&
+                !session.project.id.isEmpty && !session.project.name.isEmpty && session.task.count <= 200 &&
+                session.end <= day.end &&
+                TimesheetWeek.dayID(for: session.start, calendar: calendar) == session.dayID
+        }) else { throw CocoaError(.coderReadCorrupt) }
         return ledger
     }
 

@@ -4,22 +4,23 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-The application is a first visual draft with one application target. Timers record project time into an editable, locally saved Timesheet inside Dashboard. Dashboard also offers an explicitly labeled weekly Calendar draft using sample sessions. Timers, projects, saved daily tasks, and music are shared across the app’s windows; task-day selection, input drafts, and task-name drafts remain window-local. Settings saves appearance, music wallpaper/material preferences, and Audius artist/playlist channels. Music streams public Audius tracks through native AVPlayer, with app-shared playback and runtime volume state.
+The application has one native application target, with implemented timers, local records, tasks, and music; Stats and Habit tracker remain placeholders. Timers record project time into an editable, locally saved Timesheet inside Dashboard. Dashboard also displays actual recorded focus/Flow intervals in its weekly Calendar; old or manually edited daily totals remain in Timesheet without invented timestamps. Timers, projects, saved daily tasks, and music are shared across the app’s windows; committed task text is app-shared runtime state, while task-day selection, input drafts, and the explicit inline task editor remain window-local. Settings saves appearance, music wallpaper/material preferences, and Audius artist/playlist channels. Music streams public Audius tracks through native AVPlayer, with app-shared playback and runtime volume state.
 
 | Area | Implemented today | Not implemented |
 | --- | --- | --- |
 | App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or unfinished task input across launches |
-| Navigation | Selectable Focus, Dashboard, and Settings tabs; shell-owned selection; disabled Stats | Statistics destination |
-| Dashboard | Timesheet / Calendar switch and shared week navigation; editable saved Timesheet; weekly Calendar draft with sample sessions, day totals, zoom, and sample details | Real session timeline, calendar editing, list/month views, sync |
-| Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; separate editable task name | Project renaming/deletion and task-level time records |
+| Navigation | Selectable Focus, Dashboard, Habit tracker placeholder, and Settings; icon-only navigation below 900 points; disabled Stats | Statistics destination |
+| Dashboard | Timesheet / Calendar switch and shared week navigation; editable saved Timesheet; weekly Calendar with saved timer sessions, actual day totals, zoom, and live read-only details | Calendar editing, list/month views, sync |
+| Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; explicit task-name editor, captured in sessions | Project renaming/deletion and task-level aggregate editing |
 | Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
-| Flow timer | Elapsed time, independent controls, and recording priority over Pomodoro | Detailed session history or a completion limit |
+| Flow timer | Elapsed time, independent controls, session recording, and priority over Pomodoro | A completion limit |
 | Music | Audius lofi and saved artist/playlist streaming via AVPlayer; transport/volume/loading/Retry; bundled, folder, or Audius artwork; configurable frosted/Liquid Glass controls; heart favorites and an expandable saved-list drawer | Offline audio, accounts/gated tracks, restoring queue/playback |
 | Tasks | Saved per-day lists; previous/next, date picker, Today; completion/add/delete and internal scrolling | Reordering, recurrence, project association |
-| Settings | Saved Light/Dark/System appearance, wallpaper folder/rotation/looping, glassiness, artist/playlist links | Sync, wallpaper subfolders |
+| Settings | Saved Light/Dark/System appearance with glass subsection, wallpaper folder/rotation/looping, artist/playlist links | Sync, wallpaper subfolders |
+| Habit tracker | Selectable empty-state destination beside Dashboard | Habit creation, completion, history, and persistence |
 | Design system | Semantic light/dark assets, artwork-tinted shell/timers, readable project accents, reusable controls | Additional themes |
 
-Both timers may run at the same time, with independent controls. Flow overrides Pomodoro for recording; overlapping time is counted once. Project/day totals and manual edits survive relaunch; timers restart idle. Daily task lists and completion states survive relaunch; task names and unfinished input remain unsaved drafts. The live task store starts empty; examples appear only in previews.
+Both timers may run at the same time, with independent controls. Flow overrides Pomodoro for recording; overlapping time is counted once. Recorded sessions, project/day totals, and manual edits survive relaunch; timers restart idle. Daily task lists and completion states survive relaunch; current task text and unfinished input are runtime-only, while task names captured in sessions are saved. The live task store starts empty; examples appear only in previews.
 
 ## 2. Repository structure
 
@@ -47,6 +48,7 @@ keep/
       ProjectCreationDialog.swift  Shared name/color sheet with caller-owned creation action
       RemoveRowButton.swift        Accessible × button shared by task and Timesheet rows
       KeepControls.swift           Warm button/input styles and native selection menus
+      KeepScrollView.swift         Shared native thin overlay scrollbars with transparent tracks
     Modifiers/
       CardStyle.swift              Shared card treatment and View.cardStyle extension
   Models/
@@ -54,7 +56,7 @@ keep/
     FocusProject.swift             Shared project catalog and Codable metadata
   Features/
     FocusSession/
-      Models/                      FocusTimer timing/cycles and PomodoroSettings
+      Models/                      FocusTimer timing/cycles, PomodoroSettings, window-local FocusTaskEditor
       Views/                       Focus workspace, timer/settings popover, and supporting panels
     Tasks/
       Models/                      FocusTask, civil-day selection/month grid, DailyTaskStore, TaskPersistence
@@ -68,7 +70,9 @@ keep/
       Views/                       SettingsView; native folder importer, channel-link editor, GlassinessSlider
     Dashboard/
       Views/                       Shared week/page controls and weekly calendar UI
-      PreviewData/                 Explicitly labeled Calendar sample sessions; never saved
+      Models/                      RecordedSession timestamps, task/project/source and recorded civil timezone
+    Habits/
+      Views/                       HabitTrackerView placeholder; no tracking logic
     Timesheet/
       Models/                      TimesheetLedger, calendar/duration helpers, local persistence
       PreviewData/                 Numeric fixtures used only by previews
@@ -76,6 +80,7 @@ keep/
   Assets.xcassets/                  Semantic light/dark colors, CozyCorner artwork, and AppIcon
   keep.entitlements                App-scoped read-only wallpaper bookmarks
 tests/DailyTaskChecks.swift         Daily navigation, task isolation, and local persistence checks
+tests/SessionRecordingChecks.swift  Timer sessions, overlap/breaks, midnight/DST, archives, removal/Undo
 reference/                         Local, Git-ignored visual references
 ```
 
@@ -88,13 +93,14 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 └── WindowGroup
     └── AppShellView
         ├── NavBar
-        │   └── Focus, Dashboard, and Settings actions; disabled Stats
-        ├── ScrollView → SettingsView → AppPreferences + WallpaperLibrary + MusicPlayerModel
+        │   └── Focus, Dashboard, Habit tracker, and Settings actions; disabled Stats
+        ├── KeepScrollView → SettingsView → AppPreferences + WallpaperLibrary + MusicPlayerModel
         ├── DashboardView (shared week and Timesheet / Calendar selection)
-        │   ├── ScrollView → TimesheetView
+        │   ├── KeepScrollView → TimesheetView
         │   │   └── TimesheetTable → TimesheetTimeCell → TimesheetEntryEditor
-        │   └── DashboardCalendarView → sample hour grid + sample detail sheet
-        └── ScrollView → FocusSessionView
+        │   └── DashboardCalendarView → actual session hour grid + recorded detail sheet
+        ├── HabitTrackerView (placeholder)
+        └── KeepScrollView → FocusSessionView
             ├── ActiveTargetHeader
             │   └── ProjectPicker → WorkspaceModel.projects; ProjectCreationDialog sheet
             ├── TimerWorkspaceCard
@@ -105,9 +111,9 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
                 └── TasksCard
 ```
 
-`TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns only the task-name draft; it reads shared projects/timers and composes the music and daily-task feature views.
+`TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns a window-local `FocusTaskEditor` shared with its header and timer actions; committed task text lives in the workspace. `FocusSessionView` reads shared projects/timers and composes the music and daily-task feature views.
 
-`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Dashboard/Settings action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab remains mounted in the same fixed viewport; inactive content is invisible and hidden from hit testing and accessibility. Focus and Settings own vertical scroll views; Dashboard owns its two viewports. This preserves drafts and scroll positions without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
+`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Dashboard/Habit tracker/Settings action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab remains mounted in the same fixed viewport; inactive content is invisible and hidden from hit testing and accessibility. Focus and Settings own vertical scroll views; Dashboard owns its two viewports. This preserves drafts and scroll positions without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
 
 ## 4. Responsibility and dependency boundaries
 
@@ -119,7 +125,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 | `Features/Tasks` | Per-day tasks, civil-date navigation, local persistence, task-card UI | Timer recording, music state, and project assignment |
 | `Features/Music` | Audius discovery/channels/artwork, stream resolution, AVPlayer lifecycle, read-only wallpaper loading/rotation, and card UI | Timer recording, archive ownership, credentials, and provider writes |
 | `Features/Settings` | App-owned appearance/music preferences, validated archive, Settings UI | Timer/task archives, audio runtime, and image decoding |
-| `Features/Dashboard` | Shared browsed week, Timesheet/Calendar selection, weekly calendar presentation, and labeled sample sessions | Timer recording, ledger persistence, and invented history |
+| `Features/Dashboard` | Shared browsed week, Timesheet/Calendar selection, weekly calendar presentation, and the RecordedSession value type | Timer recording, ledger persistence, and invented history |
 | `Features/Timesheet` | Numeric ledger, calendar/duration helpers, local saving, editable UI, and preview fixtures | Independent timer mutation and overlapping recorders |
 | `DesignSystem` | Reusable presentation, control styles, layout conventions, and theme tokens | Session state, persistence, provider calls, and feature actions |
 | `Assets.xcassets` | Named colors and bundled visual resources | Domain behavior and credentials |
@@ -130,7 +136,7 @@ There is no established MVVM layer, repository abstraction, service container, o
 
 ## 5. State and data ownership
 
-`KeepApp` creates one `@State` reference to the observable, main-actor `WorkspaceModel` and passes it into every window. It owns two `FocusTimer` values, the selected project, the numeric ledger, and one update task. Shells own tab selection; each Dashboard owns its page selection and week offset, and its Calendar owns zoom/scroll/sample-detail state. Focus views own task-name drafts, and each TasksCard owns its day selection/input drafts. Previews construct models without persistence and cannot write live history.
+`KeepApp` creates one `@State` reference to the observable, main-actor `WorkspaceModel` and passes it into every window. It owns two `FocusTimer` values, the selected project, the ledger with daily totals and timestamped sessions, committed task text, and one update task. Shells own tab selection; each Dashboard owns its page selection and week offset, and its Calendar owns zoom/scroll/recorded-detail state. FocusSessionView owns an explicit task editor draft model, and each TasksCard owns its day selection/input drafts. Previews construct models without persistence and cannot write live history.
 
 `FocusTimer` is a value type using `ContinuousClock.Instant` plus accumulated elapsed seconds. Timer display refreshes are separate from timing truth. The workspace accepts injected clock instants and dates for deterministic checks.
 
@@ -144,7 +150,7 @@ Implemented timer and recording semantics:
 - Stop preserves elapsed time; Continue excludes stopped intervals. Repeated Play does not restart a running interval. Reset returns that timer to its configured focus duration/zero without deleting recorded time.
 - Every timer action, project change, and manual edit settles recording before mutating state. There is no writable timer binding in the views.
 - Running Flow contributes the entire monotonic interval. Otherwise a running Pomodoro focus interval contributes only its remaining focus duration. Breaks contribute zero Pomodoro time, including delayed completion updates. Overlap contributes once; stopping Flow falls back to running focus.
-- Selecting another project settles the old project first; only future time goes to the new selection. No project records under an explicit unassigned row. Task-name changes do not affect recording.
+- Selecting another project settles the old project first; only future time goes to the new selection. No project records under an explicit unassigned row. Committing a task-name change settles the old task and starts a new session context prospectively. Project/task/source changes and pauses separate sessions; ticks in the same context coalesce.
 - The workspace updates approximately once per second, across tabs and windows. Clock differences determine duration; missing refreshes do not lose time. `ContinuousClock` includes system sleep and excludes wall-clock adjustments from duration calculations.
 - Recorded intervals split at local calendar midnights, including DST days of 23 or 25 hours. Duration is mapped from the previous checkpoint’s civil date; later wall-clock changes affect subsequent date attribution.
 - Timers and selection are app-scoped, continue while Keep runs, and restart idle on relaunch. No time is counted while the app is quit. Closing a window does not end app-owned timers.
@@ -153,17 +159,17 @@ Implemented timer and recording semantics:
 
 `DashboardView` owns one Monday–Sunday week offset and supplies the resulting `TimesheetWeek` to both views. Its header, week arrows, This week action, summary, and Timesheet / Calendar switch stay outside the scrolling content. Switching views or leaving Dashboard preserves the selected week, page, and mounted content. `TimesheetView` owns only its content and project-picker/creation presentation; all ledger mutations still route through the workspace.
 
-Calendar is the user-approved visual draft, not a view of recorded sessions. `DashboardCalendarSamples` in `Features/Dashboard/PreviewData` supplies 12 sample blocks across four built-in projects, totaling 16h 30m. The same weekday pattern repeats for each browsed week. The Calendar preview badge, Sample sessions banner, SAMPLE WEEK summary, and sample-detail sheet make this scope explicit. Nothing writes sample data to the ledger; Timesheet continues to show only actual saved entries in the live app. Daily aggregates cannot reconstruct session start/end times or task names.
+`DashboardCalendarView` reads real `RecordedSession` values from the workspace ledger, filtered by the displayed week’s saved civil day IDs. Each interval captures project metadata, trimmed task text, Pomodoro focus or Flow source, start/end dates, and the recording timezone. The existing single recorder supplies both sessions and daily totals, so Flow priority and uncounted breaks cannot diverge. Continuous ticks coalesce by recording context/day; project/task/source changes, pauses, removals, and midnight create separate segments. Clock discontinuities preserve duration and create separate segments instead of fabricating one continuous wall-clock interval. The model preserves the recorded civil timezone for display, including repeated DST hours.
 
-`DashboardCalendarView` displays seven fixed weekday headers with sample daily totals, weekend shading, and a Today highlight above a vertically scrolling 24-hour grid. It initially scrolls to 08:00. Project-colored blocks show task/project/duration where space permits; clicking opens a read-only sample-detail sheet. Hour zoom ranges from 48 to 108 points. At widths below 900 points the calendar scrolls horizontally while the day headers stay above the vertical timeline. There is no real recording, event creation/editing, drag-and-drop, or connection to the saved daily tasks.
+Calendar shows actual daily/session-week totals, seven weekday headers, weekend shading, Today, and a scrollable 24-hour grid initially positioned at 08:00. Project-colored blocks show task/project/start/duration where space permits, with lanes for overlapping minimum-height blocks. Clicking opens read-only details that update while recording continues. Hour zoom ranges from 48 to 108 points, and the 900-point minimum grid scrolls horizontally at narrow widths. A week without sessions shows an empty state. The sample source has been removed. Existing daily totals and manual edits cannot reconstruct timestamps and therefore remain in Timesheet only; Calendar’s session total can differ from an edited daily total. There is no Calendar editing, drag-and-drop, or connection to saved daily tasks.
 
-`TimesheetTimeCell` opens a native `TimesheetEntryEditor` popover. The editor accepts nonnegative `h:mm` or `h:mm:ss`; blank sets the cell to zero. Invalid input stays in the editor with an explanation. Saving replaces the cell total after settling the running timer; later elapsed time adds to the edited value. A zero cell retains its project row. Timesheet has project/day aggregates, not individual sessions or task-level records.
+`TimesheetTimeCell` opens a native `TimesheetEntryEditor` popover. The editor accepts nonnegative `h:mm` or `h:mm:ss`; blank sets the cell to zero. Invalid input stays in the editor with an explanation. Saving replaces the cell total after settling the running timer; later elapsed time adds to the edited value. A zero cell retains its project row. Timesheet edits project/day aggregates; they do not rewrite the separately recorded session timestamps or task metadata.
 
-The trailing × removes a project's entries for the displayed week through `WorkspaceModel.removeTimesheetProject`. It settles recording before removal and saves immediately, preserving other projects, other weeks, catalog metadata, selection, and timer state. A running timer can create the row again with subsequent time. The model keeps one in-memory `TimesheetRemoval` for Undo across tabs/windows; Undo settles again and adds back removed time alongside newly recorded/edited values, then saves. Undo history is not restored after quitting. `TimesheetView` shows the removal/Undo notice and explains continued recording when applicable.
+The trailing × removes a project's entries and recorded sessions for the displayed week through `WorkspaceModel.removeTimesheetProject`. It settles recording before removal and saves immediately, preserving other projects, other weeks, catalog metadata, selection, and timer state. A running timer can create the row again with subsequent time. The model keeps one in-memory `TimesheetRemoval` for Undo across tabs/windows; Undo settles again and adds back removed time and sessions alongside newly recorded/edited values, then saves. Subsequent running time uses a new recording ID, so Undo cannot merge it into deleted history. Undo history is not restored after quitting. `TimesheetView` shows the removal/Undo notice and explains continued recording when applicable.
 
-`TimesheetPersistence` JSON-encodes the ledger, custom catalog, and optional `PomodoroSettings` into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog and default timer settings, retaining their entries. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, task-name/input drafts, and project selection are not persisted. Daily task lists use their own persistence below.
+`TimesheetPersistence` JSON-encodes the ledger, custom catalog, optional `PomodoroSettings`, and actual sessions into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog/session array and default timer settings, retaining their entries. Session validation checks IDs, finite ordered dates, civil-day boundaries, timezone, and task length; malformed records preserve the archive and block edits. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, current task text, inline/input drafts, and project selection are not restored. Daily task lists use their own persistence below.
 
-`ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. The dialog offers 30 named color swatches, a selection checkmark, keyboard focus, and native Create/Cancel shortcuts. Cancel discards drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project and returns focus to the task field; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
+`ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. The target border stays neutral; task text is a plain edit button until explicitly clicked. Submit, leaving the editor/Focus tab, project selection, or a timer action commits once through the workspace; timer actions commit before recording changes, and Escape discards the draft. Selecting a project never forces the task field into focus. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. The dialog offers 30 named color swatches, a selection checkmark, keyboard focus, and native Create/Cancel shortcuts. Cancel discards drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project without automatically opening or selecting task text; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
 
 `KeepApp` owns one observable `DailyTaskStore`, passed through AppShellView/FocusSessionView to TasksCard. Task changes are shared across windows independently of timer recording and music. `FocusTask` has a stable Codable UUID, title, and completion state; `TaskArchive` maps Gregorian `yyyy-MM-dd` civil-date keys to task arrays. The live store starts empty, with example tasks confined to previews.
 
@@ -185,14 +191,14 @@ Music behavior and external boundary (verified against the [Audius REST referenc
 
 Settings and wallpaper ownership:
 
-- `KeepApp` owns one `AppPreferences` and one `WallpaperLibrary`, shared across windows independently of timer/task stores. Settings selection uses the same mounted viewport as Focus and Dashboard. Its title and sections share a horizontally centered column capped at 900 points; rows can stack at narrow widths. Shared `KeepControls` supplies rounded paper buttons/inputs and native menus with hover/focus/disabled states; appearance uses explicit selected buttons. The glass section includes a live player preview sharing the same model and artwork, so adjustments are visible immediately without changing tabs. Default appearance remains Light; System passes no color-scheme override and follows macOS. Sheets/popovers inherit the selected appearance. Named assets define dark variants.
+- `KeepApp` owns one `AppPreferences` and one `WallpaperLibrary`, shared across windows independently of timer/task stores. Settings selection uses the same mounted viewport as Focus and Dashboard. Its title and sections share a horizontally centered column capped at 900 points; rows can stack at narrow widths. Shared `KeepControls` supplies rounded paper buttons/inputs and native menus with hover/focus/disabled states; appearance uses explicit selected buttons. Appearance includes Dark mode and an “A little glass” subsection. Its continuous native glassiness slider has a custom 28-point thumb and 44-point tracking area, retaining AppKit pointer/keyboard behavior and theme-colored fill. The subsection includes a live player preview sharing the same model and artwork, so adjustments are visible immediately without changing tabs. Default appearance remains Light; System passes no color-scheme override and follows macOS. Sheets/popovers inherit the selected appearance. Named assets define dark variants.
 - `SettingsPersistence` stores a validated Codable archive in `keep.preferences.v1`: appearance, wallpaper source, read-only folder bookmark/display name, order/interval/automatic rotation/loop, material/glassiness, saved channel metadata, and selected channel ID. Updates save immediately; invalid loads disable editing and preserve the original data with Retry. No signed audio URLs or image bytes enter this archive. Playback/volume/drafts remain runtime-only.
 - Native `fileImporter` chooses a folder. `WallpaperLibrary` creates/resolves app-scoped read-only security bookmarks, refreshes stale bookmarks, and balances scoped access. Folder scans and ImageIO thumbnail decoding run off the main actor, skip hidden files/symlinks/subfolders, and bound thumbnails to 2048 pixels. Cancellation and generation checks reject stale folder/image results. Missing folders, empty lists, or unreadable images show actionable Settings errors and retain the bundled visual fallback.
 - The app owns a single rotation task regardless of the number of windows. Folder rotation defaults to automatic, sequential, every minute, and looping. Intervals are 30 seconds, 1, 5, or 15 minutes. Shuffle visits each image once per cycle and avoids an immediate repeat between cycles. Turning looping off stops on the final image; manual Next can begin another cycle. Changing configuration cancels/restarts the applicable load/rotation; shutdown cancels both tasks.
 - Wallpaper sources are bundled Cozy corner, My folder, and current Audius track artwork. `MusicTrack` carries validated HTTPS artwork and optional artist-channel metadata; `WallpaperLibrary` fetches the current track artwork only when that source is selected, using an ephemeral URLSession with a 20-second timeout. It validates HTTPS URLs/statuses, rejects responses over 12 MiB, and decodes 2048-pixel thumbnails off the main actor with cancellation/generation checks. One decoded NSImage is shared across all windows; missing/failed artwork falls back to Cozy corner on both surfaces. Artwork advances with tracks; folder rotation options apply only to folder images.
 - The player’s passive channel menu lists saved artists/playlists plus All lofi. The heart saves/unsaves the selected artist/playlist, or the current track’s artist when browsing All lofi. Its outline/filled state comes from the existing preferences archive; unsaving here does not stop playback. A separate saved-list button expands the bottom controls upward with a 250 ms animation (no motion when Reduce Motion is enabled). The drawer is local to each card, remains open through channel playback/track changes, and collapses only when toggled. Clicking a saved row explicitly starts/resumes that source; repeated clicks on an already playing source do not restart it. Opening favorites does not change the card’s 288-point minimum or its allocated size. A vertically bounded `ViewThatFits` shows the list above transport controls when both fit; otherwise the list replaces the track/transport area and puts the heart/toggle in its heading. Playback continues while controls are hidden. Only the saved-list area scrolls; toggling never adds outer Focus scroll overflow. Audius attribution sits at the top-left of the artwork. The top-right passive source menu is a 46-point circular bookmark button; heart/list controls have circular hover/focus treatments and the list uses `list.bullet`.
 - Settings resolves pasted HTTPS Audius links via `/v1/resolve`, accepts only public artist/playlist resources, deduplicates by kind/resource ID, and offers Play/removal. Playback loads `/users/{id}/tracks` or `/playlists/{id}/tracks` through the existing access filters and native player. Source changes release the old queue/item and fence canceled callbacks. Choosing through the passive source menu never autoplays; Settings Play and saved-drawer rows explicitly start/resume it. The selected saved source reopens without networking/autoplay; removing it through Settings returns to All lofi.
-- `MusicGlassPanel` uses an explicitly aligned copy of the player artwork behind the transport, cropped to the controls’ rounded bounds. It receives the full artwork size/inset so the crop remains aligned as the card grows. Glassiness continuously reduces artwork blur (24 points to zero) and paper opacity (one to zero), with a permanent appearance-specific readability wash (stronger in Dark to protect cream text over bright artwork). At zero and with Reduce Transparency it uses opaque paper. Frosted uses this artwork-backed treatment; Liquid Glass adds native `glassEffect(.clear)` so a more opaque native material cannot substitute the outer window’s colors for the player image. This supersedes the previous material-thickness/tint mapping; neither the outer background nor playback state changes when moving the slider. `GlassinessSlider` bridges a continuous native NSSlider with a stable coordinator/binding and a theme-colored track. Decorative shell, section, and glass borders opt out of hit testing so they cannot intercept control input.
+- `MusicGlassPanel` uses an explicitly aligned copy of the player artwork behind the transport, cropped to the controls’ rounded bounds. It receives the full artwork size/inset so the crop remains aligned as the card grows. Glassiness continuously reduces artwork blur (24 points to zero) and paper opacity (one to zero), with a permanent appearance-specific readability wash (stronger in Dark to protect cream text over bright artwork). At zero and with Reduce Transparency it uses opaque paper. Frosted uses this artwork-backed treatment; Liquid Glass adds native `glassEffect(.clear)` so a more opaque native material cannot substitute the outer window’s colors for the player image. This supersedes the previous material-thickness/tint mapping; neither the outer background nor playback state changes when moving the slider. `GlassinessSlider` bridges a continuous native NSSlider with a stable coordinator/binding and a theme-colored track. Its enlarged thumb stays bright in both appearances. Decorative shell, section, and glass borders opt out of hit testing so they cannot intercept control input.
 
 Project management, task-level session history, additional music providers, and notifications remain scoped future work. See `docs/decisions.md`.
 
@@ -208,6 +214,8 @@ Layout and accessibility behavior:
 
 - Default window size is 1000 × 900; the root view has a 680 × 650 minimum frame.
 - The panel fills the usable window content area with equal 16-point margins on all four sides and 24-point inner padding. Its size depends on the window, not the selected tab or content height. Navigation stays at the top; longer tab content scrolls inside the panel. There is no fixed maximum panel width.
+- Navigation switches to icons only below 900 points, preserving accessible labels, tooltips, and actual selected/focus states. Habit tracker is a selectable placeholder beside Dashboard; no tracking model exists.
+- Every scrolling surface uses `KeepScrollView`, which configures the enclosing native scroll view for overlay scrollbars and draws rounded 5-point thumbs with transparent tracks. Native scrolling, tracking, and fade behavior remain; no system scrollbar preferences are changed.
 - Below 820 points of window width, timer and supporting card pairs stack vertically.
 - The Timesheet table keeps a minimum width of 900 points and scrolls horizontally on narrow windows, preserving readable seven-day columns, totals, and the trailing remove button. Dashboard’s shared heading and week/view toolbar can stack using `ViewThatFits`. The Calendar likewise preserves a 900-point minimum grid width and uses both horizontal and vertical scrolling.
 - The target header uses `ViewThatFits` to move its project/task card below the heading when needed. Its native popover is 340 points wide with a scrollable project list; the folder button and project rows show hover and keyboard-focus feedback.
@@ -243,7 +251,7 @@ The checked-in project currently declares:
 
 The language-mode setting does not identify the installed Swift compiler. Project metadata does not prove SDK availability or that a build succeeds on a given machine. Check the installed toolchain when compatibility matters.
 
-There is no Xcode test target, configured lint/format tool, third-party persistence framework, backend, or third-party music SDK. AVFoundation handles audio and Foundation URLSession handles Audius HTTPS requests. Foundation UserDefaults provides local storage; the currently checked-in daily-task checks run through a standalone Swift harness. The native wallpaper importer uses read-only selected-folder access and app-scoped bookmarks; it adds no filesystem write permission.
+There is no Xcode test target, configured lint/format tool, third-party persistence framework, backend, or third-party music SDK. AVFoundation handles audio and Foundation URLSession handles Audius HTTPS requests. Foundation UserDefaults provides local storage; the checked-in daily-task and session-recording checks run through standalone Swift harnesses. The native wallpaper importer uses read-only selected-folder access and app-scoped bookmarks; it adds no filesystem write permission.
 
 ## 8. Development and verification
 
@@ -266,7 +274,21 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-daily-task-checks
 ```
 
-`tests/DailyTaskChecks.swift` is currently the only checked-in standalone check source. Timer/workspace/music/preferences check sources were removed from the repository; the verification receipts below describe earlier runs and do not imply those commands are available today. Reinspect the current tree before choosing checks for a change.
+Run the session-recording checks:
+
+```sh
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Models/FocusProject.swift keep/Models/WorkspaceModel.swift \
+  keep/Features/FocusSession/Models/FocusTimer.swift \
+  keep/Features/FocusSession/Models/PomodoroSettings.swift \
+  keep/Features/Timesheet/Models/TimesheetLedger.swift \
+  keep/Features/Timesheet/Models/TimesheetPersistence.swift \
+  keep/Features/Dashboard/Models/RecordedSession.swift \
+  tests/SessionRecordingChecks.swift -o /tmp/keep-session-checks
+/tmp/keep-session-checks
+```
+
+`tests/DailyTaskChecks.swift` and `tests/SessionRecordingChecks.swift` are the checked-in standalone check sources. Earlier timer/workspace/music/preferences check sources were removed from the repository; the verification receipts below describe earlier runs and do not imply those commands are available today. Reinspect the current tree before choosing checks for a change.
 
 On 2026-10-05, the unsigned Debug build, 45 timing checks, and 180 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, weekly row removal/Undo during recording, preserved other weeks/projects, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
 
@@ -288,7 +310,9 @@ Artwork-backdrop verification on 2026-10-05: unsigned Debug build, 74 preference
 
 Calendar/Settings/glass refinement verification on 2026-10-05: unsigned Debug build, 68 daily-task checks, and 74 preferences/wallpaper checks passed. Added month-grid checks for Monday/Sunday alignment, leap days, month/year boundaries, and DST. Native default/wide/minimum Settings, full settings content, light/dark calendars, and solid/mid/clear music cards were inspected. An isolated live preview confirmed Settings centering, native material-menu selection, appearance switching, actual frosted blur versus sharp transparency, calendar selection, invalid typed-date blocking, and opening future/historical task dates. The preview used in-memory stores and did not change the user's saved data or play audio. Popover keyboard/VoiceOver and toggling the system Reduce Transparency setting remain unverified; the native UI tool closes the transient popover when sending a window-targeted key.
 
-Dashboard verification on 2026-10-05: unsigned Debug build passed. Native offscreen Calendar layouts at 1000 × 900, 1710 × 1080, and 680 × 650, a dark Calendar, and populated Timesheet were inspected. An isolated live preview confirmed Timesheet / Calendar selection, shared week navigation and This week, state retention after visiting Focus, sample-detail opening/dismissal, zoom, and Timesheet editing with updated totals. Accessibility-tree inspection confirmed that inactive Dashboard views no longer expose their controls. Preview models used in-memory data; no user archives were changed and no audio was played. Full keyboard and VoiceOver interaction remain unverified. Calendar is sample-only and does not record sessions.
+Dashboard verification on 2026-10-05: unsigned Debug build passed. Native offscreen Calendar layouts at 1000 × 900, 1710 × 1080, and 680 × 650, a dark Calendar, and populated Timesheet were inspected. An isolated live preview confirmed Timesheet / Calendar selection, shared week navigation and This week, state retention after visiting Focus, sample-detail opening/dismissal, zoom, and Timesheet editing with updated totals. Accessibility-tree inspection confirmed that inactive Dashboard views no longer expose their controls. Preview models used in-memory data; no user archives were changed and no audio was played. Full keyboard and VoiceOver interaction remain unverified. That historical Calendar draft was sample-only; D021 supersedes it with actual recorded sessions.
+
+Session/controls verification on 2026-10-06: unsigned Debug build and 38 checked-in session-recording checks passed. Checks cover coalescing, captured tasks/projects, Flow priority, focus/break exclusion, pauses, delayed completion, midnight, 23/25-hour DST days, wall-clock jumps, manual totals without invented timestamps, running removal/Undo, legacy archives, reloads, and protected corrupt loads. An isolated in-memory native preview verified actual Flow time and updating session details in Calendar, task-name commit before Play, explicit inline editing without persistent highlight, default/minimum layouts, Appearance’s merged glass subsection, Light/Dark, thin transparent-track scrollbars, and the Habit tracker placeholder. An actual thumb drag changed glassiness from 45% to 73%; final styling retains native tracking and a larger bright thumb. Native UI tools intermittently rejected later drags with noWindowsAvailable; full VoiceOver remains unverified. No user archives were changed or real audio/network playback used.
 
 Use previews or the running macOS app to verify appearance and interaction. Add focused tests when meaningful domain behavior is introduced, then document the actual test target and commands. Do not invent test or lint checks before they exist.
 

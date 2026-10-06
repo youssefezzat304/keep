@@ -7,14 +7,15 @@ struct FocusSessionView: View {
     var preferences = AppPreferences()
     var wallpapers = WallpaperLibrary()
     var isCompact = false
+    var isActive = true
     var minimumHeight: CGFloat = 0
-    @State private var taskName = "Your next good idea"
+    @State private var taskEditor = FocusTaskEditor()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            ActiveTargetHeader(taskName: $taskName, workspace: workspace, isCompact: isCompact)
+            ActiveTargetHeader(editor: taskEditor, workspace: workspace, isCompact: isCompact)
 
-            TimerWorkspaceCard(workspace: workspace, isCompact: isCompact)
+            TimerWorkspaceCard(workspace: workspace, isCompact: isCompact, beforeAction: { taskEditor.commit(to: workspace) })
 
             if isCompact {
                 VStack(spacing: 18) { supportingCards }
@@ -34,6 +35,9 @@ struct FocusSessionView: View {
             .foregroundStyle(KeepTheme.mutedInk)
         }
         .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .topLeading)
+        .onChange(of: isActive) { _, active in
+            if !active { taskEditor.commit(to: workspace) }
+        }
     }
 
     @ViewBuilder private var supportingCards: some View {

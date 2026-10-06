@@ -18,7 +18,7 @@ struct TimesheetTable: View {
             let tableWidth = max(900, geometry.size.width)
             let dayWidth = (tableWidth - projectWidth - totalWidth - removeWidth - 32) / 7
 
-            ScrollView(.horizontal) {
+            KeepScrollView(.horizontal) {
                 VStack(spacing: 0) {
                     header(dayWidth: dayWidth)
                     divider
