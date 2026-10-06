@@ -42,6 +42,15 @@ struct TimesheetPersistence {
                 session.end <= day.end &&
                 TimesheetWeek.dayID(for: session.start, calendar: calendar) == session.dayID
         }) else { throw CocoaError(.coderReadCorrupt) }
+        var activityIDs: Set<UUID> = []
+        var activityKeys: [String: Set<String>] = [:]
+        guard ledger.taskActivities.allSatisfy({ activity in
+            let title = activity.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let key = title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            return !title.isEmpty && title == activity.title && title.count <= 200 && !activity.project.id.isEmpty && !activity.project.name.isEmpty &&
+                activity.lastUsed.timeIntervalSince1970.isFinite && activity.lastUsed >= .distantPast && activity.lastUsed <= .distantFuture &&
+                activityIDs.insert(activity.id).inserted && activityKeys[activity.project.id, default: []].insert(key).inserted
+        }) else { throw CocoaError(.coderReadCorrupt) }
         return ledger
     }
 

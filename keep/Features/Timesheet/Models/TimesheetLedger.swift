@@ -1,5 +1,13 @@
 import Foundation
 
+struct TaskActivity: Identifiable, Codable {
+    let id: UUID
+    var title: String
+    let project: FocusProject
+    var lastUsed: Date
+    var isPinned = false
+}
+
 struct TimesheetEntry: Identifiable, Codable {
     var id: String { "\(project.id)/\(dayID)" }
     let project: FocusProject
@@ -13,17 +21,18 @@ struct TimesheetRemoval {
     let sessions: [RecordedSession]
 }
 
-/// Numeric source of truth. UI strings and totals are derived, never stored separately.
+/// Saved totals, sessions, and catalog metadata. Display totals are derived, never stored separately.
 struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
     private(set) var customProjects: [FocusProject] = []
     private(set) var deletedProjectIDs: Set<String> = []
     private(set) var pomodoroSettings: PomodoroSettings?
     private(set) var sessions: [RecordedSession] = []
+    private(set) var taskActivities: [TaskActivity] = []
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case entries, customProjects, deletedProjectIDs, pomodoroSettings, sessions }
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, deletedProjectIDs, pomodoroSettings, sessions, taskActivities }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -33,6 +42,29 @@ struct TimesheetLedger: Codable {
         deletedProjectIDs = try container.decodeIfPresent(Set<String>.self, forKey: .deletedProjectIDs) ?? []
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
         sessions = try container.decodeIfPresent([RecordedSession].self, forKey: .sessions) ?? []
+        if let saved = try container.decodeIfPresent([TaskActivity].self, forKey: .taskActivities) {
+            taskActivities = saved
+        } else {
+            for session in sessions.sorted(by: { $0.end < $1.end }) {
+                rememberTask(session.task, project: session.project, date: session.end)
+            }
+        }
+    }
+
+    mutating func rememberTask(_ name: String, project: FocusProject, date: Date) {
+        let title = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+        guard !title.isEmpty else { return }
+        if let index = taskActivities.firstIndex(where: { $0.project.id == project.id && $0.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
+            taskActivities[index].title = title
+            taskActivities[index].lastUsed = date
+        } else {
+            taskActivities.append(TaskActivity(id: UUID(), title: title, project: project, lastUsed: date))
+        }
+    }
+
+    mutating func toggleTaskPin(id: UUID) {
+        guard let index = taskActivities.firstIndex(where: { $0.id == id }) else { return }
+        taskActivities[index].isPinned.toggle()
     }
 
     mutating func setPomodoroSettings(_ settings: PomodoroSettings) {

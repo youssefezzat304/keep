@@ -17,6 +17,37 @@ final class WorkspaceModel {
     var canTrack: Bool { !loadFailed }
     var projects: [FocusProject] { (FocusProject.defaults + ledger.customProjects).filter { !ledger.deletedProjectIDs.contains($0.id) } }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
+    var taskSuggestions: [TaskActivity] {
+        let activeIDs = Set((projects + [.unassigned]).map(\.id))
+        return ledger.taskActivities.filter { activeIDs.contains($0.project.id) }.sorted {
+            if $0.isPinned != $1.isPinned { return $0.isPinned }
+            if $0.lastUsed != $1.lastUsed { return $0.lastUsed > $1.lastUsed }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+    }
+
+    func selectTask(_ activity: TaskActivity, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, let current = taskSuggestions.first(where: { $0.id == activity.id }) else { return }
+        synchronize(at: instant, date: date)
+        selectedProject = projects.first { $0.id == current.project.id }
+        taskName = current.title
+        if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
+        save(at: instant)
+    }
+
+    func toggleTaskPin(_ activity: TaskActivity, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, taskSuggestions.contains(where: { $0.id == activity.id }) else { return }
+        synchronize(at: instant, date: date)
+        ledger.toggleTaskPin(id: activity.id)
+        ledgerDirty = true
+        save(at: instant)
+    }
+
+    private func rememberCurrentTask(on date: Date) {
+        guard !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        ledger.rememberTask(taskName, project: selectedProject ?? .unassigned, date: date)
+        ledgerDirty = true
+    }
 
     @ObservationIgnored private var checkpoint: ContinuousClock.Instant?
     @ObservationIgnored private var checkpointDate: Date?
@@ -55,7 +86,7 @@ final class WorkspaceModel {
         guard project.map({ !ledger.deletedProjectIDs.contains($0.id) }) ?? true else { return }
         synchronize(at: instant, date: date)
         selectedProject = project
-        if isRecording(at: instant) { ensureCurrentRow(on: date) }
+        if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
     }
 
@@ -63,6 +94,7 @@ final class WorkspaceModel {
         guard canTrack, name != taskName else { return }
         synchronize(at: instant, date: date)
         taskName = String(name.prefix(200))
+        if isRecording(at: instant) { rememberCurrentTask(on: date) }
         save(at: instant)
     }
 
@@ -102,7 +134,7 @@ final class WorkspaceModel {
         guard canTrack else { return }
         synchronize(at: instant, date: date)
         if mode == .pomodoro { pomodoro.play(at: instant) } else { flow.play(at: instant) }
-        if isRecording(at: instant) { ensureCurrentRow(on: date) }
+        if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
     }
 
@@ -114,7 +146,7 @@ final class WorkspaceModel {
         taskName = String(title.prefix(200))
         if timers == .focus || timers == .both { pomodoro.playFocus(at: instant) }
         if timers == .flow || timers == .both { flow.play(at: instant) }
-        if isRecording(at: instant) { ensureCurrentRow(on: date) }
+        if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
     }
 

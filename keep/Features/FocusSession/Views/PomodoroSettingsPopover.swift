@@ -40,11 +40,6 @@ struct PomodoroSettingsPopover: View {
                 settingRow("Long break after", value: $iterations, range: PomodoroSettings.iterationsRange, unit: "intervals")
             }
 
-            Text("Changes apply to the next interval. Breaks start when you choose them.")
-                .font(.system(size: 12))
-                .foregroundStyle(KeepTheme.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
-
             if settings == nil {
                 Text("Focus: 1–180 min · short break: 1–60 min · long break: 1–120 min · intervals: 1–12.")
                     .font(.system(size: 11))

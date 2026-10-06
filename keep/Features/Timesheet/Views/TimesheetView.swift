@@ -55,7 +55,6 @@ struct TimesheetView: View {
                     .accessibilityHidden(true)
                 Text("Click any time to edit · h:mm:ss")
                 Spacer()
-                Text("A week of small steps.")
             }
             .font(.system(size: 11))
             .foregroundStyle(KeepTheme.mutedInk)

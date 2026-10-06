@@ -7,6 +7,7 @@ struct ActiveTargetHeader: View {
     @Environment(\.self) private var environment
     @State private var showsProjectPicker = false
     @State private var showsProjectCreation = false
+    @State private var showsTaskPicker = false
     @State private var projectButtonHovered = false
     @FocusState private var focusedField: Field?
 
@@ -31,10 +32,13 @@ struct ActiveTargetHeader: View {
         }
         .foregroundStyle(KeepTheme.ink)
         .onChange(of: focusedField) { _, field in
-            if editor.isEditing && field != .task { finishEditing() }
+            if editor.isEditing && field != .task && !showsTaskPicker { finishEditing() }
         }
         .onChange(of: editor.isEditing) { _, editing in
-            if !editing { focusedField = nil }
+            if !editing { showsTaskPicker = false; focusedField = nil }
+        }
+        .onChange(of: showsTaskPicker) { _, presented in
+            if !presented { finishEditing() }
         }
         .onDisappear { finishEditing() }
         .sheet(isPresented: $showsProjectCreation, onDismiss: { focusedField = nil }) {
@@ -103,28 +107,39 @@ struct ActiveTargetHeader: View {
                     .foregroundStyle(projectColor)
                     .lineLimit(1)
                     .help(selectedProject?.name ?? "No project")
-                if editor.isEditing {
-                    TextField("Task name", text: $editor.text, prompt: Text("Your next good idea").foregroundColor(KeepTheme.mutedInk))
-                        .font(.system(size: 14, weight: .medium))
-                        .textFieldStyle(.plain)
-                        .focused($focusedField, equals: .task)
-                        .accessibilityLabel("Task name")
-                        .onSubmit { finishEditing() }
-                        .onExitCommand { editor.cancel(); focusedField = nil }
-                } else {
-                    Button {
-                        editor.begin(in: workspace)
-                        focusedField = .task
-                    } label: {
+                Button {
+                    showsTaskPicker = true
+                    editor.begin(in: workspace)
+                } label: {
+                    HStack {
                         Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+                            .font(.system(size: 14, weight: .medium)).lineLimit(1)
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Edit task name")
-                    .accessibilityValue(workspace.taskName.isEmpty ? "No task name" : workspace.taskName)
-                    .help("Click to name your task")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .focused($focusedField, equals: .task)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4).strokeBorder(focusedField == .task ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false)
+                }
+                .accessibilityLabel("Select or name a task")
+                .accessibilityValue(workspace.taskName.isEmpty ? "No task name" : workspace.taskName)
+                .help("Choose a recent task or name a new one")
+                .popover(isPresented: $showsTaskPicker) {
+                    TaskSuggestionPicker(editor: editor, workspace: workspace, onSubmit: {
+                        finishEditing()
+                        showsTaskPicker = false
+                    }, onSelect: { activity in
+                        editor.cancel()
+                        workspace.selectTask(activity)
+                        showsTaskPicker = false
+                    }, onCancel: {
+                        editor.cancel()
+                        showsTaskPicker = false
+                    })
                 }
             }
         }

@@ -49,8 +49,6 @@ struct DashboardCalendarView: View {
             .accessibilityLabel("Weekly recorded sessions")
 
             HStack(spacing: 7) {
-                Image(systemName: "sun.max").foregroundStyle(KeepTheme.accentStrong)
-                Text("A little structure. Plenty of breathing room.")
                 Spacer()
                 Text("Week view · Monday to Sunday")
             }

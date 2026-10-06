@@ -230,7 +230,6 @@ struct SettingsView: View {
                 Spacer()
                 Text("Clear glass")
             }.font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
-            helper("Slide toward clear glass to reveal sharper artwork through the controls. Reduce Transparency on your Mac always uses solid paper.")
             MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityElement(children: .contain)

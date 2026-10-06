@@ -255,7 +255,7 @@ struct MusicPlayerCard: View {
                 Button("Open Music…") { player.openAppleMusic() }
             }
         } label: {
-            Label("Choose music provider", systemImage: "arrow.triangle.2.circlepath")
+            Label("Choose music provider", systemImage: "waveform.mid")
                 .labelStyle(.iconOnly)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(KeepTheme.ink)
@@ -296,8 +296,10 @@ struct MusicPlayerCard: View {
             .font(.system(size: 12))
             .foregroundStyle(KeepTheme.secondaryInk)
             .accessibilityElement(children: .combine)
-        case .idle, .paused, .playing:
-            Text(player.state == .playing ? "Playing · \(player.provider.title)" : player.provider == .appleMusic && player.track == nil ? "Browse your library or resume Music with Play" : player.state == .paused ? "Paused · Take your time" : "Press play to settle in")
+        case .idle:
+            EmptyView()
+        case .paused, .playing:
+            Text(player.state == .playing ? "Playing · \(player.provider.title)" : player.provider == .appleMusic && player.track == nil ? "Browse your library or resume Music with Play" : "Paused · Take your time")
                 .font(.system(size: 12))
                 .foregroundStyle(KeepTheme.secondaryInk)
         }

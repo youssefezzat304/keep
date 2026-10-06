@@ -258,3 +258,5 @@ Verify actual foreground/background combinations, including hover and disabled s
 Before completing a UI change, check that it feels like a calm focus journal: peach surroundings, cream workspace, warm ink, terracotta emphasis, soft supporting colors, and restrained editorial typography.
 
 The timer and active task should be immediately clear. Supporting areas should be readable, comfortable, and quiet. Confirm the appearance in the affected window sizes and states before calling the visual work complete.
+
+Task selection uses a warm native popover with a task-name/search field, Pinned and Recent activity groups, readable task names, project-colored folder/label pairs, and explicit pin/unpin controls. Keep the working-on target neutral until actual keyboard focus. The music provider circle uses `waveform.mid`. Keep functional metadata and controls after removing the requested motivational/helper copy.

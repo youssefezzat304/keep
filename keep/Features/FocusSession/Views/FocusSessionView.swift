@@ -24,10 +24,6 @@ struct FocusSessionView: View {
             }
 
             HStack(spacing: 6) {
-                Image(systemName: "sparkle")
-                    .foregroundStyle(KeepTheme.accentStrong)
-                    .accessibilityHidden(true)
-                Text("Less hurry. More here.")
                 Spacer()
                 Text(Date.now, format: .dateTime.month(.wide).day())
             }
