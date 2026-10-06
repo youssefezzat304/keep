@@ -15,6 +15,42 @@ private final class SilentPlayback: MusicPlayback {
     func stop() {}
 }
 
+private final class SourceCatalog: MusicCatalog {
+    private(set) var lofiReads = 0
+    private(set) var sourceReads = 0
+    private(set) var streamReads = 0
+    var fails = false
+    func lofiTracks() async throws -> [MusicTrack] {
+        lofiReads += 1
+        if fails { throw MusicFailure.connection }
+        return [track("lofi1"), track("lofi2")]
+    }
+    func tracks(for channel: MusicChannel) async throws -> [MusicTrack] {
+        sourceReads += 1
+        return [track("saved1"), track("saved2")]
+    }
+    func streamURL(for track: MusicTrack) async throws -> URL {
+        streamReads += 1
+        guard let url = URL(string: "https://example.invalid/silent") else { throw MusicFailure.unavailable }
+        return url
+    }
+    private func track(_ id: String) -> MusicTrack {
+        MusicTrack(id: id, title: id, artist: "Silent fixture", permalink: nil)
+    }
+}
+
+private final class SourcePlayback: MusicPlayback {
+    var volume: Float = 0
+    private var event: (@MainActor (MusicPlaybackEvent) -> Void)?
+    func load(_ url: URL, autoplay: Bool, onEvent: @escaping @MainActor (MusicPlaybackEvent) -> Void) {
+        event = onEvent
+        if autoplay { onEvent(.playing) }
+    }
+    func play() { event?(.playing) }
+    func pause() {}
+    func stop() { event = nil }
+}
+
 private actor SilentMusic: AppleMusicControlling {
     private(set) var commands: [AppleMusicCommand] = []
     private var state: AppleMusicSnapshot.State = .stopped
@@ -260,7 +296,59 @@ private actor DelayedMusic: AppleMusicControlling {
         try await artworkChecks()
         try await synchronizationChecks()
         try await permissionChecks()
+        try await sourceSelectionChecks()
         print("Passed \(checks) music/preferences/library/artwork checks (silent fixtures)")
+    }
+
+    private static func sourceSelectionChecks() async throws {
+        let suite = "keep.sources-checks.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite),
+              let url = URL(string: "https://audius.co/fixture/playlist/focus") else { throw CocoaError(.coderInvalidValue) }
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let persistence = SettingsPersistence(defaults: defaults)
+        let preferences = AppPreferences(persistence: persistence)
+        let catalog = SourceCatalog()
+        let model = MusicPlayerModel(catalog: catalog, playback: SourcePlayback(), preferences: preferences)
+        model.playAudiusSource(nil)
+        try await waitUntil { model.track?.id == "lofi1" && model.state == .playing }
+        expect(preferences.snapshot.channels.isEmpty && model.wantsPlayback, "All Lofi plays before any sources are saved")
+        let playlist = MusicChannel(resourceID: "playlist1", name: "Focus", kind: .playlist, url: url)
+        preferences.saveChannel(playlist)
+        model.playAudiusSource(playlist)
+        try await waitUntil { model.track?.id == "saved1" && model.state == .playing }
+        expect(model.selectedChannel == playlist && preferences.selectedChannel == playlist, "Saved-row Play captures and persists its source")
+        model.next()
+        try await waitUntil { model.track?.id == "saved2" && model.state == .playing }
+        expect(model.selectedChannel == playlist, "Next stays inside the chosen playlist")
+        model.playAudiusSource(nil)
+        try await waitUntil { model.track?.id == "lofi1" && model.state == .playing }
+        expect(model.selectedChannel == nil && preferences.selectedChannel == nil && model.wantsPlayback, "All Lofi leaves a playlist and starts discovery")
+        expect(catalog.lofiReads == 2 && catalog.sourceReads == 1, "Leaving a playlist discards its queue and loads the lofi catalog")
+        let reads = catalog.streamReads
+        model.playAudiusSource(nil)
+        expect(catalog.streamReads == reads && model.track?.id == "lofi1", "Selecting an already-playing source does not restart it")
+        model.next()
+        try await waitUntil { model.track?.id == "lofi2" && model.state == .playing }
+        expect(model.selectedChannel == nil, "Next uses the lofi queue after leaving a playlist")
+        model.togglePlayback()
+        model.playAudiusSource(nil)
+        expect(model.wantsPlayback && model.track?.id == "lofi2", "Selecting a paused source resumes without resetting its track")
+        let reopened = AppPreferences(persistence: persistence)
+        expect(reopened.selectedChannel == nil && reopened.snapshot.channels == [playlist], "All Lofi selection survives reload without changing saved playlists")
+        model.selectProvider(.appleMusic)
+        model.playAudiusSource(nil)
+        try await waitUntil { model.track?.id == "lofi1" && model.state == .playing }
+        expect(model.provider == .audius && model.wantsPlayback, "Explicit All Lofi Play switches back from Apple Music")
+        await model.shutdown()?.value
+        model.selectChannel(nil)
+        catalog.fails = true
+        model.playAudiusSource(nil)
+        try await waitUntil { model.state == .failed(.connection) }
+        catalog.fails = false
+        model.playAudiusSource(nil)
+        try await waitUntil { model.track?.id == "lofi1" }
+        expect(model.wantsPlayback, "Selecting All Lofi retries a failed source")
+        await model.shutdown()?.value
     }
 
     private static func synchronizationChecks() async throws {

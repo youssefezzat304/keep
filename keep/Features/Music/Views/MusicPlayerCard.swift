@@ -171,9 +171,9 @@ struct MusicPlayerCard: View {
 
     private func savedHeading(showsActions: Bool) -> some View {
         HStack(spacing: 8) {
-            Text("Your saved listens").font(.system(size: 21, design: .serif))
+            Text("Your listens").font(.system(size: 21, design: .serif))
                 .lineLimit(1).minimumScaleFactor(0.75)
-            Text("\(preferences.snapshot.channels.count)").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
+            Text("\(preferences.snapshot.channels.count + 1)").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
             Spacer(minLength: 4)
             if showsActions { favoriteActions }
         }
@@ -183,44 +183,36 @@ struct MusicPlayerCard: View {
     private func savedList(height: CGFloat) -> some View {
         KeepScrollView {
             VStack(alignment: .leading, spacing: 6) {
-                if preferences.snapshot.channels.isEmpty {
-                    Text("Keep a favorite close. Save an artist or playlist with the heart, or add an Audius link in Settings.")
-                        .font(.system(size: 13)).foregroundStyle(KeepTheme.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true).padding(.vertical, 12)
-                }
+                savedSourceRow(nil)
                 ForEach(preferences.snapshot.channels) { channel in
-                    Button { playSavedChannel(channel) } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: channel.symbol).font(.system(size: 17)).frame(width: 22)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(channel.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
-                                Text(channel.subtitle).font(.system(size: 11)).foregroundStyle(KeepTheme.secondaryInk)
-                            }
-                            Spacer(minLength: 4)
-                            Image(systemName: player.selectedChannel?.id == channel.id ? "checkmark" : "play.fill")
-                                .font(.system(size: 11))
-                        }
-                        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(KeepTheme.paper.opacity(0.65), in: RoundedRectangle(cornerRadius: 10))
-                        .contentShape(RoundedRectangle(cornerRadius: 10))
-                    }
-                    .buttonStyle(MusicControlStyle()).disabled(!preferences.canEdit)
-                    .accessibilityLabel("Play saved \(channel.subtitle.lowercased()): \(channel.name)")
-                    .accessibilityAddTraits(player.selectedChannel?.id == channel.id ? .isSelected : [])
+                    savedSourceRow(channel)
                 }
             }
         }
         .frame(height: height)
-        .accessibilityLabel("Saved Audius artists and playlists")
+        .accessibilityLabel("Audius listens")
     }
 
-    private func playSavedChannel(_ channel: MusicChannel) {
-        player.selectProvider(.audius)
-        preferences.selectChannel(channel)
-        if player.selectedChannel?.id != channel.id { player.selectChannel(channel, autoplay: true) }
-        else if case .failed = player.state { player.retry() }
-        else if !player.wantsPlayback { player.togglePlayback() }
-        // Keep the drawer open through loading, playback, track changes, and pause.
+    private func savedSourceRow(_ channel: MusicChannel?) -> some View {
+        let selected = player.provider == .audius && player.selectedChannel?.id == channel?.id
+        return Button { player.playAudiusSource(channel) } label: {
+            HStack(spacing: 10) {
+                Image(systemName: channel?.symbol ?? "waveform").font(.system(size: 17)).frame(width: 22)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(channel?.name ?? "All Lofi").font(.system(size: 13, weight: .medium)).lineLimit(1)
+                    Text(channel?.subtitle ?? "Discover lofi music").font(.system(size: 11)).foregroundStyle(KeepTheme.secondaryInk)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: selected ? "checkmark" : "play.fill")
+                    .font(.system(size: 11))
+            }
+            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+            .background(KeepTheme.paper.opacity(0.65), in: RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(MusicControlStyle()).disabled(!preferences.canEdit)
+        .accessibilityLabel(channel.map { "Play saved \($0.subtitle.lowercased()): \($0.name)" } ?? "Play All Lofi")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private var providerMenu: some View {
@@ -230,28 +222,8 @@ struct MusicPlayerCard: View {
                     Label(provider.title, systemImage: player.provider == provider ? "checkmark" : "music.note")
                 }
             }
-            Divider()
-            Menu("Audius listens") {
-                Button {
-                    player.selectProvider(.audius)
-                    guard player.selectedChannel != nil else { return }
-                    preferences.selectChannel(nil)
-                    player.selectChannel(nil)
-                } label: {
-                    Label("All lofi", systemImage: player.selectedChannel == nil ? "checkmark" : "waveform")
-                }
-                ForEach(preferences.snapshot.channels) { channel in
-                    Button {
-                        player.selectProvider(.audius)
-                        guard player.selectedChannel?.id != channel.id else { return }
-                        preferences.selectChannel(channel)
-                        player.selectChannel(channel)
-                    } label: {
-                        Label(channel.name, systemImage: player.selectedChannel?.id == channel.id ? "checkmark" : channel.symbol)
-                    }
-                }
-            }
             if player.provider == .appleMusic {
+                Divider()
                 Button("Browse Music library…") { showsAppleLibrary = true }
                 Button("Open Music…") { player.openAppleMusic() }
             }

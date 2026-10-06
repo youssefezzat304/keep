@@ -216,6 +216,12 @@ Remove Zen’s black bottom fade and Exit button, restore Escape exit, and repla
 
 2026-10-06 [CODE] Wallpaper brightness is unchanged by Zen. Escape is handled by the existing window bridge with a scoped local event monitor, independent of SwiftUI focus; modified keys, inactive/other windows and library sheets retain native behavior. The saved-list card expands above music transport and uses MusicGlassPanel with its full-screen artwork origin, existing glassiness and Reduce Transparency behavior. This supersedes D033’s bottom fade/Exit button and D034’s popover presentation.
 
+### D036 ACTIVE — 2026-10-06 [USER]
+
+Remove the Audius listens submenu from the provider menu. Put All Lofi permanently first in the playlist list, available before saving any artist/playlist.
+
+2026-10-06 [CODE] Normal and Zen lists have a built-in All Lofi row followed by saved sources. MusicPlayerModel owns their explicit Play action: selecting All Lofi clears the prior source queue and saved selection without removing favorites; repeated selection retains playback, paused selection resumes, and failed selection retries. Next remains scoped to the chosen source. All Lofi is not stored in the archive. This supersedes the passive source submenu described in D020.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -336,3 +342,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-06 [TOOL] Zen favorites: unsigned Debug build, 62 silent music/preferences/library/artwork checks and git diff --check passed. Native offscreen Light/Dark screenshots inspected the new music row at default/minimum/wide sizes plus empty and long-name saved-list content. A hidden-window accessibility-action harness could not find SwiftUI's heart in its accessibility tree, so action execution and live popover/pointer/keyboard/VoiceOver remain unverified. No live app control, user archives, real audio or network playback was used.
 
 - 2026-10-06 [TOOL] Bright Zen/Escape/glass refinement: unsigned Debug build, 42 Zen checks, 62 silent music/preferences/library/artwork checks and git diff --check passed. Hidden native checks dispatch Escape through NSApplication’s installed local event monitor and cover active/entering exit, other/inactive windows, modified keys and detachment. Offscreen screenshots inspected bright/no-Exit Zen at default/minimum/wide sizes in Light/Dark, plus separately composed inline glass-card content at 55%/0% glassiness. Programmatic mouse events in a hidden host did not open the drawer; actual expansion/collapse, pointer/VoiceOver operation, full-screen animation and onscreen Liquid Glass remain unverified. No live app control, user archives, real audio or network playback was used.
+
+- 2026-10-06 [TOOL] All Lofi playlist entry: unsigned Debug build, 73 silent music/preferences/library/artwork checks and git diff --check passed. New checks cover empty-catalog Play, saved-source selection, playlist-scoped Next, leaving the playlist for lofi discovery, retained favorites/selection reload, repeat selection without restart, paused resume, provider switching and Retry. Native offscreen Light/Dark screenshots inspected default/minimum/wide Zen and normal Focus, plus separate glass-list content with/without saved favorites. Live menu/drawer/keyboard/VoiceOver interaction remains unverified; no user archives, real audio or network playback was used.

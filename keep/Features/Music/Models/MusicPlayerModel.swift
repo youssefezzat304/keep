@@ -212,6 +212,16 @@ final class MusicPlayerModel {
         queue = []; track = nil; index = 0
     }
 
+    /// An explicit list selection plays a saved source, or All Lofi when nil.
+    func playAudiusSource(_ channel: MusicChannel?) {
+        guard preferences.canEdit else { return }
+        selectProvider(.audius)
+        preferences.selectChannel(channel)
+        if selectedChannel?.id != channel?.id { selectChannel(channel, autoplay: true) }
+        else if case .failed = state { retry() }
+        else if !wantsPlayback { togglePlayback() }
+    }
+
     func openAppleMusic() {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Music") else {
             state = .failed(.appleMusicConnection)
