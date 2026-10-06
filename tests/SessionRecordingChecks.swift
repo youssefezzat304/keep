@@ -104,6 +104,59 @@ import Foundation
         expect(close(active.ledger.sessions.reduce(0) { $0 + $1.seconds }, 10), "Undo preserves newly recorded sessions")
         expect(Set(active.ledger.sessions.map(\.id)).count == active.ledger.sessions.count, "Restored sessions have unique identifiers")
 
+        let editable = WorkspaceModel(calendar: calendar, date: date)
+        editable.play(.flow, at: instant, date: date)
+        editable.stop(.flow, at: time(120), date: wall(120))
+        let entry = editable.ledger.sessions[0]
+        editable.edit(seconds: 180, project: entry.project, dayID: dayID, at: time(120), date: wall(120))
+        try editable.editSession(id: entry.id, start: wall(30), end: wall(90), at: time(120), date: wall(120))
+        expect(editable.ledger.sessions[0].start == wall(30) && editable.ledger.sessions[0].end == wall(90), "Save both edited times")
+        expect(close(editable.ledger.seconds(projectID: entry.project.id, dayID: dayID), 120), "Duration delta retains manually added time")
+        expect(editable.flow.phase(at: time(120)) == .stopped, "Editing leaves timer runtime untouched")
+        for (start, end) in [(wall(90), wall(30)), (wall(-36000), wall(90)), (wall(30), wall(86400)), (Date(timeIntervalSince1970: .nan), wall(90))] {
+            do {
+                try editable.editSession(id: entry.id, start: start, end: end, at: time(120), date: wall(120))
+                fatalError("Invalid range accepted")
+            } catch { expect(close(editable.ledger.sessions[0].seconds, 60), "Reject invalid times without changing history") }
+        }
+        expect(entry.date(for: "09:00", isEnd: false) == date, "Accept hour/minute input in recording timezone")
+        expect(entry.date(for: "24:00", isEnd: false) == nil && entry.date(for: "24:01", isEnd: true) == nil, "Midnight is only a valid end boundary")
+        expect(entry.date(for: "-1:00", isEnd: false) == nil && entry.date(for: "9:60", isEnd: true) == nil, "Reject malformed time fields")
+        let endpoint = calendar.dateInterval(of: .day, for: date)?.end ?? date
+        expect(entry.date(for: "24:00:00", isEnd: true) == endpoint, "Allow end exactly at midnight")
+        try editable.deleteSession(id: entry.id, at: time(120), date: wall(120))
+        expect(editable.ledger.sessions.isEmpty, "Delete a single session")
+        expect(close(editable.ledger.seconds(projectID: entry.project.id, dayID: dayID), 60), "Deletion preserves remaining manual time")
+        do { try editable.deleteSession(id: entry.id); fatalError("Missing session accepted") }
+        catch { expect(editable.ledger.sessions.isEmpty, "Repeated deletion does not subtract twice") }
+
+        let liveEdit = WorkspaceModel(calendar: calendar, date: date)
+        liveEdit.play(.flow, at: instant, date: date)
+        liveEdit.synchronize(at: time(10), date: wall(10))
+        let liveID = liveEdit.ledger.sessions[0].id
+        try liveEdit.editSession(id: liveID, start: wall(2), end: wall(8), at: time(12), date: wall(12))
+        liveEdit.synchronize(at: time(15), date: wall(15))
+        expect(liveEdit.ledger.sessions.count == 2 && close(liveEdit.ledger.sessions[0].seconds, 6), "Ticks cannot extend an edited live block")
+        expect(liveEdit.ledger.sessions[1].start == wall(12) && close(liveEdit.ledger.sessions[1].seconds, 3), "Future recording starts at settled edit time")
+        expect(close(liveEdit.ledger.total(dayIDs: [dayID]), 9), "Live editing subtracts the latest settled duration")
+        try liveEdit.deleteSession(id: liveEdit.ledger.sessions[1].id, at: time(18), date: wall(18))
+        liveEdit.stop(.flow, at: time(20), date: wall(20))
+        expect(liveEdit.ledger.sessions.count == 2 && liveEdit.ledger.sessions[1].start == wall(18), "Deleted live segment stays deleted while recording continues")
+        expect(close(liveEdit.ledger.total(dayIDs: [dayID]), 8), "Live deletion settles and removes time once")
+        liveEdit.edit(seconds: 1, project: entry.project, dayID: dayID, at: time(20), date: wall(20))
+        try liveEdit.deleteSession(id: liveID, at: time(20), date: wall(20))
+        expect(liveEdit.ledger.total(dayIDs: [dayID]) == 0, "Deletion cannot make a manually reduced total negative")
+
+        let spring = calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)) ?? date
+        let springSession = RecordedSession(id: "spring", recordingID: UUID(), dayID: "2026-03-29", project: entry.project, task: "DST", source: .flow, timeZoneID: calendar.timeZone.identifier, start: spring, end: spring.addingTimeInterval(3600))
+        expect(springSession.date(for: "02:30", isEnd: true) == nil, "Reject nonexistent DST wall times")
+        let autumn = calendar.date(from: DateComponents(year: 2026, month: 10, day: 25)) ?? date
+        let repeated = autumn.addingTimeInterval(3 * 3600 + 30 * 60)
+        let autumnSession = RecordedSession(id: "autumn", recordingID: UUID(), dayID: "2026-10-25", project: entry.project, task: "DST", source: .flow, timeZoneID: calendar.timeZone.identifier, start: repeated, end: repeated.addingTimeInterval(600))
+        expect(autumnSession.date(for: autumnSession.startTime, isEnd: false) == repeated, "Unchanged repeated-hour times retain their exact offset")
+        try cross.editSession(id: cross.ledger.sessions[0].id, start: midnight.addingTimeInterval(1), end: midnight.addingTimeInterval(5), at: time(20), date: midnight.addingTimeInterval(20))
+        expect(cross.ledger.sessions[0].endMinute == 1440 && cross.ledger.sessions[1].seconds == 10, "Editing a midnight endpoint preserves the next day's segment")
+
         let suite = "keep.session-checks.\(UUID().uuidString)"
         let taskActions = WorkspaceModel(calendar: calendar, focusDuration: 10, breakDuration: 5, date: date)
         taskActions.startTask("  Focus task  ", timers: .focus, at: instant, date: date)
@@ -132,6 +185,9 @@ import Foundation
         let loaded = try persistence.load()
         expect(loaded.sessions.count == workspace.ledger.sessions.count, "Reload session history")
         expect(close(loaded.sessions.reduce(0) { $0 + $1.seconds }, originalSessionTime), "Reload exact recorded duration")
+        try persistence.save(liveEdit.ledger)
+        let editedReload = try persistence.load()
+        expect(editedReload.sessions.count == liveEdit.ledger.sessions.count && editedReload.total(dayIDs: [dayID]) == 0, "Edited/deleted history and totals reload")
         let legacy = Data("{\"entries\":[]}".utf8)
         defaults.set(legacy, forKey: persistence.key)
         let oldLedger = try persistence.load()
@@ -146,6 +202,10 @@ import Foundation
         defaults.set(badData, forKey: persistence.key)
         let blocked = WorkspaceModel(persistence: persistence)
         expect(blocked.loadFailed, "Reject invalid session ranges")
+        do { try blocked.editSession(id: entry.id, start: wall(30), end: wall(90)); fatalError("Blocked edit accepted") }
+        catch { expect(blocked.loadFailed, "Corrupt load blocks calendar edits") }
+        do { try blocked.deleteSession(id: entry.id); fatalError("Blocked deletion accepted") }
+        catch { expect(blocked.loadFailed, "Corrupt load blocks calendar deletion") }
         blocked.play(.flow)
         expect(defaults.data(forKey: persistence.key) == badData, "Invalid data is not overwritten")
         print("Passed \(checks) session recording checks")

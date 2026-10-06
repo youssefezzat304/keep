@@ -202,7 +202,6 @@ private struct TaskRow: View {
     let onRemove: () -> Void
     @State private var hovered = false
     @FocusState private var focused: Control?
-    @FocusState private var titleFocused: Bool
     @Environment(\.self) private var environment
     private enum Control: Hashable { case complete, focus, flow, both, remove }
 
@@ -217,9 +216,7 @@ private struct TaskRow: View {
             }
                 .foregroundStyle(task.isComplete ? KeepTheme.mutedInk : KeepTheme.ink)
                 .frame(maxWidth: .infinity, alignment: .leading).lineLimit(2).help(task.title)
-                .focusable(onStartTimer != nil).focused($titleFocused)
-                .focusEffectDisabled().accessibilityLabel(task.title)
-                .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(titleFocused ? KeepTheme.focusRing : .clear, lineWidth: 2).padding(-2).allowsHitTesting(false) }
+                .accessibilityLabel(task.title)
                 .accessibilityActions {
                     if let onStartTimer, canStartTimer {
                         Button("Start Focus") { onStartTimer(task, .focus) }
@@ -236,8 +233,8 @@ private struct TaskRow: View {
                     timerButton(.both, label: "Start both timers", control: .both,
                         fill: KeepTheme.taskBothTimerFill, ink: KeepTheme.taskBothTimerInk, action: onStartTimer)
                 }
-                .opacity(hovered || focused != nil || titleFocused ? 1 : 0)
-                .allowsHitTesting(hovered || focused != nil || titleFocused)
+                .opacity(hovered || focused != nil ? 1 : 0)
+                .allowsHitTesting(hovered || focused != nil)
             }
             RemoveRowButton(label: "Delete task: \(task.title)", action: onRemove)
                 .focused($focused, equals: .remove)

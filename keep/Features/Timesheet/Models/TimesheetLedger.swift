@@ -123,6 +123,22 @@ struct TimesheetLedger: Codable {
         }
     }
 
+    /// Apply the session duration delta to the aggregate, preserving manual adjustments.
+    mutating func replaceSession(_ replacement: RecordedSession) {
+        guard let index = sessions.firstIndex(where: { $0.id == replacement.id }) else { return }
+        let old = sessions[index]
+        setSeconds(max(0, seconds(projectID: old.project.id, dayID: old.dayID) - old.seconds + replacement.seconds),
+            project: old.project, dayID: old.dayID)
+        sessions[index] = replacement
+    }
+
+    mutating func removeSession(id: String) {
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        let old = sessions.remove(at: index)
+        setSeconds(max(0, seconds(projectID: old.project.id, dayID: old.dayID) - old.seconds),
+            project: old.project, dayID: old.dayID)
+    }
+
     mutating func removeSessions(projectID: String, dayIDs: [String]) -> [RecordedSession] {
         let days = Set(dayIDs)
         let removed = sessions.filter { $0.project.id == projectID && days.contains($0.dayID) }

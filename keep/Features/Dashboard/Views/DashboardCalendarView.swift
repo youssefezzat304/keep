@@ -13,17 +13,6 @@ struct DashboardCalendarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Label("Timer sessions", systemImage: "clock")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(KeepTheme.accentStrong)
-                Text("Focus and Flow, as they happened. Manual totals stay in Timesheet.")
-                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
-                Spacer(minLength: 0)
-                zoomButton("minus", label: "Zoom out calendar", disabled: hourHeight <= 48) { hourHeight = max(48, hourHeight - 12) }
-                zoomButton("plus", label: "Zoom in calendar", disabled: hourHeight >= 108) { hourHeight = min(108, hourHeight + 12) }
-            }
-            .accessibilityElement(children: .contain)
 
             GeometryReader { viewport in
                 let width = max(viewport.size.width, 900)
@@ -47,6 +36,18 @@ struct DashboardCalendarView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Weekly recorded sessions")
+
+            HStack(spacing: 12) {
+                Label("Timer sessions", systemImage: "clock")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(KeepTheme.accentStrong)
+                Text("Focus and Flow, as they happened. Manual totals stay in Timesheet.")
+                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                Spacer(minLength: 0)
+                zoomButton("minus", label: "Zoom out calendar", disabled: hourHeight <= 48) { hourHeight = max(48, hourHeight - 12) }
+                zoomButton("plus", label: "Zoom in calendar", disabled: hourHeight >= 108) { hourHeight = min(108, hourHeight + 12) }
+            }
+            .accessibilityElement(children: .contain)
 
             HStack(spacing: 7) {
                 Spacer()
@@ -130,7 +131,7 @@ struct DashboardCalendarView: View {
                             y: min(hourHeight * 24 - 30, CGFloat(session.startMinute) / 60 * hourHeight + 2))
                     .accessibilityLabel("\(session.source.title): \(session.title), \(session.project.name)")
                     .accessibilityValue("\(week.days[dayIndex].label), \(session.startTime) to \(session.endTime), \(TimesheetDuration.clock(session.seconds))")
-                    .help("View recorded session details")
+                    .help("Edit or delete this recorded session")
                 }
             }
             if sessions.isEmpty {
@@ -211,7 +212,7 @@ private struct CalendarBlockStyle: ButtonStyle {
     }
 }
 
-private struct CalendarSessionDetail: View {
+struct CalendarSessionDetail: View {
     let workspace: WorkspaceModel
     let selectedSession: RecordedSession
     private var session: RecordedSession {
@@ -222,30 +223,87 @@ private struct CalendarSessionDetail: View {
         calendar.timeZone = TimeZone(identifier: session.timeZoneID) ?? workspace.calendar.timeZone
         return calendar
     }
+    @State private var startTime: String
+    @State private var endTime: String
+    @State private var error: String?
+    @State private var confirmingDelete = false
     @Environment(\.dismiss) private var dismiss
+
+    init(workspace: WorkspaceModel, selectedSession: RecordedSession) {
+        self.workspace = workspace
+        self.selectedSession = selectedSession
+        _startTime = State(initialValue: selectedSession.startTime)
+        _endTime = State(initialValue: selectedSession.editableEndTime)
+    }
+
+    private var editedStart: Date? { session.date(for: startTime, isEnd: false) }
+    private var editedEnd: Date? { session.date(for: endTime, isEnd: true) }
+    private var hasChanges: Bool { startTime != selectedSession.startTime || endTime != selectedSession.editableEndTime }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label(session.source.title.uppercased(), systemImage: "clock")
                 .font(.system(size: 10, weight: .medium)).tracking(1).foregroundStyle(KeepTheme.accentStrong)
-            Text(session.title).font(.system(size: 27, design: .serif))
+            Text(session.title).font(.system(size: 27, design: .serif)).fixedSize(horizontal: false, vertical: true)
             Label(session.project.name, systemImage: "folder")
                 .font(.system(size: 14, weight: .medium))
-            Text(session.start, format: .dateTime.weekday(.wide).day().month(.wide))
+                .foregroundStyle(session.project.labelColor(in: environment))
+            Text(session.start, format: Date.FormatStyle(date: .complete, time: .omitted, calendar: calendar, timeZone: calendar.timeZone))
                 .font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
+            HStack(spacing: 14) {
+                timeField("Start", value: $startTime)
+                timeField("End", value: $endTime)
+            }
             HStack {
-                Text("\(session.startTime) – \(session.endTime)")
+                Text("Duration")
                 Spacer()
-                Text(TimesheetDuration.clock(session.seconds))
-            }.font(.system(size: 14)).monospacedDigit()
-            Text("Recorded with your timer · \(session.timeZoneID)").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                Text(TimesheetDuration.clock(editedEnd?.timeIntervalSince(editedStart ?? session.start) ?? session.seconds))
+                    .monospacedDigit()
+            }.font(.system(size: 13))
+            Text("HH:mm:ss · \(session.timeZoneID) · 24:00 ends at midnight")
+                .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
+            if let error { Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong).fixedSize(horizontal: false, vertical: true) }
             HStack {
+                Button("Delete…") { confirmingDelete = true }
+                    .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!workspace.canTrack)
                 Spacer()
-                Button("Done") { dismiss() }.buttonStyle(KeepButtonStyle(emphasis: .primary)).keyboardShortcut(.defaultAction)
+                Button("Cancel") { dismiss() }.buttonStyle(KeepButtonStyle(emphasis: .quiet)).keyboardShortcut(.cancelAction)
+                Button(hasChanges ? "Save" : "Done") { save() }
+                    .buttonStyle(KeepButtonStyle(emphasis: .primary)).keyboardShortcut(.defaultAction)
+                    .disabled(!workspace.canTrack)
             }
         }
-        .padding(28).frame(width: 380)
+        .padding(28).frame(width: 420)
         .background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
         .environment(\.calendar, calendar).environment(\.timeZone, calendar.timeZone)
+        .alert("Delete this session?", isPresented: $confirmingDelete) {
+            Button("Delete", role: .destructive) {
+                do { try workspace.deleteSession(id: session.id); dismiss() }
+                catch { self.error = error.localizedDescription }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("This also subtracts its recorded time from Timesheet.") }
+    }
+
+    @Environment(\.self) private var environment
+    private func timeField(_ title: String, value: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.system(size: 12, weight: .medium))
+            TextField("HH:mm:ss", text: value).modifier(KeepInputStyle()).monospacedDigit()
+                .accessibilityLabel("Session \(title.lowercased()) time")
+        }
+    }
+
+    private func save() {
+        guard hasChanges else { dismiss(); return }
+        guard let editedStart, let editedEnd else {
+            error = "Enter valid times as HH:mm or HH:mm:ss for this day."
+            return
+        }
+        do {
+            try workspace.editSession(id: session.id, start: editedStart, end: editedEnd)
+            dismiss()
+        } catch { self.error = error.localizedDescription }
     }
 }
 

@@ -11,7 +11,9 @@ struct ZenModeView: View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
                 MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
-                    .ignoresSafeArea().allowsHitTesting(false)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2, perform: onExit)
                 VStack {
                     Spacer(minLength: 24)
                     if geometry.size.width < 800 {

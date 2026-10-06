@@ -100,10 +100,6 @@ struct TimesheetTable: View {
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(project.labelColor(in: environment))
                         .lineLimit(1)
-                    Text(project.category)
-                        .font(.system(size: 11))
-                        .foregroundStyle(KeepTheme.mutedInk)
-                        .lineLimit(1)
                 }
             }
             .frame(width: projectWidth, alignment: .leading)

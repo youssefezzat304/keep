@@ -189,6 +189,29 @@ final class WorkspaceModel {
         save(at: instant)
     }
 
+    func editSession(id: String, start: Date, end: Date, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack else { throw SessionEditError.unavailable }
+        // Validate before settlement, then use the latest duration after settling live time.
+        guard let original = ledger.sessions.first(where: { $0.id == id }) else { throw SessionEditError.missing }
+        _ = try original.replacingTimes(start: start, end: end)
+        synchronize(at: instant, date: date)
+        guard let current = ledger.sessions.first(where: { $0.id == id }) else { throw SessionEditError.missing }
+        ledger.replaceSession(try current.replacingTimes(start: start, end: end))
+        recordingSessionID = UUID()
+        ledgerDirty = true
+        save(at: instant)
+    }
+
+    func deleteSession(id: String, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack else { throw SessionEditError.unavailable }
+        guard ledger.sessions.contains(where: { $0.id == id }) else { throw SessionEditError.missing }
+        synchronize(at: instant, date: date)
+        ledger.removeSession(id: id)
+        recordingSessionID = UUID()
+        ledgerDirty = true
+        save(at: instant)
+    }
+
     func addProject(_ project: FocusProject, on date: Date, at instant: ContinuousClock.Instant = .now, now: Date = .now) {
         guard canTrack else { return }
         synchronize(at: instant, date: now)
