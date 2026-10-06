@@ -28,7 +28,11 @@ private struct KeepAppearance: ViewModifier {
 
     func body(content: Content) -> some View {
         // Returning nil after an explicit override can leave macOS SwiftUI content stale.
-        content.preferredColorScheme(appearance.colorScheme ?? system.colorScheme)
+        let scheme = appearance.colorScheme ?? system.colorScheme
+        content.preferredColorScheme(scheme)
+            // MenuBarExtra's native host may retain the system's environment
+            // despite the presentation preference. Resolve content explicitly too.
+            .environment(\.colorScheme, scheme)
     }
 }
 

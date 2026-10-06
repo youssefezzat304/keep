@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HabitCreationDialog: View {
     let store: HabitStore
+    private let editingHabit: Habit?
     @Environment(\.dismiss) private var dismiss
     @State private var weekdays = Set(HabitWeekday.allCases)
     @Environment(\.self) private var environment
@@ -19,25 +20,30 @@ struct HabitCreationDialog: View {
         var title: String { self == .checkIn ? "Daily check-in" : "Daily target" }
     }
 
-    init(store: HabitStore, today: Date = .now, goal: HabitGoal = .checkIn, endDate: Date? = nil, weekdays: Set<HabitWeekday> = Set(HabitWeekday.allCases)) {
+    init(store: HabitStore, today: Date = .now, goal: HabitGoal = .checkIn, endDate: Date? = nil, weekdays: Set<HabitWeekday> = Set(HabitWeekday.allCases), habit: Habit? = nil) {
         self.store = store
-        _weekdays = State(initialValue: weekdays)
-        if case .amount(let value, let unit) = goal {
+        editingHabit = habit
+        _name = State(initialValue: habit?.name ?? "")
+        _icon = State(initialValue: habit?.icon ?? .checkmark)
+        _weekdays = State(initialValue: habit.map { Set($0.weekdays) } ?? weekdays)
+        let start = habit.flatMap { TaskDay.date(for: $0.startDay, calendar: store.calendar) } ?? today
+        let end = habit.map { $0.endDay.flatMap { TaskDay.date(for: $0, calendar: store.calendar) } } ?? endDate
+        if case .amount(let value, let unit) = habit?.goal ?? goal {
             _goalKind = State(initialValue: .amount)
             _target = State(initialValue: String(value))
             _unit = State(initialValue: unit)
         }
-        _startDate = State(initialValue: today)
-        _endDate = State(initialValue: endDate ?? store.calendar.date(byAdding: .month, value: 1, to: today) ?? today)
-        _hasEndDate = State(initialValue: endDate != nil)
+        _startDate = State(initialValue: start)
+        _endDate = State(initialValue: end ?? store.calendar.date(byAdding: .month, value: 1, to: start) ?? start)
+        _hasEndDate = State(initialValue: end != nil)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Add habit").font(KeepTheme.headingFont(size: 28))
+            Text(editingHabit == nil ? "Add habit" : "Edit habit").font(KeepTheme.headingFont(size: 28))
             TextField("Habit name", text: $name).modifier(KeepInputStyle()).focused($nameFocused)
                 .accessibilityLabel("Habit name")
-                .onSubmit(create)
+                .onSubmit(save)
                 .onChange(of: name) { error = nil }
             VStack(alignment: .leading, spacing: 10) {
                 Text("Icon").font(.system(size: 12, weight: .medium)).foregroundStyle(KeepTheme.mutedInk)
@@ -53,28 +59,31 @@ struct HabitCreationDialog: View {
                     }
                 }
             }
-            frequency
-            labeled("Goal") {
-                KeepSelectionMenu(label: "Habit goal", selection: $goalKind, options: GoalKind.allCases, title: { $0.title })
-            }
-            if goalKind == .amount {
-                HStack(spacing: 12) {
-                    Text("Per day").font(.system(size: 13, weight: .medium)).frame(width: 90, alignment: .leading)
-                    TextField("Amount", text: $target).modifier(KeepInputStyle())
-                        .frame(width: 80).accessibilityLabel("Daily target amount")
-                    KeepSelectionMenu(label: "Target unit", selection: $unit, options: HabitUnit.allCases, title: { $0.title })
+            VStack(alignment: .leading, spacing: 18) {
+                frequency
+                labeled("Goal") {
+                    KeepSelectionMenu(label: "Habit goal", selection: $goalKind, options: GoalKind.allCases, title: { $0.title })
+                }
+                if goalKind == .amount {
+                    HStack(spacing: 12) {
+                        Text("Per day").font(.system(size: 13, weight: .medium)).frame(width: 90, alignment: .leading)
+                        TextField("Amount", text: $target).modifier(KeepInputStyle())
+                            .frame(width: 80).accessibilityLabel("Daily target amount")
+                        KeepSelectionMenu(label: "Target unit", selection: $unit, options: HabitUnit.allCases, title: { $0.title })
+                    }
+                }
+                labeled("Starts") { HabitDateField(label: "Start date", date: $startDate, calendar: store.calendar) }
+                Toggle("Set an end date", isOn: $hasEndDate).toggleStyle(KeepCheckboxStyle())
+                if hasEndDate {
+                    labeled("Ends") { HabitDateField(label: "End date", date: $endDate, calendar: store.calendar) }
                 }
             }
-            labeled("Starts") { HabitDateField(label: "Start date", date: $startDate, calendar: store.calendar) }
-            Toggle("Set an end date", isOn: $hasEndDate).toggleStyle(KeepCheckboxStyle())
-            if hasEndDate {
-                labeled("Ends") { HabitDateField(label: "End date", date: $endDate, calendar: store.calendar) }
-            }
+            .disabled(editingHabit != nil)
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong).fixedSize(horizontal: false, vertical: true) }
             HStack {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(KeepButtonStyle(emphasis: .quiet))
                 Spacer()
-                Button("Add habit", action: create).keyboardShortcut(.defaultAction).buttonStyle(KeepButtonStyle(emphasis: .primary))
+                Button(editingHabit == nil ? "Add habit" : "Save changes", action: save).keyboardShortcut(.defaultAction).buttonStyle(KeepButtonStyle(emphasis: .primary))
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || weekdays.isEmpty || !store.canEdit)
             }
         }
@@ -119,7 +128,14 @@ struct HabitCreationDialog: View {
     private func labeled<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         HStack { Text(title).font(.system(size: 13, weight: .medium)).frame(width: 90, alignment: .leading); content(); Spacer(minLength: 0) }
     }
-    private func create() {
+    private func save() {
+        if let editingHabit {
+            do {
+                try store.updateIdentity(habitID: editingHabit.id, name: name, icon: icon)
+                dismiss()
+            } catch { self.error = error.localizedDescription }
+            return
+        }
         let goal: HabitGoal
         if goalKind == .amount {
             guard let value = Int(target) else { error = HabitError.invalidGoal.localizedDescription; return }

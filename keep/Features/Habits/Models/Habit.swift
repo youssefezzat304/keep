@@ -124,7 +124,7 @@ struct HabitArchive: Codable, Equatable {
 }
 
 enum HabitError: LocalizedError {
-    case invalidName, duplicateName, invalidDates, invalidGoal, invalidFrequency, unavailable
+    case invalidName, duplicateName, invalidDates, invalidGoal, invalidFrequency, unavailable, missingHabit
     var errorDescription: String? {
         switch self {
         case .invalidName: "Enter a habit name with 1–80 characters."
@@ -133,6 +133,7 @@ enum HabitError: LocalizedError {
         case .invalidGoal: "Choose a positive daily target: up to 1,440 minutes or 10,000 times."
         case .invalidFrequency: "Choose at least one day of the week."
         case .unavailable: "Retry loading your saved habits before making changes."
+        case .missingHabit: "This habit is no longer available. Close the dialog and select another habit."
         }
     }
 }

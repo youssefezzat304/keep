@@ -9,6 +9,7 @@ struct keepApp: App {
     @State private var wallpapers = WallpaperLibrary()
     @State private var tasks: DailyTaskStore
     @State private var habits: HabitStore
+    @State private var loginItem = LoginItemModel()
     init() {
         let habits = HabitStore(persistence: HabitPersistence())
         _habits = State(initialValue: habits)
@@ -22,7 +23,7 @@ struct keepApp: App {
 
     var body: some Scene {
         WindowGroup("Keep", id: "workspace") {
-            AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers)
+            AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers, loginItem: loginItem)
                 .onAppear {
                     connectRuntime()
                 }

@@ -79,15 +79,15 @@ Keep transport controls at the artwork's bottom, provider attribution/switching 
 
 Use native Button, Toggle, text input, Slider, menus, popovers and dialogs for behavior/accessibility. Centralize reused button/input styles in DesignSystem, pass feature actions from the caller, and preserve keyboard operation and visible focus. Comfortable primary targets are generally 36–44 points high. Selected appearance and main actions use terracotta with appropriate contrasting ink; quiet actions use cream/warm neutrals; destructive actions use distinct wording and the danger token.
 
-Settings is a centered column of paper sections, native switches, and warm fields/menu buttons. Glass controls belong under Appearance, with a shared live player preview. Calendar pickers use roomy themed date cells, clear selection, Today indication, muted adjacent dates, and native popover behavior; avoid inconsistent system graphical-picker chrome.
+Settings is a centered column of paper sections, native switches, and warm fields/menu buttons. Startup uses a native Start on login switch with approval/error recovery when needed. Glass controls belong under Appearance, with a shared live player preview. Calendar pickers use roomy themed date cells, clear selection, Today indication, muted adjacent dates, and native popover behavior; avoid inconsistent system graphical-picker chrome.
 
 Dashboard's compact page switch has warm neutral surroundings and a terracotta selection. Calendar uses fine rules, restrained weekend shading, visible weekday headers, and project-colored session blocks with readable task/project/time details. Only real recorded sessions appear; old/manual totals remain in Timesheet without invented timestamps.
 
-Task selection is one flat suggestion list beneath the name/search input, with task/project labels and pin controls; pinned entries come first. Avoid nested suggestion cards or separate recent-activity sections. Keep the working-on card neutral until a control actually receives focus, and show its task as plain text until explicit editing. Do not auto-select text or leave a permanent editor outline.
+Focus task selection is one flat suggestion list beneath the name/search input, with task/project labels and pin controls; pinned entries come first. Avoid nested suggestion cards or separate recent-activity sections in this popover. Keep the working-on card neutral until a control actually receives focus, and show its task as plain text until explicit editing. Do not auto-select text or leave a permanent editor outline.
 
 Only Today's task rows reveal the three circular timer-launch actions on hover or keyboard focus, with accessible equivalents and tooltips. Focus/Flow colors follow their timer surfaces; Both remains fixed neutral across appearance/artwork changes. Reserve action space so text does not shift. Past/future tasks expose no timer launch actions. Completion uses explicit checks as well as color, and struck-through titles remain readable.
 
-The menu bar uses a monochrome leaf and optional stable-width timer text. Its compact paper panel groups timers, today's read-only task list and the selected music provider's controls, with warm neutral actions and visible labels. Bound its height and scroll long content; preserve the main workspace's geometry. The provider name is informational, with no provider switcher in this panel.
+The menu bar uses a monochrome leaf and optional stable-width timer text. Its compact paper panel follows Keep's selected appearance, with default coral Pomodoro, sage Flow and butter break surfaces. Today's tasks use explicit completion checkboxes. Clicking the current task slides the entire control page left to a name/search field, project list and recent tasks with Back; reverse the slide on return and honor Reduce Motion. Keep the same bounded viewport and scroll long lists. The selected provider's name is informational, with playback controls and no provider switcher. Preserve the main workspace's geometry.
 
 ## 8. Habit tracker and data
 
@@ -95,7 +95,7 @@ Habit activity, weekly progress and selected-habit stats share one paper surface
 
 Weekly progress fits its seven day controls, leaving room for stats alongside; stack at narrow widths. Give habits varied existing project accents and metric surfaces quiet sage, blue, honey, and rose. Keep readable accent ink in both appearances. Empty circular check-in controls have visible outlines; completed and partial states use checks, rings or amounts, not color alone.
 
-Creation uses seven selectable weekday dots with letters/selected states, a theme-consistent goal selector, checkbox and shared calendar. Check-in goals toggle; amount goals expose numeric progress. Use the same grouped activity-mode switch treatment as Dashboard.
+Creation uses seven selectable weekday dots with letters/selected states, a theme-consistent goal selector, checkbox and shared calendar. Put Edit at the right of the habit information header; reuse the creation dialog with saved values and only name/icon enabled, visibly disabling the remaining controls. Check-in goals toggle; amount goals expose numeric progress. Use the same grouped activity-mode switch treatment as Dashboard.
 
 Charts use simple bars, lines, dots or rings with directly labeled values/states. Reserve strong emphasis for the main metric and use supporting tokens elsewhere. Add symbols or labels when series colors are ambiguous. Avoid pseudo-3D charts and speculative analytics widgets.
 

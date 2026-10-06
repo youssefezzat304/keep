@@ -6,6 +6,7 @@ struct HabitStatisticsView: View {
     let today: Date
     let onLogAmount: (HabitLogSelection) -> Void
     @Environment(\.self) private var environment
+    @State private var editingHabit: Habit?
     @State private var monthOffset = 0
     private var month: Date { store.calendar.date(byAdding: .month, value: monthOffset, to: today) ?? today }
 
@@ -19,6 +20,12 @@ struct HabitStatisticsView: View {
                         Text(habit.goal.summary + " · " + habit.frequencySummary(calendar: store.calendar))
                             .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
                     }
+                    Spacer(minLength: 8)
+                    Button { editingHabit = habit } label: { Label("Edit", systemImage: "pencil") }
+                        .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+                        .disabled(!store.canEdit)
+                        .accessibilityLabel("Edit \(habit.name)")
+                        .help("Edit habit name and icon")
                 }
                 let stats = store.statistics(for: habit, month: month, today: today)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -52,6 +59,9 @@ struct HabitStatisticsView: View {
                     .font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
             }
         }.frame(maxWidth: .infinity, alignment: .topLeading)
+        .sheet(item: $editingHabit) { habit in
+            HabitCreationDialog(store: store, today: today, habit: habit)
+        }
     }
     private func metric(_ title: String, value: String, suffix: String, symbol: String, accent: FocusProject.Accent, background: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {

@@ -3,7 +3,7 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-06 [CODE] A leaf menu-bar item shares both timers, today's read-only tasks and selected-provider playback/volume. Settings saves visibility and Pomodoro/Flow/icon-only status text. Recording/playback continue after closing workspace windows.
+- 2026-10-07 [CODE] The leaf menu panel shares both timers, today's task/habit checkboxes, selected-provider playback/volume and a sliding project/recent-task/name picker. It follows Keep appearance with default timer colors. Settings saves visibility/status timer choice and offers native Start on login. Habit information supports name/icon editing with all other definition fields locked. Recording/playback continue after closing workspace windows.
 - 2026-10-06 [CODE] Current state: Dashboard contains the saved editable Timesheet, a weekly Calendar with session time editing/deletion, and a Projects catalog with add/delete; mock sessions are removed. Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved sources through AVPlayer and controls Apple Music via the Mac’s Music app with an in-Keep library browser/search, current artwork, seeking/shuffle/repeat; provider and volume persist. Today’s task rows launch Focus, Flow, or both with a shared active title; the task selector remembers project-linked activity and pins. Zen fills native full screen with the selected wallpaper, minimal timer readouts and a small music bar, preserving their runtime state. Settings manages Music Automation access and saves Light/Dark/System appearance, folder/track wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork; the panel/timers take contrast-limited artwork tints. Music has a heart toggle and an animated saved-source drawer; project names/icons share readable project hues. Appearance includes the glass subsection and the same native SwiftUI slider used for music volume. Compact navigation uses icons, scrollbars share thin transparent tracks, and Habit tracker saves goals/progress with weekday frequency, a centered full-year monthly/weekly activity grid, compact weekly check-ins, and selected-habit stats on one surface; due habits also appear in daily Tasks with shared completion.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
@@ -235,7 +235,7 @@ Widen the Working on card and add a Start both button.
 
 2026-10-06 [CODE] The card is 450 points wide with a neutral labeled launch button beside the target details. It commits the draft, starts/resumes both timers for the current project/task (including unnamed targets), preserves running progress and Flow recording priority, and exits breaks into focus without clearing cycle progress. Breaks show Start focus + flow; running focus plus Flow disables the action. The Flow leaf and individual controls are unchanged. No shortcut was added.
 
-### D039 ACTIVE — 2026-10-06 [USER]
+### D039 PARTIALLY SUPERSEDED BY D042 — 2026-10-06 [USER]
 
 Add a leaf menu-bar item with controls for both timers, today's tasks and the music player. Do not allow provider switching there. Add Settings for menu-bar behavior and selecting Pomodoro or Flow in its label.
 
@@ -248,6 +248,18 @@ Add a leaf menu-bar item with controls for both timers, today's tasks and the mu
 Fix the menu-bar panel collapsing on click and replace the formal editorial font with a lighter, friendly font inspired by the supplied rounded sans-serif reference.
 
 2026-10-06 [CODE] The native menu panel has a concrete 380 × 600 scroll viewport. The previous ViewThatFits/flexible-height scroll fallback accepted zero-height native proposals; native hosting measurement reproduced 0–1-point heights. Shared KeepTheme.headingFont replaces serif headings, the wordmark and static statistics with native rounded regular/medium type while preserving sizes, colors and workspace geometry.
+
+### D041 ACTIVE — 2026-10-06 [USER]
+
+Make the menu panel follow Keep's dark-mode choice and use the app's default timer colors. Add Start on login in Settings. Put Edit on the right of habit information, opening the original creation dialog with only name and icon editable.
+
+2026-10-07 [CODE] The shared appearance modifier resolves both presentation and content scheme; menu rows reuse default coral/sage/butter tokens. App-owned LoginItemModel uses SMAppService.mainApp, with macOS status as the source of truth, explicit registration/removal, pending approval/error recovery and visible/active refresh. HabitStore.updateIdentity validates and saves name/icon while preserving ID, dates, goal, weekdays and logs; the original dialog shows saved values with other fields disabled. No archive schema, helper or entitlement changes.
+
+### D042 ACTIVE — 2026-10-07 [USER]
+
+Allow project/recent-task selection and task naming from the menu bar. Clicking the current task slides the entire control page left to a picker with Back. Allow checking and unchecking tasks there.
+
+2026-10-07 [CODE] MenuBarTargetPicker searches project/task names and retains pin-first recent ordering. A panel-local FocusTaskEditor commits names through WorkspaceModel; project/recent selections settle recording without autoplay. Back/Escape/dismissal cancels drafts. Both pages share the fixed viewport, with inactive input/accessibility excluded and Reduce Motion respected. Native task toggles use the shared DailyTaskStore/HabitStore and revalidate stable origin/actual day before completion. D039's read-only task list is superseded; provider controls and shared owners are preserved.
 
 ## [PROGRESS]
 
@@ -305,6 +317,10 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep.xcodeproj/project.pbxproj`
 
 ## [RECEIPTS]
+
+- 2026-10-07 [TOOL] Menu picker/completion: unsigned Debug build, 17 menu preference/display/native-sizing, 24 task-activity, 68 daily-task, 47 habit/task and 83 session-recording checks passed. Isolated native panel verified task-title navigation, project filtering/selection, recent-task/project restoration, Return to commit, Escape/Back to cancel, ordinary/habit checks and unchecks, unchanged idle timers, and inactive-page accessibility exclusion. Light/Dark and long-title/no-match picker renders inspected. Actual status-item click, full VoiceOver and release signing remain unverified. No user archives, real audio or networking were used.
+
+- 2026-10-07 [TOOL] Appearance/startup/habit edit: unsigned Debug build; 13 appearance, 15 fake-service login-item, 17 habit-identity, 130 habit and 47 habit/task checks passed (plus the 17 menu sizing checks above). Inspected menu Light/Dark/System under opposing native appearances, default timer/break colors, and default 1000 × 900 / narrow 680 × 650 Habits/Settings. Isolated live habit dialog verified locked goal/schedule/date fields and saved name/icon changes. Login tests never registered the real app; signed-app registration and launch after login remain unverified. No user archives or real audio/network playback were used.
 
 - 2026-10-06 [TOOL] Menu panel/font fix: unsigned Debug build and 17 menu preference/display/native-sizing checks passed. A comparison host reproduced the previous layout accepting 0–1-point height proposals; the fixed host reports a usable 600-point viewport. Inspected native Light/Dark default 1000×900 and minimum 680×650 Focus, Dashboard, Habits, Settings and panel screenshots. Isolated live panel hosting verified scrolling to music/volume/Quit. Actual status-item click remains unverified because the UI tool did not expose the status item; the native-button test action did not open it. No user archives, real audio or network playback were used. Full keyboard/VoiceOver and release signing remain unverified.
 

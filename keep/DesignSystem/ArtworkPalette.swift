@@ -20,10 +20,14 @@ extension EnvironmentValues {
 }
 
 extension KeepTheme {
+    static func defaultTimerSurface(mode: FocusTimer.Mode, isBreak: Bool = false) -> Color {
+        isBreak ? highlight : mode == .pomodoro ? accent : sage
+    }
+
     static func timerSurface(mode: FocusTimer.Mode, isBreak: Bool = false, environment: EnvironmentValues) -> Color {
         let palette = environment.artworkPalette
         let tint = isBreak ? palette?.ambient : mode == .pomodoro ? palette?.primary : palette?.secondary
-        return artworkSurface(isBreak ? highlight : mode == .pomodoro ? accent : sage,
+        return artworkSurface(defaultTimerSurface(mode: mode, isBreak: isBreak),
             tint: tint?.color, amount: environment.colorScheme == .dark ? 0.24 : 0.32, environment: environment)
     }
 

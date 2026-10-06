@@ -75,6 +75,19 @@ private struct AppearanceRoot: View {
         preferences.appearance = .system
         try await settle()
         expect(readings.allSatisfy { $0.scheme == .dark }, "Repeated Light to System transitions remain correct")
+        // A MenuBarExtra host can impose its own color scheme even when it
+        // ignores preferredColorScheme. Keep's explicit choice must win inside it.
+        let imposedReading = AppearanceReading()
+        let imposedWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: .borderless, backing: .buffered, defer: false)
+        imposedWindow.isReleasedWhenClosed = false
+        defer { imposedWindow.close() }
+        for (choice, imposed, expected) in [(AppAppearance.light, ColorScheme.dark, ColorScheme.light), (.dark, .light, .dark), (.system, .light, .dark)] {
+            preferences.appearance = choice
+            imposedWindow.contentView = NSHostingView(rootView: AppearanceRoot(preferences: preferences, reading: imposedReading).environment(\.colorScheme, imposed))
+            imposedWindow.contentView?.layoutSubtreeIfNeeded()
+            try await settle()
+            expect(imposedReading.scheme == expected, "Keep choice overrides a conflicting native panel environment")
+        }
         print("Passed \(checks) native appearance checks")
     }
 }

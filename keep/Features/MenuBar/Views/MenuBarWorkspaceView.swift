@@ -7,15 +7,35 @@ struct MenuBarWorkspaceView: View {
     let tasks: DailyTaskStore
     let preferences: AppPreferences
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var page = Page.controls
+    @State private var editor = FocusTaskEditor()
+
+    private enum Page { case controls, target }
 
     var body: some View {
         // MenuBarExtra measures its content before opening. A flexible-height
         // scroll fallback can report zero height and collapse the native panel.
-        KeepScrollView { panelContent }
-            .frame(width: 380, height: 600)
+        HStack(spacing: 0) {
+            KeepScrollView { panelContent }
+                .frame(width: 380, height: 600)
+                .disabled(page != .controls)
+                .accessibilityHidden(page != .controls)
+            MenuBarTargetPicker(editor: editor, workspace: workspace, isVisible: page == .target,
+                                onBack: cancelSelection, onSubmit: submitName,
+                                onSelectProject: selectProject, onSelectTask: selectTask)
+                .frame(width: 380, height: 600)
+                .disabled(page != .target)
+                .accessibilityHidden(page != .target)
+        }
+            .offset(x: page == .target ? -380 : 0)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: page)
+            .frame(width: 380, height: 600, alignment: .leading)
+            .clipped()
             .background(KeepTheme.paper)
             .foregroundStyle(KeepTheme.ink).tint(KeepTheme.accentStrong)
             .keepAppearance(preferences.appearance)
+            .onDisappear { editor.cancel(); page = .controls }
     }
 
     private var panelContent: some View {
@@ -25,12 +45,25 @@ struct MenuBarWorkspaceView: View {
                 Spacer()
                 Button("Open Keep") { showWorkspace() }.buttonStyle(KeepButtonStyle(emphasis: .quiet))
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(workspace.selectedProject?.name ?? "No project")
-                    .font(.system(size: 11, weight: .medium)).foregroundStyle(KeepTheme.mutedInk)
-                Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
-                    .font(.system(size: 14, weight: .medium)).lineLimit(2)
+            Button {
+                editor.begin(in: workspace)
+                page = .target
+            } label: {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(workspace.selectedProject?.name ?? "No project")
+                            .font(.system(size: 11, weight: .medium)).foregroundStyle(KeepTheme.mutedInk)
+                        Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
+                            .font(.system(size: 14, weight: .medium)).lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.system(size: 11))
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+            .accessibilityLabel("Choose project or task")
+            .accessibilityValue(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
+            .disabled(!workspace.canTrack)
 
             timerControls
             rule
@@ -105,7 +138,8 @@ struct MenuBarWorkspaceView: View {
             .disabled(!workspace.canTrack || timer.phase(at: instant) == .idle)
         }
         .padding(10)
-        .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: 12))
+        .background(KeepTheme.defaultTimerSurface(mode: timer.mode, isBreak: timer.interval == .rest),
+                    in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var todayTasks: some View {
@@ -126,19 +160,17 @@ struct MenuBarWorkspaceView: View {
                 KeepScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(rows, id: \.listID) { task in
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(task.isComplete ? KeepTheme.sageInk : KeepTheme.secondaryInk)
-                                    .accessibilityHidden(true)
+                            Toggle(isOn: completionBinding(for: task, on: day)) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(task.title).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
                                         .strikethrough(task.isComplete)
                                     if task.habitID != nil { Text("Habit").font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk) }
                                 }
                             }
-                            .accessibilityElement(children: .ignore)
+                            .toggleStyle(KeepCheckboxStyle())
+                            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
                             .accessibilityLabel(task.habitID == nil ? task.title : "Habit: \(task.title)")
-                            .accessibilityValue(task.isComplete ? "Complete" : "Incomplete")
+                            .disabled(!tasks.canComplete(task, on: day, today: workspace.today))
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2)
                 }
@@ -197,6 +229,41 @@ struct MenuBarWorkspaceView: View {
     }
 
     private var rule: some View { Divider().overlay(KeepTheme.border).allowsHitTesting(false) }
+
+    private func completionBinding(for task: FocusTask, on day: String) -> Binding<Bool> {
+        Binding(get: {
+            tasks.tasks(on: day).first { $0.listID == task.listID }?.isComplete ?? false
+        }, set: { complete in
+            let today = Date.now
+            guard day == TaskDay.id(for: today, calendar: tasks.calendar),
+                  let current = tasks.tasks(on: day).first(where: { $0.listID == task.listID }),
+                  tasks.canComplete(current, on: day, today: today) else { return }
+            tasks.setComplete(complete, taskID: current.id, on: day, habitID: current.habitID, today: today)
+        })
+    }
+
+    private func cancelSelection() {
+        editor.cancel()
+        page = .controls
+    }
+
+    private func submitName() {
+        guard workspace.canTrack else { return }
+        editor.commit(to: workspace)
+        page = .controls
+    }
+
+    private func selectProject(_ project: FocusProject?) {
+        guard workspace.canTrack else { return }
+        workspace.selectProject(project)
+        cancelSelection()
+    }
+
+    private func selectTask(_ task: TaskActivity) {
+        guard workspace.canTrack else { return }
+        workspace.selectTask(task)
+        cancelSelection()
+    }
 
     private func showWorkspace() {
         NSApplication.shared.activate()

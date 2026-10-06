@@ -90,6 +90,20 @@ struct HabitStatistics {
         return habit
     }
 
+    /// Only identity is editable; never replace saved scheduling or progress with a sheet's draft.
+    func updateIdentity(habitID: UUID, name: String, icon: HabitIcon) throws {
+        guard canEdit else { throw HabitError.unavailable }
+        guard let index = archive.habits.firstIndex(where: { $0.id == habitID }) else { throw HabitError.missingHabit }
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= 80 else { throw HabitError.invalidName }
+        guard !habits.contains(where: { $0.id != habitID && $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) else { throw HabitError.duplicateName }
+        let saved = archive.habits[index]
+        archive.habits[index] = Habit(id: saved.id, name: name, icon: icon, startDay: saved.startDay,
+                                     endDay: saved.endDay, goal: saved.goal, weekdays: saved.weekdays)
+        activityCache = nil
+        save()
+    }
+
     func amount(for habit: Habit, on dayID: String) -> Int { progressByHabit[habit.id]?[dayID] ?? 0 }
     func isComplete(_ habit: Habit, on dayID: String) -> Bool { amount(for: habit, on: dayID) >= habit.goal.target && habit.isScheduled(on: dayID) }
     func completed(on dayID: String) -> Int { habits.filter { isComplete($0, on: dayID) }.count }

@@ -1,10 +1,12 @@
 import SwiftUI
+import ServiceManagement
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Bindable var preferences: AppPreferences
     @Bindable var player: MusicPlayerModel
     var wallpapers: WallpaperLibrary
+    var loginItem = LoginItemModel()
     var isVisible = true
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFolder = false
@@ -33,6 +35,24 @@ struct SettingsView: View {
             }
 
             musicPermissions
+
+            section("Startup", symbol: "power") {
+                Toggle("Start on login", isOn: Binding(get: { loginItem.isEnabled }, set: { enabled in
+                    Task { await loginItem.setEnabled(enabled) }
+                }))
+                .toggleStyle(.switch).controlSize(.small).font(.system(size: 13))
+                .disabled(loginItem.isChanging)
+                helper("Open Keep when you log in to your Mac.")
+                if loginItem.status == .requiresApproval {
+                    helper("Allow Keep in System Settings → General → Login Items to finish enabling this.")
+                } else if loginItem.status == .notFound {
+                    helper("Keep couldn’t be found. Move the app to Applications and try again.")
+                }
+                if let error = loginItem.errorMessage { helper(error) }
+                if loginItem.status == .requiresApproval || loginItem.errorMessage != nil {
+                    Button("Open Login Items…") { loginItem.openSettings() }
+                }
+            }
 
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {
@@ -181,10 +201,10 @@ struct SettingsView: View {
         }
         .onDisappear { channelRequest?.cancel() }
         .task(id: isVisible) {
-            if isVisible { await player.checkAppleMusicAccess() }
+            if isVisible { loginItem.refresh(); await player.checkAppleMusicAccess() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if isVisible, phase == .active { Task { await player.checkAppleMusicAccess() } }
+            if isVisible, phase == .active { loginItem.refresh(); Task { await player.checkAppleMusicAccess() } }
         }
     }
 
