@@ -160,6 +160,12 @@ Add a Projects tab beside Timesheet and Calendar, with project addition and dele
 
 2026-10-06 [CODE] Projects uses existing project colors, alphabetical rows, shared creation dialog, and a native deletion confirmation. Deletion persists catalog tombstones while retaining recorded Timesheet/Calendar history. Deleting the selected project settles prior time and selects No project; independent timers keep their phases and future recording is unassigned. An unused created project persists without adding time or changing selection. All built-in projects may be deleted and remain removed after relaunch; No project is reserved for recording and is not a deletable catalog entry. The optional v1 field supports legacy archives; invalid IDs block loading/edits. Week browsing survives page switching; Projects hides week controls.
 
+### D027 ACTIVE — 2026-10-06 [USER]
+
+Fix System appearance following macOS only in the title bar while app content stays Light.
+
+2026-10-06 [CODE] A small observable native application-appearance adapter resolves System independently of window preferences and observes `effectiveAppearance` changes. The shared appearance modifier supplies an explicit SwiftUI preference at the shell and Music sheet, replacing nil-preference clearing. Explicit Light/Dark, default Light, saved preferences, view identity, drafts, and playback remain unchanged.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -262,3 +268,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-06 [TOOL] Transient-loading refinement: unsigned Debug build and 62 silent music/preferences/library/artwork checks passed; `git diff --check` passed. Added checks that brief startup/read failures never flash Failed, pending native playback preserves loading/Play intent, persistent failures leave the grace window, and permission denial remains immediate. Offscreen dark card/dialog screenshots show native spinners with retained metadata and no Retry banner during recovery. No live UI control or real audio was used. MusicKit capabilities were verified against the installed SDK and Apple documentation; no MusicKit integration or Developer-account changes were made.
 
 - 2026-10-06 [TOOL] Projects unsigned Debug build, 28 project-catalog checks, 48 session-recording checks, and `git diff --check` passed. Native offscreen Light/Dark, long-name, empty-catalog, and three-tab layouts inspected at default/minimum shell allocations. Add/delete persist, recorded history survives deletion/Undo, and running/paused/break timer semantics remain intact. Live sheet/confirmation, scrolling, keyboard, and VoiceOver remain unverified; no user archives or audio were used.
+
+- 2026-10-06 [TOOL] System appearance unsigned Debug build, 10 native offscreen appearance checks, and `git diff --check` passed. A comparison harness using the previous nil-preference behavior failed the Light → System, Dark → System, and repeated-transition checks. Checks cover Light/Dark overrides, Light → System and Dark → System, later native appearance changes, repeated transitions, and two windows sharing preferences. Persistent-window Settings screenshots inspected explicit Light and System Light/Dark at 1000 × 900 and System Dark at 680 × 650. Native changes were simulated through the isolated harness process’s application appearance; macOS settings, live user archives, and audio were untouched. Actual macOS automatic scheduled switching and live sheet/keyboard/VoiceOver interaction remain unverified.

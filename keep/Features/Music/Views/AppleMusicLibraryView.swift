@@ -84,7 +84,7 @@ struct AppleMusicLibraryView: View {
         .padding(24).frame(width: min(620, viewport.width - 48), height: min(720, viewport.height - 64))
         .foregroundStyle(KeepTheme.ink).background(KeepTheme.paper)
         .buttonStyle(KeepButtonStyle())
-        .preferredColorScheme(preferences.appearance.colorScheme)
+        .keepAppearance(preferences.appearance)
         .task { await player.observeAppleMusic() }
         .task(id: loadKey) {
             do {

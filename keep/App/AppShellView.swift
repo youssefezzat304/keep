@@ -100,7 +100,7 @@ struct AppShellView: View {
         .environment(\.artworkPalette, wallpapers.palette(for: preferences.wallpaperSource))
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
-        .preferredColorScheme(preferences.appearance.colorScheme)
+        .keepAppearance(preferences.appearance)
         .onChange(of: preferences.snapshot.wallpaperConfiguration, initial: true) { _, configuration in
             wallpapers.configure(configuration, preferences: preferences)
         }
