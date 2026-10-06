@@ -185,6 +185,8 @@ Reserve terracotta for the main metric and use sage, butter yellow, or mist blue
 
 Avoid pseudo-3D charts, gradient fills, excessive decoration, and speculative analytics widgets.
 
+Habit tracker uses one paper surface with faded horizontal/vertical separators. Center the full current-year activity grid; use small 6–11-point squares, 3-point gaps, and month labels beneath Monday-first week columns. Monthly daily intensity uses fern; stacked weekly totals use periwinkle. Keep future dates subdued and expose exact counts in tooltips/accessibility labels. Weekly progress fits its seven day controls in 480 points, leaving room for the stats (up to 560 points) beside it; stack stats below at narrow widths. Give habit icons and their rows distinct existing project accents, and vary the small metric backgrounds with sage, blue, honey, and rose. Use readable accent ink in both appearances. Circular completion controls retain checkmarks and partial rings/amounts so progress never relies on color alone. The creation sheet uses seven selectable weekday dots, with letters and selected checkmarks. Reuse semantic light/dark tokens and native controls.
+
 ## 15. Icons and illustrations
 
 Below 900 points of window width, navigation displays icons only while retaining accessible names and tooltips. Use the shared thin overlay scrollbars throughout the app: rounded 5-point thumbs with transparent tracks and native scrolling behavior.

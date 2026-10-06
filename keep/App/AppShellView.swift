@@ -11,15 +11,17 @@ struct AppShellView: View {
     @State private var workspace: WorkspaceModel
     @State private var music: MusicPlayerModel
     @State private var tasks: DailyTaskStore
+    @State private var habits: HabitStore
     @State private var preferences: AppPreferences
     @State private var wallpapers: WallpaperLibrary
     @State private var selectedTab: WorkspaceTab
     @Environment(\.self) private var environment
 
-    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore = DailyTaskStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary()) {
+    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore = DailyTaskStore(), habits: HabitStore = HabitStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary()) {
         _workspace = State(initialValue: workspace)
         _music = State(initialValue: music)
         _tasks = State(initialValue: tasks)
+        _habits = State(initialValue: habits)
         _preferences = State(initialValue: preferences)
         _wallpapers = State(initialValue: wallpapers)
         _selectedTab = State(initialValue: initialTab)
@@ -65,7 +67,7 @@ struct AppShellView: View {
                         .allowsHitTesting(selectedTab == .dashboard)
                         .accessibilityHidden(selectedTab != .dashboard)
 
-                    HabitTrackerView()
+                    HabitTrackerView(store: habits, today: workspace.today)
                         .opacity(selectedTab == .habits ? 1 : 0)
                         .allowsHitTesting(selectedTab == .habits)
                         .accessibilityHidden(selectedTab != .habits)

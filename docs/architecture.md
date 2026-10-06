@@ -4,12 +4,12 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-The application has one native application target, with implemented timers, local records, tasks, and music; Stats and Habit tracker remain placeholders. Timers record project time into an editable, locally saved Timesheet inside Dashboard. Dashboard also displays actual recorded focus/Flow intervals in its weekly Calendar; old or manually edited daily totals remain in Timesheet without invented timestamps. Timers, projects, saved daily tasks, and music are shared across the app’s windows; committed task text is app-shared runtime state, while task-day selection, input drafts, and the task-selection popover editor remain window-local. Settings saves appearance, music wallpaper/material preferences, and Audius artist/playlist channels. Music streams public Audius tracks through native AVPlayer and controls Apple Music through the Mac’s Music app; provider and volume preferences persist locally.
+The application has one native application target, with implemented timers, local records, daily tasks, habits, and music; the separate Stats destination remains disabled. Timers record project time into an editable, locally saved Timesheet inside Dashboard. Dashboard also displays actual recorded focus/Flow intervals in its weekly Calendar; old or manually edited daily totals remain in Timesheet without invented timestamps. Timers, projects, saved daily tasks, habits, and music are shared across the app’s windows; committed task text is app-shared runtime state, while task-day selection, input drafts, and the task-selection popover editor remain window-local. Settings saves appearance, music wallpaper/material preferences, and Audius artist/playlist channels. Music streams public Audius tracks through native AVPlayer and controls Apple Music through the Mac’s Music app; provider and volume preferences persist locally.
 
 | Area | Implemented today | Not implemented |
 | --- | --- | --- |
 | App window | `WindowGroup`; 1000 × 900 default size; 680 × 650 minimum content frame; fixed panel with scrollable tabs; one shared workspace model | Restoring timer runtime or unfinished task input across launches |
-| Navigation | Selectable Focus, Dashboard, Habit tracker placeholder, and Settings; icon-only navigation below 900 points; disabled Stats | Statistics destination |
+| Navigation | Selectable Focus, Dashboard, Habit tracker, and Settings; icon-only navigation below 900 points; disabled Stats | Statistics destination |
 | Dashboard | Timesheet / Calendar / Projects switch; shared week navigation for time views; project creation/deletion; editable saved Timesheet; weekly Calendar with saved timer sessions, actual day totals, zoom, and live read-only details | Calendar editing, list/month views, sync |
 | Active target | Searchable shared project catalog; creation dialog with name and 30 colors; local saving; selection drives recording; task-selection/name popover with saved project-linked suggestions and pins, captured in sessions | Project renaming and task-level aggregate editing |
 | Pomodoro | Settings popover for focus/short/long breaks and iterations; saved preferences; manual short/long breaks; independent controls; focus-only recording | Automatic interval starts, notifications |
@@ -17,7 +17,7 @@ The application has one native application target, with implemented timers, loca
 | Music | Audius streaming and native Music-app control; in-Keep Music library songs/playlists/search, current cover art, seek/shuffle/repeat, transport, saved volume, loading/Retry, and Audius favorites | Full Apple Music catalog/recommendations, library writes, offline downloading, restoring queue/playback, zen mode |
 | Tasks | Saved per-day lists; previous/next, date picker, Today; completion/add/delete, hover/keyboard Focus/Flow/both launch actions, and internal scrolling | Reordering, recurrence, project association |
 | Settings | Music Automation permission status/request/recovery, saved Light/Dark/System appearance with glass subsection, wallpaper folder/rotation/looping, artist/playlist links | Sync, wallpaper subfolders |
-| Habit tracker | Selectable empty-state destination beside Dashboard | Habit creation, completion, history, and persistence |
+| Habit tracker | Saved check-ins and minutes/times targets with weekday frequency; name/icon/date-range creation sheet; full-year monthly/weekly activity; weekly progress; selected-habit totals/rate/streak/calendar | Editing/deleting definitions, other recurrence rules, reminders, timer integration, sync |
 | Design system | Semantic light/dark assets, artwork-tinted shell/timers, readable project accents, reusable controls | Additional themes |
 
 Both timers may run at the same time, with independent controls. Flow overrides Pomodoro for recording; overlapping time is counted once. Recorded sessions, project/day totals, and manual edits survive relaunch; timers restart idle. Daily task lists and completion states survive relaunch; current task text and unfinished input are runtime-only, while task names captured in sessions are saved. The live task store starts empty; examples appear only in previews.
@@ -33,7 +33,7 @@ docs/
 keep.xcodeproj/                     Xcode project and application target
 keep/
   App/
-    KeepApp.swift                  @main entry point, shared workspace/music/tasks/preferences/wallpapers, WindowGroup
+    KeepApp.swift                  @main entry point, shared workspace/music/tasks/habits/preferences/wallpapers, WindowGroup
     WorkspaceApplicationDelegate.swift  Recording flush, music/wallpaper cleanup on termination
     AppShellView.swift             Navigation and focus-workspace composition
     ArtworkBackdrop.swift          Blurred shared music artwork behind the fixed panel
@@ -72,13 +72,15 @@ keep/
       Views/                       Shared week/page controls, weekly calendar, and project catalog UI
       Models/                      RecordedSession timestamps, task/project/source and recorded civil timezone
     Habits/
-      Views/                       HabitTrackerView placeholder; no tracking logic
+      Models/                      Habit/goal/log archive, HabitStore/persistence, civil-date grids and labels
+      Views/                       Activity grid, weekly progress, habit stats/calendar, creation/amount sheets
     Timesheet/
       Models/                      TimesheetLedger, calendar/duration helpers, local persistence
       PreviewData/                 Numeric fixtures used only by previews
       Views/                       Timesheet content and seven-day table; week supplied by Dashboard
   Assets.xcassets/                  Semantic light/dark colors, CozyCorner artwork, and AppIcon
   keep.entitlements                App-scoped read-only wallpaper bookmarks and scoped Music playback/read-only library automation
+tests/HabitChecks.swift             Habit goals/weekday schedules, annual grids, aggregation/streaks, protected loads and relaunch persistence
 tests/DailyTaskChecks.swift         Daily navigation, task isolation, and local persistence checks
 tests/SessionRecordingChecks.swift  Timer sessions, task launches, overlap/breaks, archives, removal/Undo
 tests/TaskActivityChecks.swift      Task/project suggestions, pins, recording, and archive checks
@@ -104,7 +106,10 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
         │   │   └── TimesheetTable → TimesheetTimeCell → TimesheetEntryEditor
         │   ├── DashboardCalendarView → actual session hour grid + recorded detail sheet
         │   └── DashboardProjectsView → project catalog + shared creation sheet + deletion confirmation
-        ├── HabitTrackerView (placeholder)
+        ├── HabitTrackerView (own KeepScrollView) → app-owned HabitStore
+        │   ├── HabitActivityGrid → centered current-year daily intensity / stacked weekly totals
+        │   ├── HabitWeekProgress + HabitStatisticsView → manual daily progress
+        │   └── HabitCreationDialog / HabitAmountDialog sheets
         └── KeepScrollView → FocusSessionView
             ├── ActiveTargetHeader
             │   └── ProjectPicker → WorkspaceModel.projects; ProjectCreationDialog sheet
@@ -118,7 +123,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 
 `TimerWorkspaceCard` selects a horizontal or vertical arrangement of the two panels. Each panel passes a timer snapshot and caller-owned actions to `FocusTimerCard`. All actions go through `WorkspaceModel`. `FocusSessionView` owns a window-local `FocusTaskEditor` shared with its header and timer actions; committed task text lives in the workspace. `FocusSessionView` reads shared projects/timers and composes the music and daily-task feature views.
 
-`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Dashboard/Habit tracker/Settings action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab remains mounted in the same fixed viewport; inactive content is invisible and hidden from hit testing and accessibility. Focus and Settings own vertical scroll views; Dashboard owns its three viewports. This preserves drafts and scroll positions without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
+`AppShellView` owns `WorkspaceTab` selection and supplies Focus/Dashboard/Habit tracker/Settings action closures to `NavBar`. Navigation stays outside the scrolling content. Each tab remains mounted in the same fixed viewport; inactive content is invisible and hidden from hit testing and accessibility. Focus, Habit tracker, and Settings own vertical scroll views; Dashboard owns its three viewports. This preserves drafts and scroll positions without changing the panel size. Shared `PrimaryButton` receives its action from the caller.
 
 ## 4. Responsibility and dependency boundaries
 
@@ -127,6 +132,7 @@ keepApp → WorkspaceModel → FocusTimer + TimesheetLedger + TimesheetPersisten
 | `App` | Launch, shared model assembly, window composition, tab selection, and termination flush | Feature timing calculations and provider-specific logic |
 | `Features/FocusSession` | Focus UI and session-specific state, actions, and rules | Generic styles and unrelated feature behavior |
 | `Models` | Shared project metadata and coordination of timer recording with the ledger | View layout and provider integrations |
+| `Features/Habits` | Daily habit definitions/logs, local persistence, completion/streak calculations, activity/progress UI | Timer recording, task lists, music, reminders, and sync |
 | `Features/Tasks` | Per-day tasks, civil-date navigation, local persistence, task-card UI | Timer recording, music state, and project assignment |
 | `Features/Music` | Audius discovery/channels/artwork, stream resolution, AVPlayer lifecycle, read-only wallpaper loading/rotation, and card UI | Timer recording, archive ownership, credentials, and provider writes |
 | `Features/Settings` | App-owned appearance/music preferences, validated archive, Settings UI | Timer/task archives, audio runtime, and image decoding |
@@ -221,6 +227,19 @@ Settings and wallpaper ownership:
 
 Project management, further music providers, and notifications remain scoped future work. See `docs/decisions.md`.
 
+### Habits
+
+`KeepApp` owns one main-actor observable `HabitStore` shared across windows, independently of workspace recording, daily tasks, and music. `HabitPersistence` validates and saves the complete `HabitArchive` in UserDefaults under `keep.habits.v1` after each mutation. Definitions persist before their first log. Stable UUIDs identify habits; logs are unique by habit/day. The archive rejects invalid goals/date ranges/frequencies, duplicate identities/logs, orphan or rest-day logs, and invalid amounts. A failed load preserves the saved bytes and blocks changes until Retry succeeds; failed saves retain in-memory changes and offer Retry. Live storage starts empty; verification fixtures are in-memory only.
+
+A habit has a trimmed 1–80-character name, one of twelve named SF Symbols, a start date, optional inclusive end date, and a goal: **Daily check-in** (0/1) or **Daily target** (positive minutes/times per day). Seven selectable weekday circles set the frequency; all days are selected initially, at least one is required, and older archives without weekdays remain daily. Targets allow 1–1,440 minutes or 1–10,000 times. An amount log stores a nonnegative integer up to 1,000,000; zero removes the log, a partial amount does not count complete, and meeting/exceeding the goal counts the habit once on that day. Editing progress is manual and allowed only on scheduled dates through today. Nothing starts a timer or automatically imports timer/task completions.
+
+Habit dates reuse `TaskDay`'s Gregorian civil keys, with the local calendar/timezone and Monday-first weeks. Calendar arithmetic handles DST, leap days, and month/year boundaries. Saved keys stay on their original civil day after a timezone change. Formatting uses the same calendar/timezone as the keys. Browsed week/day, activity mode, selected habit, stats month, and sheet drafts are window-local; following Today updates across midnight through the existing workspace display refresh. No second ticker or recorder is introduced.
+
+The activity view centers January through December of the current year in Monday-first week columns. Monthly mode shows daily tiles with five completed-habit intensity levels (0, 1, 2, 3, 4+); Weekly mode shows seven-tile bars scaled to the busiest week, with exact totals in tooltips/accessibility labels. Squares fit the viewport at 6–11 points with 3-point gaps; adjacent-year dates are hidden and future dates disabled. Choosing a past/current tile navigates the weekly progress list. Activity, progress, and stats share one paper surface separated by faded lines. The weekly list fits its seven day columns at 480 points; selected-habit stats and an interactive month calendar use the space on the right (up to 560 points) at viewport widths of at least 900 points, and stack below at smaller widths. Icon-derived accents, green/purple activity modes, and varied pastel metrics reuse existing semantic/project colors with readable ink. Check-ins toggle directly; amount goals open a numeric sheet with a target shortcut and zero-to-clear. The fixed shell viewport scrolls vertically.
+
+Stats derive from the saved logs, with no stored totals. A runtime habit/day query index is rebuilt on loading and updated with log changes so every visible cell does not rescan the complete history; the index is not persisted. Month completion rate uses scheduled days through today, excluding future days and dates outside the habit range. Lifetime totals count completed days, including previous months. Current/best streaks count consecutive scheduled check-ins, skipping rest days. While today is a rest day or its goal is pending, current streak can end at the latest previous scheduled date; a missed due day breaks it. After the habit end date, current streak is zero while best streak retains history. Weekday matching uses the Gregorian civil key rather than a timezone-dependent instant. The stats calendar can correct prior daily progress; its month totals/rate follow the browsed month while current/best streaks remain as of today. Definition editing/deletion, reminders, recurrence rules beyond weekday selection, and sync remain outside this implementation.
+
+
 ## 6. Visual implementation and layout constraints
 
 `docs/style.md` owns the cozy editorial palette. Named color assets are the source of truth; `KeepTheme` provides shared semantic references. Light uses the original cozy palette; Dark uses espresso/brown surfaces and cream ink. Settings selects Light, Dark, or System through the root color-scheme preference.
@@ -233,7 +252,7 @@ Layout and accessibility behavior:
 
 - Default window size is 1000 × 900; the root view has a 680 × 650 minimum frame.
 - The panel fills the usable window content area with equal 16-point margins on all four sides and 24-point inner padding. Its size depends on the window, not the selected tab or content height. Navigation stays at the top; longer tab content scrolls inside the panel. There is no fixed maximum panel width.
-- Navigation switches to icons only below 900 points, preserving accessible labels, tooltips, and actual selected/focus states. Habit tracker is a selectable placeholder beside Dashboard; no tracking model exists.
+- Navigation switches to icons only below 900 points, preserving accessible labels, tooltips, and actual selected/focus states. Habit tracker is selectable beside Dashboard and uses its own saved daily habit model.
 - Every scrolling surface uses `KeepScrollView`, which configures the enclosing native scroll view for overlay scrollbars and draws rounded 5-point thumbs with transparent tracks. Native scrolling, tracking, and fade behavior remain; no system scrollbar preferences are changed.
 - Below 820 points of window width, timer and supporting card pairs stack vertically.
 - The Timesheet table keeps a minimum width of 900 points and scrolls horizontally on narrow windows, preserving readable seven-day columns, totals, and the trailing remove button. Dashboard’s shared heading and week/view toolbar can stack using `ViewThatFits`. The Calendar likewise preserves a 900-point minimum grid width and uses both horizontal and vertical scrolling.
@@ -294,6 +313,16 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-daily-task-checks
 ```
 
+Run the habit checks:
+
+```sh
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Features/Tasks/Models/TaskDay.swift \
+  keep/Features/Habits/Models/*.swift tests/HabitChecks.swift \
+  -o /tmp/keep-habit-checks
+/tmp/keep-habit-checks
+```
+
 Run the session-recording checks:
 
 ```sh
@@ -330,7 +359,7 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
 /tmp/keep-music-preferences-checks
 ```
 
-`tests/DailyTaskChecks.swift`, `tests/SessionRecordingChecks.swift`, `tests/ProjectCatalogChecks.swift`, `tests/TaskActivityChecks.swift`, `tests/AppearanceChecks.swift`, and `tests/MusicPreferencesChecks.swift` are the checked-in standalone check sources. Earlier timer/workspace/music/preferences harness sources were removed from the repository; the new music/preferences source above is separate from those historical harnesses; the verification receipts below describe earlier runs and do not imply those commands are available today. Reinspect the current tree before choosing checks for a change.
+`tests/HabitChecks.swift`, `tests/DailyTaskChecks.swift`, `tests/SessionRecordingChecks.swift`, `tests/ProjectCatalogChecks.swift`, `tests/TaskActivityChecks.swift`, `tests/AppearanceChecks.swift`, and `tests/MusicPreferencesChecks.swift` are the checked-in standalone check sources. Earlier timer/workspace/music/preferences harness sources were removed from the repository; the new music/preferences source above is separate from those historical harnesses; the verification receipts below describe earlier runs and do not imply those commands are available today. Reinspect the current tree before choosing checks for a change.
 
 On 2026-10-05, the unsigned Debug build, 45 timing checks, and 180 workspace checks passed. Checks cover configurable durations, short/long break cycles, settings changes during focus/rest, recording overlap, Flow priority, manual break exclusion, paused/reset timers, project reassignment, active edits, weekly row removal/Undo during recording, preserved other weeks/projects, fractions, midnight/week rollover, DST, duration validation, project creation, all 30 color encodings, backward compatibility, corrupt-load protection, and persistence of time/catalog/settings across separate processes using isolated temporary preferences. The build emitted an App Intents metadata warning because no AppIntents dependency is present.
 
@@ -374,3 +403,8 @@ Projects verification on 2026-10-06: unsigned Debug build, 28 checked-in project
 System appearance verification: 2026-10-06 [TOOL] System appearance unsigned Debug build, 10 native offscreen appearance checks, and `git diff --check` passed. Checks cover Light/Dark overrides, Light → System and Dark → System, later native appearance changes, repeated transitions, and two windows sharing preferences. Persistent-window Settings screenshots inspected explicit Light and System Light/Dark at 1000 × 900 and System Dark at 680 × 650. Native changes were simulated through the isolated harness process’s application appearance; macOS settings, live user archives, and audio were untouched. Actual macOS automatic scheduled switching and live sheet/keyboard/VoiceOver interaction remain unverified.
 
 Task suggestions and copy cleanup verification: 2026-10-06 [TOOL] Task suggestions/copy cleanup unsigned Debug build, 24 task-activity checks, 48 session-recording checks, 28 project-catalog checks, and `git diff --check` passed. Checks cover project-linked reuse, pin ordering/reload, blank/break exclusion, atomic task/project selection during concurrent timers, paused selection without autoplay, late-completion pin settlement, legacy session migration, deleted-project filtering, and corrupt-load protection. Native offscreen Light/Dark menu/search/long-title, default 1000 × 900 and narrow 680 × 650 Focus, full Settings, Pomodoro settings, and Calendar screenshots inspected. The installed native symbol lookup confirms waveform.mid exists. No live user archives or real audio were used; actual popover transitions, keyboard/VoiceOver, and pointer scrolling remain unverified.
+
+Habit tracker verification on 2026-10-06: unsigned Debug build and 91 standalone habit checks passed, covering definition/goal/date validation, inclusive ranges, future blocking, check-in clearing, partial/exceeded targets, completion aggregation, observable UI invalidation, month rates, current/best streaks, leap/DST/week/year boundaries, Gregorian keys, corrupt-load protection/Retry, and separate-process persistence. Native offscreen screenshots inspected Light/Dark default 1000 × 900, narrow 680 × 650, and wide 1710 × 1080 layouts, monthly/weekly grids, empty/populated states, aligned full-width weekly rows, long-name stats, and creation/amount/end-date sheets. All twelve habit SF Symbols resolve in the installed native system. No live UI control, user archives, real audio, or network playback were used; actual sheet/menu transitions, keyboard navigation, pointer scrolling, VoiceOver, and release signing remain unverified.
+
+
+Habit layout/frequency verification on 2026-10-06: unsigned Debug build and 130 standalone habit checks passed, including legacy daily archive migration, saved weekday frequency and separate-process reload, rest-day log rejection, scheduled-day rates/current/best streaks, DST, and complete 365/366-day annual grids (including a 54-column year). Native offscreen screenshots inspected Light/Dark at default 1000 × 900, narrow 680 × 650, and wide 1710 × 1080, plus full content, annual weekly bars, and amount/end-date creation with selected weekdays. The annual grid fits all twelve months at narrow widths; weekly rows remain compact and stats expand beside them or stack below. No live UI control or user archives were used. Keyboard navigation, VoiceOver, live sheet transitions, and release signing remain unverified.

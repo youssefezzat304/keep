@@ -8,6 +8,7 @@ struct keepApp: App {
     @State private var preferences: AppPreferences
     @State private var wallpapers = WallpaperLibrary()
     @State private var tasks = DailyTaskStore(persistence: TaskPersistence())
+    @State private var habits = HabitStore(persistence: HabitPersistence())
     init() {
         let preferences = AppPreferences(persistence: SettingsPersistence())
         let music = MusicPlayerModel(preferences: preferences)
@@ -18,7 +19,7 @@ struct keepApp: App {
 
     var body: some Scene {
         WindowGroup("Keep") {
-            AppShellView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers)
+            AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers)
                 .onAppear {
                     appDelegate.workspace = workspace
                     appDelegate.music = music
