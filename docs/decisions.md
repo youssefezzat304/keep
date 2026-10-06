@@ -116,6 +116,12 @@ Tint the timers and main panel from the background artwork, respecting Dark mode
 
 2026-10-06 [CODE] The existing decoded-image pipeline now supplies a runtime sRGB palette; the shell and timers blend its colors into appearance-aware semantic bases with text-contrast limits. Project labels/icons adjust lightness while preserving their hue. A continuous NSSlider bridge and noninteractive decorative borders replace the glassiness control’s previous interaction path. Hearts use the existing saved-channel archive, unsaving without stopping playback. A card-local drawer expands/collapses upward, honors Reduce Motion, and explicitly plays saved rows while staying open. No recording, archive format, or provider requests changed. D015’s passive source menu still does not autoplay; drawer row clicks are explicit Play actions.
 
+### D020 ACTIVE — 2026-10-06 [USER]
+
+Music heart/list hover backgrounds must be circular; use a clean list icon without an outline circle. Favorites must occupy existing card space at every window size, replacing track/transport details when necessary, and remain open after a source is selected. Move Audius attribution to the top-left artwork badge and make the existing top-right source menu a circular icon for now.
+
+2026-10-06 [CODE] The music card keeps a constant 288-point minimum. A bounded vertical `ViewThatFits` chooses a list-plus-transport layout or a compact list with visible heart/toggle; only the list scrolls. Its local expansion state does not affect card/page dimensions. This supersedes D019’s initial 460-point expanded minimum. Saved-source playback and passive-menu behavior remain unchanged.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -200,3 +206,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [TOOL] Dashboard unsigned Debug build passed. Inspected native default/wide/minimum Calendar, dark Calendar, and populated Timesheet renders. Isolated live preview verified view switching, shared week navigation/This week, retained Calendar selection/week across Focus, sample details, zoom, and edited Timesheet totals. Inactive-view controls are absent from the accessibility tree. No live user data was changed or audio played; full keyboard/VoiceOver remain unverified. Calendar uses labeled sample sessions only.
 
 - 2026-10-06 [TOOL] Artwork/favorites unsigned Debug build and 240 temporary palette/contrast checks passed. Inspected default/wide/minimum, warm/cool, and light/dark native renders. Silent in-memory preview verified saved playlist playback intent, heart save/unsave, drawer staying open/collapsing, project selection, appearance, and 45% → 90% glassiness updating the artwork. Pointer drag/full keyboard/VoiceOver remain unverified due native UI-tool window/capture/input failures; no user archives changed or audio played.
+
+- 2026-10-06 [TOOL] Music drawer refinement: unsigned Debug build passed. Silent native preview inspected default 1000 × 900 / narrow 680 × 650 Focus and 600 × 288 / 600 × 560 player cards in Light/Dark. Favorites preserved card bounds and narrow scroll position, switched between compact and list-plus-transport layouts, retained playback/list state through selection/collapse, and updated heart removal. Circular source menu choices worked. Full keyboard/VoiceOver remain unverified after native input/capture failures; no user archives or real audio/network playback were used.
