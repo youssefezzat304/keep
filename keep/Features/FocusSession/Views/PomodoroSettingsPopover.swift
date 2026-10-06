@@ -27,7 +27,7 @@ struct PomodoroSettingsPopover: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your focus rhythm")
-                    .font(.system(size: 23, design: .serif))
+                    .font(KeepTheme.headingFont(size: 23))
                 Text("A little focus, a little rest.")
                     .font(.system(size: 12))
                     .foregroundStyle(KeepTheme.mutedInk)

@@ -33,7 +33,7 @@ struct AppleMusicLibraryView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Your Apple Music").font(.system(size: 28, design: .serif))
+                    Text("Your Apple Music").font(KeepTheme.headingFont(size: 28))
                     Text("Songs and playlists in your Music library").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
                 }
                 Spacer()
@@ -110,7 +110,7 @@ struct AppleMusicLibraryView: View {
             if library.items.isEmpty {
                 if library.state == .ready {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(query.isEmpty ? "Nothing here yet" : "No matches in your library").font(.system(size: 22, design: .serif))
+                        Text(query.isEmpty ? "Nothing here yet" : "No matches in your library").font(KeepTheme.headingFont(size: 22))
                         Text(query.isEmpty ? "Add songs or playlists in Music, then refresh your library here." : "Try another title, artist, or album.")
                             .font(.system(size: 13)).foregroundStyle(KeepTheme.secondaryInk)
                     }.padding(.vertical, 24)
@@ -163,7 +163,7 @@ struct AppleMusicLibraryView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8)).accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(player.track?.title ?? "").font(.system(size: 17, design: .serif)).lineLimit(1).help(player.track?.title ?? "")
+                    Text(player.track?.title ?? "").font(KeepTheme.headingFont(size: 17)).lineLimit(1).help(player.track?.title ?? "")
                     Text(player.track?.artist ?? "").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk).lineLimit(1)
                 }
                 Spacer(minLength: 4)

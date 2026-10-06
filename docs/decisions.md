@@ -3,11 +3,12 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
+- 2026-10-06 [CODE] A leaf menu-bar item shares both timers, today's read-only tasks and selected-provider playback/volume. Settings saves visibility and Pomodoro/Flow/icon-only status text. Recording/playback continue after closing workspace windows.
 - 2026-10-06 [CODE] Current state: Dashboard contains the saved editable Timesheet, a weekly Calendar with session time editing/deletion, and a Projects catalog with add/delete; mock sessions are removed. Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved sources through AVPlayer and controls Apple Music via the Mac’s Music app with an in-Keep library browser/search, current artwork, seeking/shuffle/repeat; provider and volume persist. Today’s task rows launch Focus, Flow, or both with a shared active title; the task selector remembers project-linked activity and pins. Zen fills native full screen with the selected wallpaper, minimal timer readouts and a small music bar, preserving their runtime state. Settings manages Music Automation access and saves Light/Dark/System appearance, folder/track wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork; the panel/timers take contrast-limited artwork tints. Music has a heart toggle and an animated saved-source drawer; project names/icons share readable project hues. Appearance includes the glass subsection and the same native SwiftUI slider used for music volume. Compact navigation uses icons, scrollbars share thin transparent tracks, and Habit tracker saves goals/progress with weekday frequency, a centered full-year monthly/weekly activity grid, compact weekly check-ins, and selected-habit stats on one surface; due habits also appear in daily Tasks with shared completion.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
 - 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Music supports public Audius streaming and scoped playback control of the Mac’s Music app; no third-party packages or Xcode test target. Daily-task and session-recording standalone checks are checked in; earlier timer/workspace check sources have been removed; new silent music/preferences checks are checked in.
-- 2026-10-05 [USER] Visual direction: editorial restraint and a cozy palette informed by main-theme and vibe1; first visual implementation is in place.
+- 2026-10-06 [USER] Visual direction: cozy palette and quiet layouts, with lighter, friendly rounded headings replacing the earlier formal serif direction (D040).
 - 2026-10-05 [CODE] Timers/project selection/ledger, music, saved daily tasks, and habits are app-shared; appearance/music preferences and channel selection persist; provider/volume restore without autoplay; timer/music runtime, committed task text, task-day selection, and window-local editor/input drafts are not restored on relaunch. Recorded session metadata persists with daily totals. Next feature is UNCONFIRMED.
 
 ## [DECISIONS]
@@ -234,6 +235,20 @@ Widen the Working on card and add a Start both button.
 
 2026-10-06 [CODE] The card is 450 points wide with a neutral labeled launch button beside the target details. It commits the draft, starts/resumes both timers for the current project/task (including unnamed targets), preserves running progress and Flow recording priority, and exits breaks into focus without clearing cycle progress. Breaks show Start focus + flow; running focus plus Flow disables the action. The Flow leaf and individual controls are unchanged. No shortcut was added.
 
+### D039 ACTIVE — 2026-10-06 [USER]
+
+Add a leaf menu-bar item with controls for both timers, today's tasks and the music player. Do not allow provider switching there. Add Settings for menu-bar behavior and selecting Pomodoro or Flow in its label.
+
+2026-10-06 [CODE] A native SwiftUI MenuBarExtra shares the existing workspace/task/music owners, with independent timer controls, Start both, manual break launch, read-only ordinary/scheduled-habit tasks, selected-provider transport/volume and Open Keep/Quit. Appearance and error/Retry states are inherited. Optional preference fields default older archives to a visible leaf plus Pomodoro; Settings also offers icon only and hiding the item without stopping timers/music. The bounded panel scrolls long content. Actions use the committed task; editor drafts remain window-local.
+
+2026-10-06 [TOOL] A TimelineView inside the native status label stalled the isolated fixture on the installed toolchain. Reading the workspace's existing display checkpoint restored responsive input and live timer text without a second ticker. Native status captures verified leaf + Pomodoro, leaf + Flow and leaf-only output.
+
+### D040 ACTIVE — 2026-10-06 [USER]
+
+Fix the menu-bar panel collapsing on click and replace the formal editorial font with a lighter, friendly font inspired by the supplied rounded sans-serif reference.
+
+2026-10-06 [CODE] The native menu panel has a concrete 380 × 600 scroll viewport. The previous ViewThatFits/flexible-height scroll fallback accepted zero-height native proposals; native hosting measurement reproduced 0–1-point heights. Shared KeepTheme.headingFont replaces serif headings, the wordmark and static statistics with native rounded regular/medium type while preserving sizes, colors and workspace geometry.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -290,6 +305,10 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep.xcodeproj/project.pbxproj`
 
 ## [RECEIPTS]
+
+- 2026-10-06 [TOOL] Menu panel/font fix: unsigned Debug build and 17 menu preference/display/native-sizing checks passed. A comparison host reproduced the previous layout accepting 0–1-point height proposals; the fixed host reports a usable 600-point viewport. Inspected native Light/Dark default 1000×900 and minimum 680×650 Focus, Dashboard, Habits, Settings and panel screenshots. Isolated live panel hosting verified scrolling to music/volume/Quit. Actual status-item click remains unverified because the UI tool did not expose the status item; the native-button test action did not open it. No user archives, real audio or network playback were used. Full keyboard/VoiceOver and release signing remain unverified.
+
+- 2026-10-06 [TOOL] Menu bar: unsigned Debug Xcode build, 9 standalone menu preference/display checks, 83 session-recording checks, and 73 silent music/preferences/library/artwork checks passed; git diff --check passed. Native status captures verified leaf + live Pomodoro, leaf + live Flow and icon only, including continuing updates after closing the fixture window. An isolated native panel verified Start both, independent timer stop/reset and music play/pause/mute intent; Light/Dark panel and Settings renders inspected at default 1000×900 and narrow 680×650 shell sizes, plus full Settings layouts. No live archives or real audio were used. Full keyboard/VoiceOver operation, live Apple Music consent/playback and release signing remain unverified.
 
 - 2026-10-06 [TOOL] Start both: unsigned Debug Xcode build and 83 standalone session-recording checks passed. Native offscreen renders checked at 1000×900, 680×650, and 1710×1080 in Light/Dark, including running and break labels and long task text. Live keyboard/VoiceOver interaction remains unverified.
 

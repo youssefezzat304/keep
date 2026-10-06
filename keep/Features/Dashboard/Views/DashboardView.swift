@@ -92,7 +92,7 @@ struct DashboardView: View {
     private var heading: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(page == .projects ? "Your projects." : "Your week, at a glance.")
-                .font(.system(size: 36, design: .serif))
+                .font(KeepTheme.headingFont(size: 36))
                 .fixedSize(horizontal: false, vertical: true)
             Text(page == .projects ? "A place for each thing you’re working on." : page == .timesheet ? "Time spent across your projects, Monday to Sunday." : "A little room for everything you’re working on.")
                 .font(.system(size: 14)).foregroundStyle(KeepTheme.mutedInk)
@@ -151,7 +151,7 @@ struct DashboardView: View {
             Text(page == .calendar ? "SESSION TIME" : "WEEK TOTAL")
                 .font(.system(size: 9, weight: .medium)).tracking(1.3).foregroundStyle(KeepTheme.mutedInk)
             Text(TimesheetDuration.total(page == .calendar ? workspace.ledger.sessions.filter { week.dayIDs.contains($0.dayID) }.reduce(0) { $0 + $1.seconds } : workspace.ledger.total(dayIDs: week.dayIDs)))
-                .font(.system(size: 25, design: .serif)).foregroundStyle(KeepTheme.accentStrong).monospacedDigit()
+                .font(KeepTheme.headingFont(size: 25)).foregroundStyle(KeepTheme.accentStrong).monospacedDigit()
             let count = page == .calendar ? Set(workspace.ledger.sessions.filter { week.dayIDs.contains($0.dayID) }.map { $0.project.id }).count : workspace.ledger.projects(dayIDs: week.dayIDs).count
             Text("\(count) \(count == 1 ? "project" : "projects")")
                 .font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)

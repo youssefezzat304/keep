@@ -16,7 +16,7 @@ struct NavBar: View {
                     .font(.system(size: 18))
                     .foregroundStyle(KeepTheme.accentStrong)
                 Text("keep")
-                    .font(.system(size: 28, weight: .medium, design: .serif))
+                    .font(KeepTheme.headingFont(size: 28, weight: .medium))
             }
             .accessibilityElement(children: .combine)
 

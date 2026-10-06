@@ -108,7 +108,7 @@ struct MusicPlayerCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(player.track?.title ?? (player.provider == .audius ? "Slow afternoons" : "Your Apple Music"))
-                        .font(.system(size: 23, design: .serif))
+                        .font(KeepTheme.headingFont(size: 23))
                         .lineLimit(1)
                         .help(player.track?.title ?? player.provider.title)
                     Text(player.track?.artist ?? (player.provider == .audius ? "Lofi for a little focus" : "Browse your songs and playlists"))
@@ -171,7 +171,7 @@ struct MusicPlayerCard: View {
 
     private func savedHeading(showsActions: Bool) -> some View {
         HStack(spacing: 8) {
-            Text("Your listens").font(.system(size: 21, design: .serif))
+            Text("Your listens").font(KeepTheme.headingFont(size: 21))
                 .lineLimit(1).minimumScaleFactor(0.75)
             Text("\(preferences.snapshot.channels.count + 1)").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
             Spacer(minLength: 4)

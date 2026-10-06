@@ -6,7 +6,7 @@ struct ZenSavedMusicPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Your listens").font(.system(size: 20, design: .serif))
+            Text("Your listens").font(KeepTheme.headingFont(size: 20))
             KeepScrollView {
                 VStack(spacing: 6) {
                     sourceRow(nil)

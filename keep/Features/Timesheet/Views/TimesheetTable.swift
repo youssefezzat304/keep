@@ -28,7 +28,7 @@ struct TimesheetTable: View {
                     }
                     if projects.isEmpty {
                         VStack(spacing: 9) {
-                            Text("A fresh week of focus.").font(.system(size: 22, design: .serif))
+                            Text("A fresh week of focus.").font(KeepTheme.headingFont(size: 22))
                             Text("Choose a project and start a timer, or add a project to enter time.")
                                 .font(.system(size: 13))
                                 .foregroundStyle(KeepTheme.mutedInk)
@@ -71,7 +71,7 @@ struct TimesheetTable: View {
                         .tracking(1)
                         .foregroundStyle(KeepTheme.mutedInk)
                     Text(day.number)
-                        .font(.system(size: 20, weight: .regular, design: .serif))
+                        .font(KeepTheme.headingFont(size: 20, weight: .regular))
                 }
                 .frame(width: dayWidth, height: headerHeight)
                 .background { Rectangle().fill(day.isWeekend ? KeepTheme.paper : .clear) }

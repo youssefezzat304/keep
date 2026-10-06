@@ -24,7 +24,7 @@ struct TaskDatePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Choose a day").font(.system(size: 25, design: .serif))
+            Text("Choose a day").font(KeepTheme.headingFont(size: 25))
             HStack {
                 Text(month, format: .dateTime.month(.wide).year())
                     .font(.system(size: 15, weight: .medium))

@@ -15,7 +15,7 @@ struct HabitStatisticsView: View {
                 HStack(spacing: 10) {
                     Image(systemName: habit.icon.rawValue).font(.system(size: 21)).foregroundStyle(habit.icon.ink(in: environment))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(habit.name).font(.system(size: 22, design: .serif)).fixedSize(horizontal: false, vertical: true)
+                        Text(habit.name).font(KeepTheme.headingFont(size: 22)).fixedSize(horizontal: false, vertical: true)
                         Text(habit.goal.summary + " · " + habit.frequencySummary(calendar: store.calendar))
                             .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
                     }
@@ -47,7 +47,7 @@ struct HabitStatisticsView: View {
                     }
                 }
             } else {
-                Text("Habit overview").font(.system(size: 22, design: .serif))
+                Text("Habit overview").font(KeepTheme.headingFont(size: 22))
                 Text("Completion totals, streaks, and a calendar will appear here.")
                     .font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
             }
@@ -56,7 +56,7 @@ struct HabitStatisticsView: View {
     private func metric(_ title: String, value: String, suffix: String, symbol: String, accent: FocusProject.Accent, background: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Label(title, systemImage: symbol).font(.system(size: 12, weight: .medium)).foregroundStyle(KeepTheme.mutedInk)
-            Text(value).font(.system(size: 30, design: .serif)).foregroundStyle(KeepTheme.readableAccent(accent.color, on: [KeepTheme.surface, background], environment: environment))
+            Text(value).font(KeepTheme.headingFont(size: 30)).foregroundStyle(KeepTheme.readableAccent(accent.color, on: [KeepTheme.surface, background], environment: environment))
             Text(suffix).font(.system(size: 11)).foregroundStyle(KeepTheme.secondaryInk)
         }
         .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)

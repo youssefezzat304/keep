@@ -18,7 +18,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Make yourself at home.")
-                    .font(.system(size: 36, design: .serif))
+                    .font(KeepTheme.headingFont(size: 36))
                 Text("A few small touches for your focus space.")
                     .font(.system(size: 14)).foregroundStyle(KeepTheme.mutedInk)
             }
@@ -41,8 +41,20 @@ struct SettingsView: View {
                     }
                     Divider().overlay(KeepTheme.border).allowsHitTesting(false)
                     Label("A little glass", systemImage: "rectangle.on.rectangle")
-                        .font(.system(size: 18, design: .serif))
+                        .font(KeepTheme.headingFont(size: 18))
                     glassSettings
+                }
+
+                section("Menu bar", symbol: "menubar.rectangle") {
+                    Toggle("Show Keep in the menu bar", isOn: $preferences.menuBarEnabled)
+                        .toggleStyle(.switch).controlSize(.small)
+                        .font(.system(size: 13))
+                    settingRow("Timer beside the leaf", detail: "Control both timers, see today’s tasks, and control the selected music provider without opening the workspace.") {
+                        KeepSelectionMenu(label: "Menu bar timer", selection: $preferences.menuBarTimer,
+                                          options: MenuBarTimer.allCases, title: { $0.title })
+                            .frame(width: 160)
+                    }
+                    .disabled(!preferences.menuBarEnabled)
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
@@ -263,7 +275,7 @@ struct SettingsView: View {
 
     private func section<Content: View>(_ title: String, symbol: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            Label(title, systemImage: symbol).font(.system(size: 23, design: .serif))
+            Label(title, systemImage: symbol).font(KeepTheme.headingFont(size: 23))
             content()
         }
         .padding(22).frame(maxWidth: .infinity, alignment: .leading)

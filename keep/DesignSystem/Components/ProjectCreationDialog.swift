@@ -17,7 +17,7 @@ struct ProjectCreationDialog: View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 7) {
                 Text("A new place to focus.")
-                    .font(.system(size: 27, design: .serif))
+                    .font(KeepTheme.headingFont(size: 27))
                 Text("Give your project a name and a color.")
                     .font(.system(size: 13))
                     .foregroundStyle(KeepTheme.mutedInk)

@@ -67,7 +67,7 @@ struct DashboardCalendarView: View {
             ForEach(week.days) { day in
                 let isToday = calendar.isDate(day.date, inSameDayAs: today)
                 HStack(spacing: 8) {
-                    Text(day.number).font(.system(size: 24, design: .serif))
+                    Text(day.number).font(KeepTheme.headingFont(size: 24))
                         .foregroundStyle(isToday ? KeepTheme.surface : KeepTheme.ink)
                         .frame(width: 38, height: 38)
                         .background(isToday ? KeepTheme.accentStrong : .clear, in: RoundedRectangle(cornerRadius: 12))
@@ -136,7 +136,7 @@ struct DashboardCalendarView: View {
             }
             if sessions.isEmpty {
                 VStack(spacing: 8) {
-                    Text("Your focus finds its place here.").font(.system(size: 22, design: .serif))
+                    Text("Your focus finds its place here.").font(KeepTheme.headingFont(size: 22))
                     Text("Start a timer to record your first session.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 }
                 .frame(width: width - gutter, height: hourHeight * 2)
@@ -244,7 +244,7 @@ struct CalendarSessionDetail: View {
         VStack(alignment: .leading, spacing: 18) {
             Label(session.source.title.uppercased(), systemImage: "clock")
                 .font(.system(size: 10, weight: .medium)).tracking(1).foregroundStyle(KeepTheme.accentStrong)
-            Text(session.title).font(.system(size: 27, design: .serif)).fixedSize(horizontal: false, vertical: true)
+            Text(session.title).font(KeepTheme.headingFont(size: 27)).fixedSize(horizontal: false, vertical: true)
             Label(session.project.name, systemImage: "folder")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(session.project.labelColor(in: environment))

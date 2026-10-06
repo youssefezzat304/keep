@@ -41,7 +41,7 @@ struct TasksCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(heading)
-                    .font(.system(size: 23, design: .serif))
+                    .font(KeepTheme.headingFont(size: 23))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)

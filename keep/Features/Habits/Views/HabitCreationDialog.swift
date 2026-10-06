@@ -34,7 +34,7 @@ struct HabitCreationDialog: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Add habit").font(.system(size: 28, design: .serif))
+            Text("Add habit").font(KeepTheme.headingFont(size: 28))
             TextField("Habit name", text: $name).modifier(KeepInputStyle()).focused($nameFocused)
                 .accessibilityLabel("Habit name")
                 .onSubmit(create)
@@ -151,7 +151,7 @@ struct HabitAmountDialog: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Label(selection.habit.name, systemImage: selection.habit.icon.rawValue).font(.system(size: 24, design: .serif))
+            Label(selection.habit.name, systemImage: selection.habit.icon.rawValue).font(KeepTheme.headingFont(size: 24))
             Text(selection.dayID + " · " + selection.habit.goal.summary).font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
             TextField("Amount", text: $amount).modifier(KeepInputStyle()).accessibilityLabel("Completed amount")
                 .onSubmit(save)

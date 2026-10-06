@@ -34,7 +34,7 @@ struct HabitActivityGrid: View {
         let ink = color
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                Text("Habit activity").font(.system(size: 24, design: .serif))
+                Text("Habit activity").font(KeepTheme.headingFont(size: 24))
                 Text(String(year)).font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 Spacer(minLength: 12)
                 controls

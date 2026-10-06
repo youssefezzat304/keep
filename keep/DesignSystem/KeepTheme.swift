@@ -20,5 +20,9 @@ enum KeepTheme {
     static let taskBothTimerFill = Color("TaskBothTimerFill")
     static let taskBothTimerInk = Color("TaskBothTimerInk")
 
+    static func headingFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .rounded)
+    }
+
     static let cardRadius: CGFloat = 22
 }

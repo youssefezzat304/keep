@@ -21,14 +21,28 @@ struct keepApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Keep") {
+        WindowGroup("Keep", id: "workspace") {
             AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers)
                 .onAppear {
-                    appDelegate.workspace = workspace
-                    appDelegate.music = music
-                    appDelegate.wallpapers = wallpapers
+                    connectRuntime()
                 }
         }
         .defaultSize(width: 1000, height: 900)
+
+        MenuBarExtra(isInserted: Binding(get: { preferences.menuBarEnabled }, set: { preferences.menuBarEnabled = $0 })) {
+            MenuBarWorkspaceView(workspace: workspace, music: music, tasks: tasks, preferences: preferences)
+                .onAppear { connectRuntime() }
+        } label: {
+            MenuBarLabel(workspace: workspace, timer: preferences.menuBarTimer)
+                .onAppear { connectRuntime() }
+        }
+        .menuBarExtraStyle(.window)
+    }
+
+    private func connectRuntime() {
+        appDelegate.workspace = workspace
+        appDelegate.music = music
+        appDelegate.wallpapers = wallpapers
+        workspace.startUpdating()
     }
 }

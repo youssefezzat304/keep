@@ -24,6 +24,7 @@ All Swift files share the application module. `keep/` is a filesystem-synchroniz
 | `keep/App/` | KeepApp model assembly and WindowGroup; AppShellView tab/Zen composition; application-delegate termination flush; appearance and artwork backdrop |
 | `keep/Models/` | WorkspaceModel coordinates timers, selected project/task, recording, ledger mutations and saving; FocusProject supplies catalog metadata |
 | `keep/Features/FocusSession/` | FocusTimer/PomodoroSettings; window-local FocusTaskEditor; active target, timer/settings and support-card composition |
+| `keep/Features/MenuBar/` | Native leaf status label and compact timer/task/music panel; uses app-owned models |
 | `keep/Features/Timesheet/` | TimesheetLedger/Persistence, civil-day/duration helpers, editable weekly table; PreviewData fixtures only |
 | `keep/Features/Dashboard/` | Shared browsed week/page, Calendar and Projects UI; RecordedSession value type |
 | `keep/Features/Tasks/` | DailyTaskStore/Persistence, FocusTask, day navigation and calendar picker; due-habit projection |
@@ -42,6 +43,10 @@ Canonical context: `AGENTS.md` owns working agreements, `docs/decisions.md` owns
 
 `KeepApp` assembles shared workspace, music, tasks, habits, preferences, and wallpapers and passes them to each AppShellView. Shells own tab and Zen presentation; Dashboard owns its page/week. Navigation stays outside the scrolling viewport. All tabs remain mounted; inactive content is invisible and excluded from input/accessibility, preserving drafts and scroll positions.
 
+KeepApp also provides a window-style SwiftUI `MenuBarExtra`. Its monochrome leaf label displays the selected Pomodoro/Flow timer or just the icon. `MenuBarLabel` reads `WorkspaceModel.displayInstant`, refreshed by the existing workspace loop and actions, rather than owning a timeline or ticker. Runtime/delegate connections are installed from both scenes so closing workspace windows preserves recording, playback and termination cleanup. Open Keep restores an existing titled Keep window or opens the workspace scene.
+
+`MenuBarWorkspaceView` shares the workspace, DailyTaskStore and MusicPlayerModel. Both timers expose independent start/resume, stop and reset; Start both and completed-focus break actions retain normal settlement/cycle rules. It shows today's ordinary and scheduled-habit tasks read-only, using the workspace's midnight update. Playback, skip, mute and volume operate the selected provider; opening the panel never switches providers, browses Music, starts playback or probes permission. The panel uses a concrete 380 × 600 native scrolling viewport so MenuBarExtra cannot measure its flexible scroll content as zero-height, inherits appearance and exposes loading/error/Retry states. Menu actions use the committed task; window-local editor drafts remain local. Optional `menuBarEnabled` and `menuBarTimer` preference fields preserve older archives, defaulting to visible Pomodoro; choices are Pomodoro, Flow and icon only. Hiding the status item never stops timers or music.
+
 Focus composes ActiveTargetHeader, TimerWorkspaceCard and music/tasks. Its window-local task editor commits through WorkspaceModel before timer actions or leaving Focus. Dashboard supplies one week to Timesheet and Calendar; Projects has its own catalog viewport. Habits and Settings scroll within the same fixed shell.
 
 The 450-point Working on card includes a neutral Start both action. It commits the editor and calls `WorkspaceModel.startBothTimers`, including for unnamed targets. The workspace settles recording once, starts/resumes focus and Flow without resetting running timers, and leaves breaks for focus while preserving cycle progress. The button says Start focus + flow during a break and is disabled when both focus and Flow are running; individual timer controls remain independent.
@@ -50,7 +55,7 @@ The 450-point Working on card includes a neutral Start both action. It commits t
 
 Views present state and pass actions; WorkspaceModel alone settles and mutates recording. Timesheet owns ledger/storage types, Dashboard owns Calendar presentation, and neither has an independent recorder. Habits, tasks, music, preferences and wallpaper loading have separate app-owned models and archives. Zen changes presentation only.
 
-Shared controls receive caller actions and remain free of feature state, persistence, and provider calls. Feature directories own feature-specific UI/logic; DesignSystem owns reusable appearance. There is no separate MVVM/service-container/package architecture. Introduce a shared abstraction only for a concrete implemented need; preserve native SwiftUI and existing Apple frameworks.
+Shared controls receive caller actions and remain free of feature state, persistence, and provider calls. Feature directories own feature-specific UI/logic; DesignSystem owns reusable appearance, including the native rounded heading font in KeepTheme. There is no separate MVVM/service-container/package architecture. Introduce a shared abstraction only for a concrete implemented need; preserve native SwiftUI and existing Apple frameworks.
 
 ## 5. State and data ownership
 
@@ -272,6 +277,8 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   tests/MusicPreferencesChecks.swift -o /tmp/keep-music-preferences-checks
 /tmp/keep-music-preferences-checks
 ```
+
+Run the menu-bar preference/display checks with the same source list, replacing `tests/MusicPreferencesChecks.swift` with `tests/MenuBarChecks.swift` and the executable with `/tmp/keep-menu-bar-checks`. These cover legacy/protected preference loading, cross-process restoration, display-clock refresh, timer independence and native minimum-size measurement with empty/populated panels in Light/Dark; native interaction checks use isolated silent fixtures.
 
 All checked-in check sources live in `tests/`; choose the matching command above. Older temporary harnesses have been removed, so historical receipts do not imply their source/commands are available today.
 

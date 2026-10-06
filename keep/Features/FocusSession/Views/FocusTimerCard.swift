@@ -31,7 +31,7 @@ struct FocusTimerCard: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(isPomodoro ? "Pomodoro" : "Flow state")
-                            .font(.system(size: 25, weight: .regular, design: .serif))
+                            .font(KeepTheme.headingFont(size: 25, weight: .regular))
                         Text(isBreak ? "Take a little breather." : isPomodoro ? "A little focus, a little rest." : "Find your rhythm. Stay a while.")
                             .font(.system(size: 13))
                     }

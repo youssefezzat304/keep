@@ -17,7 +17,7 @@ struct DashboardProjectsView: View {
             separator
             if projects.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("A fresh place to begin.").font(.system(size: 24, design: .serif))
+                    Text("A fresh place to begin.").font(KeepTheme.headingFont(size: 24))
                     Text("Add a project to organize your next focus session.")
                         .font(.system(size: 14)).foregroundStyle(KeepTheme.secondaryInk)
                 }.padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

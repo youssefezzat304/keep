@@ -57,7 +57,7 @@ struct ActiveTargetHeader: View {
     private var heading: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("A little space to focus.")
-                .font(.system(size: isCompact ? 30 : 36, weight: .regular, design: .serif))
+                .font(KeepTheme.headingFont(size: isCompact ? 30 : 36, weight: .regular))
                 .fixedSize(horizontal: true, vertical: false)
             Text("One thing at a time. At your own pace.")
                 .font(.system(size: 14))

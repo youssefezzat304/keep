@@ -13,6 +13,8 @@ final class WorkspaceModel {
     private(set) var persistenceError: String?
     private(set) var loadFailed = false
     private(set) var today: Date
+    /// Lets the status item use the workspace refresh without owning another timeline.
+    private(set) var displayInstant = ContinuousClock.now
     private(set) var lastTimesheetRemoval: TimesheetRemoval?
     var canTrack: Bool { !loadFailed }
     var projects: [FocusProject] { (FocusProject.defaults + ledger.customProjects).filter { !ledger.deletedProjectIDs.contains($0.id) } }
@@ -257,6 +259,7 @@ final class WorkspaceModel {
     /// Clock differences are timing truth; a delayed UI update cannot lose or duplicate time.
     func synchronize(at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack else { return }
+        displayInstant = instant
         let day = calendar.startOfDay(for: date)
         if day != today { today = day }
         if let checkpoint, let checkpointDate, instant >= checkpoint {

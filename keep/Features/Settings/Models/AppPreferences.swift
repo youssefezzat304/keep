@@ -31,6 +31,14 @@ enum MusicGlassStyle: String, Codable, CaseIterable, Identifiable {
     var title: String { self == .frosted ? "Frosted" : "Liquid Glass" }
 }
 
+enum MenuBarTimer: String, Codable, CaseIterable, Identifiable {
+    case pomodoro, flow, none
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .pomodoro: "Pomodoro"; case .flow: "Flow"; case .none: "Icon only" }
+    }
+}
+
 struct SettingsArchive: Codable, Equatable {
     var appearance: AppAppearance = .light
     var wallpaperSource: WallpaperSource = .cozy
@@ -47,6 +55,9 @@ struct SettingsArchive: Codable, Equatable {
     // Optional additions preserve archives written before provider/volume preferences existed.
     var musicProvider: MusicProvider?
     var musicVolume: Double?
+    // Missing menu-bar fields in older archives use the current defaults.
+    var menuBarEnabled: Bool?
+    var menuBarTimer: MenuBarTimer?
 
     static let rotationIntervals = [30, 60, 300, 900]
 
@@ -134,6 +145,14 @@ final class AppPreferences {
     var musicVolume: Double {
         get { snapshot.musicVolume ?? 0.5 }
         set { update { $0.musicVolume = newValue.isFinite ? min(1, max(0, newValue)) : 0.5 } }
+    }
+    var menuBarEnabled: Bool {
+        get { snapshot.menuBarEnabled ?? true }
+        set { update { $0.menuBarEnabled = newValue } }
+    }
+    var menuBarTimer: MenuBarTimer {
+        get { snapshot.menuBarTimer ?? .pomodoro }
+        set { update { $0.menuBarTimer = newValue } }
     }
 
     func saveChannel(_ channel: MusicChannel) {

@@ -62,7 +62,7 @@ struct TimesheetEntryEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(projectName).font(.system(size: 19, design: .serif))
+            Text(projectName).font(KeepTheme.headingFont(size: 19))
             Text(day.date, format: .dateTime.weekday(.wide).day().month(.wide))
                 .font(.system(size: 12))
                 .foregroundStyle(KeepTheme.mutedInk)

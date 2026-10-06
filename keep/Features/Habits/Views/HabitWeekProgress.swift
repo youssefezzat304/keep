@@ -21,7 +21,7 @@ struct HabitWeekProgress: View {
             }
             if store.habits.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("No habits yet.").font(.system(size: 22, design: .serif))
+                    Text("No habits yet.").font(KeepTheme.headingFont(size: 22))
                     Text("Add your first habit to start tracking daily progress.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 }.frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading).padding(.top, 12)
             } else {
@@ -63,7 +63,7 @@ struct HabitWeekProgress: View {
     }
     private var title: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(isCurrentWeek ? "Current week progress" : "Week progress").font(.system(size: 23, design: .serif))
+            Text(isCurrentWeek ? "Current week progress" : "Week progress").font(KeepTheme.headingFont(size: 23))
             if let first = days.first, let last = days.last {
                 Text(HabitDates.label(first, calendar: store.calendar, style: .dateTime.day().month(.abbreviated)) + " – " + HabitDates.label(last, calendar: store.calendar, style: .dateTime.day().month(.abbreviated)))
                     .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)

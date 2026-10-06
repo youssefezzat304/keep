@@ -1,6 +1,6 @@
 # Keep — Visual Style Guide
 
-Keep follows a cozy retro editorial direction: warm paper, autumn colors, clear typography, softly rounded cards, and generous quiet space. `reference/main-theme.jpg` informs atmosphere and palette, not a prescribed page layout.
+Keep follows a cozy, friendly direction: warm paper, autumn colors, clear typography, softly rounded cards, and generous quiet space. `reference/main-theme.jpg` informs atmosphere and palette, not a prescribed page layout.
 
 ## 1. Visual hierarchy
 
@@ -49,9 +49,9 @@ Use stronger ink on peach or colored fills. Quiet borders separate decoration; e
 
 ## 4. Typography
 
-Use native system serif for editorial headings and occasional static statistics; use system sans-serif for controls, tasks, navigation, and metadata. Running timers use clean, stable-width monospaced digits. Custom fonts need a visual reason, licensing, and fallbacks.
+Use the native rounded system font through `KeepTheme.headingFont` for headings, the wordmark and occasional static statistics. Keep regular or medium weights for a light, friendly feel. Use system sans-serif for controls, tasks, navigation, and metadata. Running timers use clean, stable-width monospaced digits. Custom fonts need a visual reason, licensing, and fallbacks.
 
-Prefer calm expressive headings, regular/medium utility text, and few weights. Use subtle tracking for short labels, uppercase sparingly, and no decorative scripts or futuristic display fonts. Keep the interface adult and understated.
+Prefer calm expressive headings, regular/medium utility text, and few weights. Use subtle tracking for short labels, uppercase sparingly, and no decorative scripts or futuristic display fonts. Keep the interface relaxed and clear, without heavy or formal display type.
 
 Ordinary content starts around 15–17 points; metadata around 12–13. These are starting ranges, not rigid sizes: preserve readability, wrapping, and comfortable line spacing. Do not shrink task or helper text to fit a fixed card. Timer digits adapt to their available column and should remain easy to scan. Do not animate every digit or announce every second to assistive technologies.
 
@@ -86,6 +86,8 @@ Dashboard's compact page switch has warm neutral surroundings and a terracotta s
 Task selection is one flat suggestion list beneath the name/search input, with task/project labels and pin controls; pinned entries come first. Avoid nested suggestion cards or separate recent-activity sections. Keep the working-on card neutral until a control actually receives focus, and show its task as plain text until explicit editing. Do not auto-select text or leave a permanent editor outline.
 
 Only Today's task rows reveal the three circular timer-launch actions on hover or keyboard focus, with accessible equivalents and tooltips. Focus/Flow colors follow their timer surfaces; Both remains fixed neutral across appearance/artwork changes. Reserve action space so text does not shift. Past/future tasks expose no timer launch actions. Completion uses explicit checks as well as color, and struck-through titles remain readable.
+
+The menu bar uses a monochrome leaf and optional stable-width timer text. Its compact paper panel groups timers, today's read-only task list and the selected music provider's controls, with warm neutral actions and visible labels. Bound its height and scroll long content; preserve the main workspace's geometry. The provider name is informational, with no provider switcher in this panel.
 
 ## 8. Habit tracker and data
 

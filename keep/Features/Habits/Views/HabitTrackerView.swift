@@ -16,7 +16,7 @@ struct HabitTrackerView: View {
             KeepScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack {
-                        Text("Habit tracker").font(.system(size: 36, design: .serif))
+                        Text("Habit tracker").font(KeepTheme.headingFont(size: 36))
                         Spacer(minLength: 12)
                         Button { showsCreation = true } label: { Label("Add habit", systemImage: "plus") }
                             .buttonStyle(KeepButtonStyle(emphasis: .primary)).disabled(!store.canEdit)
