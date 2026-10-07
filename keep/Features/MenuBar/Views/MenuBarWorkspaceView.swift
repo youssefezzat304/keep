@@ -8,8 +8,14 @@ struct MenuBarWorkspaceView: View {
     let preferences: AppPreferences
     @Environment(\.openWindow) private var openWindow
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.self) private var environment
+    @FocusState private var targetFocused: Bool
+    @State private var targetHovered = false
     @State private var page = Page.controls
     @State private var editor = FocusTaskEditor()
+    @State private var showsIssues = false
+
+    private static let panelHeight: CGFloat = 680
 
     private enum Page { case controls, target }
 
@@ -17,20 +23,20 @@ struct MenuBarWorkspaceView: View {
         // MenuBarExtra measures its content before opening. A flexible-height
         // scroll fallback can report zero height and collapse the native panel.
         HStack(spacing: 0) {
-            KeepScrollView { panelContent }
-                .frame(width: 380, height: 600)
+            panelContent
+                .frame(width: 380, height: Self.panelHeight, alignment: .topLeading)
                 .disabled(page != .controls)
                 .accessibilityHidden(page != .controls)
             MenuBarTargetPicker(editor: editor, workspace: workspace, isVisible: page == .target,
                                 onBack: cancelSelection, onSubmit: submitName,
                                 onSelectProject: selectProject, onSelectTask: selectTask)
-                .frame(width: 380, height: 600)
+                .frame(width: 380, height: Self.panelHeight)
                 .disabled(page != .target)
                 .accessibilityHidden(page != .target)
         }
             .offset(x: page == .target ? -380 : 0)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: page)
-            .frame(width: 380, height: 600, alignment: .leading)
+            .frame(width: 380, height: Self.panelHeight, alignment: .leading)
             .clipped()
             .background(KeepTheme.paper)
             .foregroundStyle(KeepTheme.ink).tint(KeepTheme.accentStrong)
@@ -39,71 +45,116 @@ struct MenuBarWorkspaceView: View {
     }
 
     private var panelContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
                 Label("Keep", systemImage: "leaf.fill").font(KeepTheme.headingFont(size: 23))
                 Spacer()
+                if hasIssues {
+                    Button { showsIssues = true } label: { Image(systemName: "exclamationmark.circle").frame(width: 12) }
+                        .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+                        .accessibilityLabel("Show issues").help("Show issues and recovery actions")
+                        .popover(isPresented: $showsIssues) { issues }
+                }
                 Button("Open Keep") { showWorkspace() }.buttonStyle(KeepButtonStyle(emphasis: .quiet))
+                Button { NSApplication.shared.terminate(nil) } label: { Image(systemName: "power").frame(width: 12) }
+                    .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+                    .accessibilityLabel("Quit Keep").help("Quit Keep")
             }
+            .fixedSize(horizontal: false, vertical: true)
+            targetHeader.fixedSize(horizontal: false, vertical: true)
+
+            timerControls.fixedSize(horizontal: false, vertical: true)
+            rule
+            todayTasks.frame(maxHeight: .infinity, alignment: .top)
+            rule
+            musicControls.fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+    }
+
+    private var targetHeader: some View {
+        let project = workspace.selectedProject
+        let projectColor = project?.labelColor(in: environment) ?? KeepTheme.mutedInk
+        return HStack(spacing: 12) {
             Button {
                 editor.begin(in: workspace)
                 page = .target
             } label: {
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(workspace.selectedProject?.name ?? "No project")
-                            .font(.system(size: 11, weight: .medium)).foregroundStyle(KeepTheme.mutedInk)
+                HStack(spacing: 12) {
+                    Image(systemName: "folder.fill")
+                        .font(.system(size: 18)).foregroundStyle(projectColor)
+                        .frame(width: 44, height: 44)
+                        .background((project?.accentColor ?? KeepTheme.mutedWarm).opacity(targetHovered ? 0.22 : 0.12),
+                                    in: RoundedRectangle(cornerRadius: 10))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("WORKING ON").font(.system(size: 9, weight: .medium)).tracking(1.5)
+                            .lineLimit(1).minimumScaleFactor(0.85)
+                            .foregroundStyle(KeepTheme.mutedInk)
+                        Text(project?.name ?? "No project").font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(projectColor).lineLimit(1)
                         Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
                             .font(.system(size: 14, weight: .medium)).lineLimit(2)
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.system(size: 11))
-                }.frame(maxWidth: .infinity, alignment: .leading)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }.contentShape(Rectangle())
             }
-            .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+            .buttonStyle(.plain)
+            .focused($targetFocused)
+            .onHover { targetHovered = $0 }
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(targetFocused ? KeepTheme.focusRing : .clear, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
             .accessibilityLabel("Choose project or task")
-            .accessibilityValue(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
+            .accessibilityValue("\(project?.name ?? "No project"), \(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)")
+            .help("Choose a project, recent task, or name a new task")
             .disabled(!workspace.canTrack)
-
-            timerControls
-            rule
-            todayTasks
-            rule
-            musicControls
-            rule
-            Button("Quit Keep") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(KeepButtonStyle(emphasis: .quiet))
         }
-        .padding(20)
+        .padding(12)
+        .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14).strokeBorder(KeepTheme.border, lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var startBothButton: some View {
+        let instant = workspace.displayInstant
+        let bothRunning = workspace.bothTimersRunning(at: instant)
+        let isBreak = workspace.pomodoro.interval == .rest
+        return Button {
+            if bothRunning { workspace.stopBothTimers() }
+            else { workspace.startBothTimers() }
+        } label: {
+            Label(bothRunning ? "Stop both" : isBreak ? "Start focus + flow" : "Start both",
+                  systemImage: bothRunning ? "stop.fill" : "play.fill")
+                .fixedSize()
+        }
+        .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+        .disabled(!workspace.canTrack)
+        .accessibilityLabel(bothRunning ? "Stop both timers" : isBreak ? "End the Pomodoro break and start focus and flow" : "Start or resume both timers")
+        .help(bothRunning ? "Stop both timers and keep their current time" : "Start or resume focus and flow without resetting running timers")
     }
 
     private var timerControls: some View {
         TimelineView(.animation(minimumInterval: 1,
                                 paused: workspace.pomodoro.phase() != .running && workspace.flow.phase() != .running)) { _ in
             let instant = ContinuousClock.now
-            let bothRunning = workspace.pomodoro.interval == .focus
-                && workspace.pomodoro.phase(at: instant) == .running && workspace.flow.phase(at: instant) == .running
             VStack(spacing: 10) {
                 timerRow(workspace.pomodoro, at: instant)
                 timerRow(workspace.flow, at: instant)
                 HStack {
-                    Button {
-                        workspace.startBothTimers()
-                    } label: {
-                        Label(bothRunning ? "Both running" : workspace.pomodoro.interval == .rest ? "Start focus + flow" : "Start both", systemImage: bothRunning ? "checkmark" : "play.fill")
-                    }
-                    .buttonStyle(KeepButtonStyle(emphasis: .quiet))
-                    .disabled(!workspace.canTrack || bothRunning)
+                    startBothButton
                     Spacer(minLength: 0)
-                    if workspace.pomodoro.interval == .focus && workspace.pomodoro.phase(at: instant) == .completed {
+                }
+                if workspace.pomodoro.interval == .focus && workspace.pomodoro.phase(at: instant) == .completed {
+                    HStack {
                         Button("\(Int(workspace.pomodoro.upcomingBreakDuration(at: instant) / 60))m break") {
                             workspace.startBreak()
                         }
                         .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!workspace.canTrack)
+                        Spacer(minLength: 0)
                     }
-                }
-                if let error = workspace.persistenceError {
-                    errorMessage(error) { workspace.retryPersistence() }
                 }
             }
         }
@@ -151,9 +202,6 @@ struct MenuBarWorkspaceView: View {
                 Spacer()
                 Text("\(rows.filter { !$0.isComplete }.count) left").font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
             }
-            if let error = tasks.persistenceError ?? tasks.habitPersistenceError {
-                errorMessage(error) { tasks.retryPersistence() }
-            }
             if rows.isEmpty && !tasks.loadFailed {
                 Text("No tasks planned for today.").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
             } else {
@@ -174,45 +222,64 @@ struct MenuBarWorkspaceView: View {
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2)
                 }
-                .frame(height: min(160, CGFloat(rows.count) * 44))
+                .frame(maxHeight: .infinity)
                 .accessibilityLabel("Today’s tasks")
             }
         }
     }
 
     private var musicControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Music").font(KeepTheme.headingFont(size: 18))
                 Spacer()
                 Text(music.provider.title).font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
             }
             if let track = music.track {
-                Text(track.title).font(.system(size: 13, weight: .medium)).lineLimit(1).help(track.title)
-                Text(track.artist).font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk).lineLimit(1)
-            } else {
-                Text("Ready when you are.").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title).font(.system(size: 13, weight: .medium)).lineLimit(1).help(track.title)
+                    Text(track.artist).font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk).lineLimit(1)
+                }
             }
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 musicButton("Previous track", symbol: "backward.end.fill", enabled: music.canSkip) { music.previous() }
                 musicButton(music.wantsPlayback ? "Pause music" : "Play music", symbol: music.wantsPlayback ? "pause.fill" : "play.fill") { music.togglePlayback() }
                 musicButton("Next track", symbol: "forward.end.fill", enabled: music.canSkip) { music.next() }
                 if music.state == .loading {
                     ProgressView().controlSize(.small).accessibilityLabel("Loading music")
                 }
-                Spacer(minLength: 0)
-            }
-            HStack(spacing: 8) {
                 musicButton(music.volume > 0 ? "Mute music" : "Unmute music", symbol: music.volume > 0 ? "speaker.wave.2.fill" : "speaker.slash.fill", enabled: preferences.canEdit) { music.toggleMute() }
                 Slider(value: $music.volume, in: 0...1)
                     .frame(height: 36).disabled(!preferences.canEdit)
                     .accessibilityLabel("Music volume")
                     .accessibilityValue("\(Int(music.volume * 100)) percent")
             }
-            if case .failed(let failure) = music.state {
-                errorMessage(failure.message) { music.retry() }
-            }
         }
+    }
+
+    private var hasIssues: Bool {
+        if workspace.persistenceError != nil || tasks.persistenceError != nil || tasks.habitPersistenceError != nil { return true }
+        if case .failed = music.state { return true }
+        return false
+    }
+
+    private var issues: some View {
+        KeepScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let error = workspace.persistenceError {
+                    errorMessage(error) { workspace.retryPersistence() }
+                }
+                if let error = tasks.persistenceError ?? tasks.habitPersistenceError {
+                    errorMessage(error) { tasks.retryPersistence() }
+                }
+                if case .failed(let failure) = music.state {
+                    errorMessage(failure.message) { music.retry() }
+                }
+            }.padding(20)
+        }
+        .frame(width: 320, height: 260)
+        .background(KeepTheme.paper).foregroundStyle(KeepTheme.ink)
+        .keepAppearance(preferences.appearance)
     }
 
     private func musicButton(_ title: String, symbol: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {

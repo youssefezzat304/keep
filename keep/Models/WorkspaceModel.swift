@@ -169,6 +169,19 @@ final class WorkspaceModel {
         save(at: instant)
     }
 
+    func bothTimersRunning(at instant: ContinuousClock.Instant = .now) -> Bool {
+        pomodoro.phase(at: instant) == .running && flow.phase(at: instant) == .running
+    }
+
+    /// Settle overlap once, then stop both while preserving elapsed time and the break cycle.
+    func stopBothTimers(at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack else { return }
+        synchronize(at: instant, date: date)
+        pomodoro.stop(at: instant)
+        flow.stop(at: instant)
+        save(at: instant)
+    }
+
     func reset(_ mode: FocusTimer.Mode, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         synchronize(at: instant, date: date)
         if mode == .pomodoro { pomodoro.reset() } else { flow.reset() }

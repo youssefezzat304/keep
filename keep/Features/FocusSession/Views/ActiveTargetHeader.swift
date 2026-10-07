@@ -115,7 +115,6 @@ struct ActiveTargetHeader: View {
                         Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
                             .font(.system(size: 14, weight: .medium)).lineLimit(1)
                         Spacer(minLength: 4)
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
@@ -156,22 +155,22 @@ struct ActiveTargetHeader: View {
     }
 
     private var startBothButton: some View {
-        let bothRunning = workspace.pomodoro.interval == .focus
-            && workspace.pomodoro.phase() == .running && workspace.flow.phase() == .running
+        let bothRunning = workspace.bothTimersRunning(at: workspace.displayInstant)
         let isBreak = workspace.pomodoro.interval == .rest
         return Button {
             finishEditing()
-            workspace.startBothTimers()
+            if bothRunning { workspace.stopBothTimers() }
+            else { workspace.startBothTimers() }
         } label: {
-            Label(bothRunning ? "Both running" : isBreak ? "Start focus + flow" : "Start both",
-                  systemImage: bothRunning ? "checkmark" : "play.fill")
+            Label(bothRunning ? "Stop both" : isBreak ? "Start focus + flow" : "Start both",
+                  systemImage: bothRunning ? "stop.fill" : "play.fill")
                 .fixedSize()
         }
         .buttonStyle(KeepButtonStyle(emphasis: .quiet))
         .focused($focusedField, equals: .startBoth)
-        .disabled(!workspace.canTrack || bothRunning)
-        .accessibilityLabel(bothRunning ? "Both focus and flow timers are running" : isBreak ? "End the Pomodoro break and start focus and flow" : "Start or resume both timers")
-        .help("Start or resume focus and flow without resetting running timers. Flow records overlapping time once.")
+        .disabled(!workspace.canTrack)
+        .accessibilityLabel(bothRunning ? "Stop both timers" : isBreak ? "End the Pomodoro break and start focus and flow" : "Start or resume both timers")
+        .help(bothRunning ? "Stop both timers and keep their current time" : "Start or resume focus and flow without resetting running timers. Flow records overlapping time once.")
     }
 }
 

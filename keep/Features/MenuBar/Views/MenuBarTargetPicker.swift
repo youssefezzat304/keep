@@ -36,19 +36,12 @@ struct MenuBarTargetPicker: View {
             TextField("Name a task or search…", text: $editor.text)
                 .modifier(KeepInputStyle()).focused($nameFocused)
                 .accessibilityLabel("Task name or search projects and recent tasks")
+                .help("Press Return to use this task name")
                 .onSubmit(submit)
                 .disabled(!workspace.canTrack)
-            Button("Use task name", action: submit)
-                .buttonStyle(KeepButtonStyle(emphasis: .secondary))
-                .disabled(editor.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canTrack)
 
             KeepScrollView {
                 VStack(alignment: .leading, spacing: 6) {
-                    heading("Projects")
-                    projectRow(nil)
-                    ForEach(projects) { project in projectRow(project) }
-                    if projects.isEmpty { helper("No matching projects.") }
-                    Divider().overlay(KeepTheme.border).padding(.vertical, 10)
                     heading("Recent tasks")
                     ForEach(recentTasks) { task in
                         Button { onSelectTask(task) } label: {
@@ -61,7 +54,9 @@ struct MenuBarTargetPicker: View {
                                 }
                                 Spacer(minLength: 0)
                                 if task.isPinned { Image(systemName: "pin.fill").font(.system(size: 11)).accessibilityHidden(true) }
-                            }.frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+                            }
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
                         }
                         .buttonStyle(KeepButtonStyle(emphasis: .quiet))
                         .accessibilityLabel("Select task \(task.title), project \(task.project.name)")
@@ -69,6 +64,11 @@ struct MenuBarTargetPicker: View {
                     if recentTasks.isEmpty {
                         helper(workspace.taskSuggestions.isEmpty ? "Tasks you use with a timer will appear here." : "No matching recent tasks.")
                     }
+                    Divider().overlay(KeepTheme.border).padding(.vertical, 10)
+                    heading("Projects")
+                    projectRow(nil)
+                    ForEach(projects) { project in projectRow(project) }
+                    if projects.isEmpty { helper("No matching projects.") }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2)
             }
             .disabled(!workspace.canTrack)

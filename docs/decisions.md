@@ -3,7 +3,7 @@
 ## [SNAPSHOT]
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
-- 2026-10-07 [CODE] The leaf menu panel shares both timers, today's task/habit checkboxes, selected-provider playback/volume and a sliding project/recent-task/name picker. It follows Keep appearance with default timer colors. Settings saves visibility/status timer choice and offers native Start on login. Habit information supports name/icon editing with all other definition fields locked. Recording/playback continue after closing workspace windows.
+- 2026-10-07 [CODE] The leaf menu panel shares both timers, today's task/habit checkboxes, selected-provider playback/volume and a sliding project/recent-task/name picker. Its fixed main page keeps timer/music controls visible, with internal task/picker scrolling. Start both / Stop both works in the menu and main app. It follows Keep appearance with default timer colors. Settings saves visibility/status timer choice and offers native Start on login. Habit information supports name/icon editing with all other definition fields locked. Recording/playback continue after closing workspace windows.
 - 2026-10-06 [CODE] Current state: Dashboard contains the saved editable Timesheet, a weekly Calendar with session time editing/deletion, and a Projects catalog with add/delete; mock sessions are removed. Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved sources through AVPlayer and controls Apple Music via the Mac’s Music app with an in-Keep library browser/search, current artwork, seeking/shuffle/repeat; provider and volume persist. Today’s task rows launch Focus, Flow, or both with a shared active title; the task selector remembers project-linked activity and pins. Zen fills native full screen with the selected wallpaper, minimal timer readouts and a small music bar, preserving their runtime state. Settings manages Music Automation access and saves Light/Dark/System appearance, folder/track wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork; the panel/timers take contrast-limited artwork tints. Music has a heart toggle and an animated saved-source drawer; project names/icons share readable project hues. Appearance includes the glass subsection and the same native SwiftUI slider used for music volume. Compact navigation uses icons, scrollbars share thin transparent tracks, and Habit tracker saves goals/progress with weekday frequency, a centered full-year monthly/weekly activity grid, compact weekly check-ins, and selected-habit stats on one surface; due habits also appear in daily Tasks with shared completion.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
@@ -229,7 +229,7 @@ Move Calendar's explanation/zoom below the grid; exit Zen by double-clicking art
 
 2026-10-06 [CODE] Session details validate time fields in the recorded day/timezone, including a midnight endpoint. Workspace mutations settle active recording, adjust Timesheet by the duration delta (floor zero), preserve timer phases/manual adjustments, and rotate the recorder ID to protect edited/deleted blocks from subsequent ticks. Deletion requires confirmation. Passive task titles no longer participate in keyboard focus; actionable controls and accessibility actions remain. Zen's background accepts double-click without adding an Exit control. This supersedes D021's read-only Calendar limit.
 
-### D038 ACTIVE — 2026-10-06 [USER]
+### D038 PARTIALLY SUPERSEDED BY D043 — 2026-10-06 [USER]
 
 Widen the Working on card and add a Start both button.
 
@@ -243,7 +243,7 @@ Add a leaf menu-bar item with controls for both timers, today's tasks and the mu
 
 2026-10-06 [TOOL] A TimelineView inside the native status label stalled the isolated fixture on the installed toolchain. Reading the workspace's existing display checkpoint restored responsive input and live timer text without a second ticker. Native status captures verified leaf + Pomodoro, leaf + Flow and leaf-only output.
 
-### D040 ACTIVE — 2026-10-06 [USER]
+### D040 PARTIALLY SUPERSEDED BY D043 — 2026-10-06 [USER]
 
 Fix the menu-bar panel collapsing on click and replace the formal editorial font with a lighter, friendly font inspired by the supplied rounded sans-serif reference.
 
@@ -255,11 +255,19 @@ Make the menu panel follow Keep's dark-mode choice and use the app's default tim
 
 2026-10-07 [CODE] The shared appearance modifier resolves both presentation and content scheme; menu rows reuse default coral/sage/butter tokens. App-owned LoginItemModel uses SMAppService.mainApp, with macOS status as the source of truth, explicit registration/removal, pending approval/error recovery and visible/active refresh. HabitStore.updateIdentity validates and saves name/icon while preserving ID, dates, goal, weekdays and logs; the original dialog shows saved values with other fields disabled. No archive schema, helper or entitlement changes.
 
-### D042 ACTIVE — 2026-10-07 [USER]
+### D042 PARTIALLY SUPERSEDED BY D043 — 2026-10-07 [USER]
 
 Allow project/recent-task selection and task naming from the menu bar. Clicking the current task slides the entire control page left to a picker with Back. Allow checking and unchecking tasks there.
 
 2026-10-07 [CODE] MenuBarTargetPicker searches project/task names and retains pin-first recent ordering. A panel-local FocusTaskEditor commits names through WorkspaceModel; project/recent selections settle recording without autoplay. Back/Escape/dismissal cancels drafts. Both pages share the fixed viewport, with inactive input/accessibility excluded and Reduce Motion respected. Native task toggles use the shared DailyTaskStore/HabitStore and revalidate stable origin/actual day before completion. D039's read-only task list is superseded; provider controls and shared owners are preserved.
+
+2026-10-07 [USER] Refine the menu picker by removing Use task name and placing recent tasks above projects. Make its control-page target header resemble the main Working on card. [CODE] Return remains the name commit action; the header uses a project-colored folder tile, caption, project/task and neutral combined-timer action without a chevron.
+
+### D043 ACTIVE — 2026-10-07 [USER]
+
+Move the menu's combined timer button below its timer cards and prevent scrolling of the main page. Put a Quit Keep icon beside Open Keep, remove idle music filler, and pad recent-task rows while allowing the task page to scroll. Start both must also stop both through the same control in the menu and main app.
+
+2026-10-07 [CODE] The menu has a fixed 380 × 680 viewport; Today’s task list fills/scrolls the available middle area and the target picker remains scrollable. Transport/mute/volume share one permanent row. The power icon quits through native app termination; a compact issues popover preserves error/Retry access without growing the page. Both combined controls expose Stop both whenever Pomodoro (focus or break) and Flow run; otherwise they start/resume focus and Flow. WorkspaceModel.stopBothTimers settles recording once, preserves elapsed time and cycle, and saves. Existing startBothTimers stays an explicit launch action for other callers. D038's disabled-running action and D042's in-header menu action are superseded.
 
 ## [PROGRESS]
 
@@ -317,6 +325,10 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-05 [CODE] `keep.xcodeproj/project.pbxproj`
 
 ## [RECEIPTS]
+
+- 2026-10-07 [TOOL] Fixed menu/combined stop: unsigned Debug build, 100 session-recording checks (17 new combined-stop checks), 17 menu preference/native-sizing checks and git diff --check passed. Native Light/Dark screenshots inspected long task lists, idle/loading music with track details, breaks and combined Stop, plus main Focus at 1000 × 900 and 680 × 650. Isolated live hosts verified Start → Stop from the same control in the menu and main header, retained elapsed values, shared task completion, fixed main-page accessibility structure and padded recent rows. A later native capture error prevented further live resume/keyboard checks; deterministic resume checks passed. Actual status-item click, full VoiceOver and release signing remain unverified. No live archives, real audio or networking were used.
+
+- 2026-10-07 [TOOL] Menu header/picker refinement: unsigned Debug build, 17 native menu sizing/preferences checks and git diff --check passed. Native Light/Dark renders inspected the header, long names, breaks and reordered picker. Isolated live panel verified recent-first section order, absence of Use task name, Return naming and the relocated combined-timer action. No live archives, audio or network playback were used; actual status-item click and full VoiceOver remain unverified.
 
 - 2026-10-07 [TOOL] Menu picker/completion: unsigned Debug build, 17 menu preference/display/native-sizing, 24 task-activity, 68 daily-task, 47 habit/task and 83 session-recording checks passed. Isolated native panel verified task-title navigation, project filtering/selection, recent-task/project restoration, Return to commit, Escape/Back to cancel, ordinary/habit checks and unchecks, unchanged idle timers, and inactive-page accessibility exclusion. Light/Dark and long-title/no-match picker renders inspected. Actual status-item click, full VoiceOver and release signing remain unverified. No user archives, real audio or networking were used.
 
