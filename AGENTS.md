@@ -250,6 +250,8 @@ Preserve the native macOS focus-workspace structure. Follow `docs/style.md` for 
 
 Do not replace established technologies or introduce speculative features as part of unrelated work.
 
+Backups use one app-owned BackupModel and native iCloud Documents; local stores remain authoritative. Keep portable settings explicitly whitelisted, never export security-scoped bookmarks, and never equate local file creation with confirmed upload. Capture all stores together after workspace settlement. Restore must validate first, preserve a local recovery copy, hold the shared write gate and journal/flushed-verify replacement; resolve incomplete journals before constructing stores. Preserve account-change fences, per-Mac retention, passive music restoration and generation-based invalidation of window/menu drafts. Use isolated defaults/files and fake cloud metadata for checks; consult docs/backups.md before signed iCloud or Developer ID distribution work.
+
 Software updates use one app-owned Sparkle 2 controller in `Sources/Keep/Services/Updates`. Keep Sparkle's preferences/scheduler separate from AppPreferences and timer ticking. Debug/previews must not perform real update checks or install releases. Preserve signed-feed/archive verification, App Sandbox and the documented installer-service exceptions. Restart preparation must settle/save through WorkspaceModel and respect running/paused timers before invoking Sparkle's continuation. Keep the private EdDSA key in Keychain/protected release secrets; only its public key belongs in configuration. Consult `docs/updates.md` for release preparation; local integration does not authorize publishing a GitHub release or changing remote infrastructure.
 
 ## 20. Commit messages

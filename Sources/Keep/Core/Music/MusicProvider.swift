@@ -1,6 +1,6 @@
 import Foundation
 
-enum MusicProvider: String, Codable, CaseIterable, Identifiable {
+nonisolated enum MusicProvider: String, Codable, CaseIterable, Identifiable {
     case audius, appleMusic
     var id: String { rawValue }
     var title: String { self == .audius ? "Audius" : "Apple Music" }

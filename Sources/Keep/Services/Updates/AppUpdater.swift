@@ -33,6 +33,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
             return [workspace.pomodoro.phase(), workspace.flow.phase()].contains { $0 == .running || $0 == .stopped }
         }, prepare: { [weak workspace] in
             // Route settlement through the same recorder and save before termination.
+            guard workspace?.canTrack == true else { return false }
             workspace?.stopBothTimers()
             return workspace?.persistenceError == nil
         })

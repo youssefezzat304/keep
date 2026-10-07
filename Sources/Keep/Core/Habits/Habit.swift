@@ -1,6 +1,6 @@
 import Foundation
 
-enum HabitIcon: String, Codable, CaseIterable, Identifiable {
+nonisolated enum HabitIcon: String, Codable, CaseIterable, Identifiable {
     case checkmark = "checkmark.seal.fill", book = "book.fill", exercise = "dumbbell.fill"
     case walk = "figure.walk", water = "drop.fill", leaf = "leaf.fill", sleep = "moon.fill"
     case music = "music.note", write = "pencil", study = "graduationcap.fill", heart = "heart.fill", sun = "sun.max.fill"
@@ -23,14 +23,14 @@ enum HabitIcon: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum HabitUnit: String, Codable, CaseIterable, Identifiable {
+nonisolated enum HabitUnit: String, Codable, CaseIterable, Identifiable {
     case minutes, times
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
     var maximumTarget: Int { self == .minutes ? 1440 : 10000 }
 }
 
-enum HabitGoal: Codable, Equatable {
+nonisolated enum HabitGoal: Codable, Equatable {
     case checkIn
     case amount(target: Int, unit: HabitUnit)
     var target: Int { if case .amount(let target, _) = self { return target }; return 1 }
@@ -44,7 +44,7 @@ enum HabitGoal: Codable, Equatable {
 }
 
 /// Raw values match Gregorian weekdays; display order is Monday through Sunday.
-enum HabitWeekday: Int, Codable, CaseIterable, Identifiable {
+nonisolated enum HabitWeekday: Int, Codable, CaseIterable, Identifiable {
     case sunday = 1, monday, tuesday, wednesday, thursday, friday, saturday
     static let allCases: [HabitWeekday] = [.monday, .tuesday, .wednesday, .thursday, .friday, .saturday, .sunday]
     var id: Int { rawValue }
@@ -61,7 +61,7 @@ enum HabitWeekday: Int, Codable, CaseIterable, Identifiable {
     func shortTitle(calendar: Calendar) -> String { calendar.veryShortStandaloneWeekdaySymbols[rawValue - 1] }
 }
 
-struct Habit: Identifiable, Codable, Equatable {
+nonisolated struct Habit: Identifiable, Codable, Equatable {
     let id: UUID
     let name: String
     let icon: HabitIcon
@@ -87,8 +87,8 @@ struct Habit: Identifiable, Codable, Equatable {
 
 // Older archives were daily habits. Missing frequency retains all seven days.
 extension Habit {
-    private enum CodingKeys: String, CodingKey { case id, name, icon, startDay, endDay, goal, weekdays }
-    init(from decoder: Decoder) throws {
+    nonisolated private enum CodingKeys: String, CodingKey { case id, name, icon, startDay, endDay, goal, weekdays }
+    nonisolated init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(UUID.self, forKey: .id)
         name = try values.decode(String.self, forKey: .name)
@@ -100,13 +100,13 @@ extension Habit {
     }
 }
 
-struct HabitLog: Codable, Equatable {
+nonisolated struct HabitLog: Codable, Equatable {
     let habitID: UUID
     let dayID: String
     var amount: Int
 }
 
-struct HabitArchive: Codable, Equatable {
+nonisolated struct HabitArchive: Codable, Equatable {
     var habits: [Habit] = []
     var logs: [HabitLog] = []
     var isValid: Bool {
@@ -123,7 +123,7 @@ struct HabitArchive: Codable, Equatable {
     }
 }
 
-enum HabitError: LocalizedError {
+nonisolated enum HabitError: LocalizedError {
     case invalidName, duplicateName, invalidDates, invalidGoal, invalidFrequency, unavailable, missingHabit
     var errorDescription: String? {
         switch self {

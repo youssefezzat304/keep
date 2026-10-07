@@ -7,7 +7,7 @@ final class DailyTaskStore {
     private(set) var archive: TaskArchive
     private(set) var persistenceError: String?
     private(set) var loadFailed = false
-    var canEdit: Bool { !loadFailed }
+    var canEdit: Bool { !loadFailed && persistence?.access?.isLocked != true }
     var habitPersistenceError: String? { habits?.persistenceError }
     @ObservationIgnored private let calendarSource: Calendar
     var calendar: Calendar {
@@ -34,6 +34,11 @@ final class DailyTaskStore {
                 persistenceError = "Couldn’t load your saved tasks. Retry before changing them."
             }
         }
+    }
+
+    func installBackup(_ value: TaskArchive) {
+        archive = value; loadFailed = false; persistenceError = nil; needsSave = false
+        revision &+= 1
     }
 
     func tasks(on dayID: String) -> [FocusTask] {
@@ -92,6 +97,7 @@ final class DailyTaskStore {
     }
 
     func retryPersistence() {
+        guard persistence?.access?.isLocked != true else { return }
         habits?.retryPersistence()
         if loadFailed, let persistence {
             do {

@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import SwiftUI
 
-enum AppAppearance: String, Codable, CaseIterable, Identifiable {
+nonisolated enum AppAppearance: String, Codable, CaseIterable, Identifiable {
     case light, dark, system
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
@@ -11,7 +11,7 @@ enum AppAppearance: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum WallpaperSource: String, Codable, CaseIterable, Identifiable {
+nonisolated enum WallpaperSource: String, Codable, CaseIterable, Identifiable {
     case cozy, folder, audius
     var id: String { rawValue }
     var title: String {
@@ -19,13 +19,13 @@ enum WallpaperSource: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum WallpaperOrder: String, Codable, CaseIterable, Identifiable {
+nonisolated enum WallpaperOrder: String, Codable, CaseIterable, Identifiable {
     case sequential, shuffle
     var id: String { rawValue }
     var title: String { self == .sequential ? "In order" : "Shuffle" }
 }
 
-enum WallpaperRotationTrigger: String, Codable, CaseIterable {
+nonisolated enum WallpaperRotationTrigger: String, Codable, CaseIterable {
     case interval, song, never
     var title: String {
         switch self {
@@ -53,13 +53,13 @@ enum WallpaperIntervalChoice: Hashable {
     }
 }
 
-enum MusicGlassStyle: String, Codable, CaseIterable, Identifiable {
+nonisolated enum MusicGlassStyle: String, Codable, CaseIterable, Identifiable {
     case frosted, liquid
     var id: String { rawValue }
     var title: String { self == .frosted ? "Frosted" : "Liquid Glass" }
 }
 
-enum MenuBarTimer: String, Codable, CaseIterable, Identifiable {
+nonisolated enum MenuBarTimer: String, Codable, CaseIterable, Identifiable {
     case pomodoro, flow, none
     var id: String { rawValue }
     var title: String {
@@ -67,7 +67,7 @@ enum MenuBarTimer: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-struct SettingsArchive: Codable, Equatable {
+nonisolated struct SettingsArchive: Codable, Equatable {
     var appearance: AppAppearance = .light
     var wallpaperSource: WallpaperSource = .cozy
     var folderBookmark: Data?
@@ -109,11 +109,13 @@ struct SettingsArchive: Codable, Equatable {
 struct SettingsPersistence {
     let defaults: UserDefaults
     let key: String
+    var access: BackupRestoreGate?
     init(defaults: UserDefaults = .standard, key: String = "keep.preferences.v1") {
         self.defaults = defaults
         self.key = key
     }
     func load() throws -> SettingsArchive {
+        guard access?.isLocked != true else { throw BackupFailure.restoreLocked }
         guard defaults.object(forKey: key) != nil else { return SettingsArchive() }
         guard let data = defaults.data(forKey: key) else { throw CocoaError(.coderReadCorrupt) }
         let archive = try JSONDecoder().decode(SettingsArchive.self, from: data)
@@ -121,6 +123,7 @@ struct SettingsPersistence {
         return archive
     }
     func save(_ archive: SettingsArchive) throws {
+        guard access?.isLocked != true else { throw BackupFailure.restoreLocked }
         guard archive.isValid else { throw CocoaError(.coderInvalidValue) }
         defaults.set(try JSONEncoder().encode(archive), forKey: key)
     }
@@ -131,7 +134,8 @@ struct SettingsPersistence {
 final class AppPreferences {
     private(set) var snapshot = SettingsArchive()
     private(set) var persistenceError: String?
-    private(set) var canEdit = true
+    private var loaded = true
+    var canEdit: Bool { loaded && persistence?.access?.isLocked != true }
     @ObservationIgnored private let persistence: SettingsPersistence?
 
     init(persistence: SettingsPersistence? = nil) {
@@ -243,7 +247,12 @@ final class AppPreferences {
         }
     }
 
+    func installBackup(_ value: SettingsArchive) {
+        snapshot = value; loaded = true; persistenceError = nil
+    }
+
     func retryPersistence() {
+        guard persistence?.access?.isLocked != true else { return }
         if canEdit { persist() } else { reload() }
     }
     private func update(_ mutation: (inout SettingsArchive) -> Void) {
@@ -257,9 +266,9 @@ final class AppPreferences {
     private func reload() {
         do {
             snapshot = try persistence?.load() ?? SettingsArchive()
-            canEdit = true; persistenceError = nil
+            loaded = true; persistenceError = nil
         } catch {
-            canEdit = false
+            loaded = false
             persistenceError = "Saved settings couldn’t be opened. Retry to keep your preferences safe."
         }
     }

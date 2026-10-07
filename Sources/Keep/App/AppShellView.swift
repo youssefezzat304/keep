@@ -19,9 +19,11 @@ struct AppShellView: View {
     @State private var loginItem: LoginItemModel
     @State private var zen: ZenModeModel
     @State private var updater: AppUpdater
+    private var backup: BackupModel?
     @Environment(\.self) private var environment
 
-    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore? = nil, habits: HabitStore = HabitStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary(), loginItem: LoginItemModel = LoginItemModel(), zen: ZenModeModel? = nil, updater: AppUpdater = AppUpdater()) {
+    init(initialTab: WorkspaceTab = .focus, workspace: WorkspaceModel = WorkspaceModel(), music: MusicPlayerModel = MusicPlayerModel(), tasks: DailyTaskStore? = nil, habits: HabitStore = HabitStore(), preferences: AppPreferences = AppPreferences(), wallpapers: WallpaperLibrary = WallpaperLibrary(), loginItem: LoginItemModel = LoginItemModel(), zen: ZenModeModel? = nil, updater: AppUpdater = AppUpdater(), backup: BackupModel? = nil) {
+        self.backup = backup
         _workspace = State(initialValue: workspace)
         _music = State(initialValue: music)
         _tasks = State(initialValue: tasks ?? DailyTaskStore(habits: habits))
@@ -87,7 +89,7 @@ struct AppShellView: View {
                             .accessibilityHidden(selectedTab != .stats)
 
                         KeepScrollView {
-                            SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, loginItem: loginItem, updater: updater, isVisible: selectedTab == .settings && !zen.isPresented)
+                            SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, loginItem: loginItem, updater: updater, backup: backup, isVisible: selectedTab == .settings && !zen.isPresented)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
                         .opacity(selectedTab == .settings ? 1 : 0)

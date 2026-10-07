@@ -4,6 +4,7 @@ import Foundation
 struct TimesheetPersistence {
     let defaults: UserDefaults
     let key: String
+    var access: BackupRestoreGate?
 
     init(defaults: UserDefaults = .standard, key: String = "keep.timesheet.v1") {
         self.defaults = defaults
@@ -11,8 +12,15 @@ struct TimesheetPersistence {
     }
 
     func load() throws -> TimesheetLedger {
-        guard let data = defaults.data(forKey: key) else { return TimesheetLedger() }
+        guard access?.isLocked != true else { throw BackupFailure.restoreLocked }
+        guard defaults.object(forKey: key) != nil else { return TimesheetLedger() }
+        guard let data = defaults.data(forKey: key) else { throw CocoaError(.coderReadCorrupt) }
         let ledger = try JSONDecoder().decode(TimesheetLedger.self, from: data)
+        try Self.validate(ledger)
+        return ledger
+    }
+
+    nonisolated static func validate(_ ledger: TimesheetLedger) throws {
         guard ledger.pomodoroSettings?.isValid != false else { throw CocoaError(.coderReadCorrupt) }
         var projectIDs = Set((FocusProject.defaults + [.unassigned]).map(\.id))
         guard ledger.customProjects.allSatisfy({ project in
@@ -73,10 +81,10 @@ struct TimesheetPersistence {
                 activity.lastUsed.timeIntervalSince1970.isFinite && activity.lastUsed >= .distantPast && activity.lastUsed <= .distantFuture &&
                 activityIDs.insert(activity.id).inserted && activityKeys[activity.project.id, default: []].insert(key).inserted
         }) else { throw CocoaError(.coderReadCorrupt) }
-        return ledger
     }
 
     func save(_ ledger: TimesheetLedger) throws {
+        guard access?.isLocked != true else { throw BackupFailure.restoreLocked }
         let data = try JSONEncoder().encode(ledger)
         defaults.set(data, forKey: key)
     }

@@ -2,6 +2,8 @@
 
 ## [SNAPSHOT]
 
+- 2026-10-07 [CODE] Optional iCloud Documents backup now has a shared snapshot/scheduler, metadata-confirmed upload status, portable settings, per-Mac version retention and gated recovery-journal restore. Developer ID profile/container setup and signed two-Mac verification remain UNCONFIRMED; see D059 and docs/backups.md.
+
 - 2026-10-07 [CODE] Change wallpaper offers Never alongside On a timer and With each song; timed intervals remain in Change every. Automatic folder rotation always wraps, replacing Loop/automatic switches. Flow’s leaf text has a saved Show seconds preference; menu music shares the current wallpaper. See D057/D058.
 
 - 2026-10-07 [CODE] Wallpaper shortcuts are now ⌘⌥Left/Right throughout Focus/Zen, including while typing; ⌘M toggles shared music mute through the native Music menu. Window-menu Minimize/Zoom remain available without a conflicting ⌘M shortcut. See D056.
@@ -372,6 +374,14 @@ Move Never to the third Change wallpaper segment beside On a timer and With each
 
 2026-10-07 [CODE] The rotation selector maps Never to the existing automatic-rotation flag, including older disabled archives. Stored timed/custom intervals are retained. Change every appears only for On a timer and contains only durations/Custom. This supersedes D057’s placement of Never; menu-bar settings, music presentation, rotation and shortcuts otherwise remain unchanged.
 
+### D059 — Optional versioned iCloud backup (2026-10-07)
+
+- [USER] Use Keep's own iCloud Drive container for explicit versioned backup/restore, keeping local data authoritative. Include all saved workspace/task/habit history and portable settings; exclude runtime, caches and device-specific folder access.
+- [USER] Automatic backup is hourly when changed; keep latest 24 plus one daily version for 30 days per originating Mac. Confirmed restores stop timers and pause music without resuming either.
+- [CODE] One app-owned BackupModel captures existing archives together after settlement, uses background serialization/validation and native coordinated iCloud Documents with metadata-based upload confirmation. Separate local opt-in/outbox/status never enter portable payloads. Account changes require renewed consent.
+- [CODE] Restore validates/previews, writes local recovery data, journals/flushed-verifies the four existing archive keys and updates the same live stores under a shared gate. Startup recovers unfinished journals before loading stores; failed recovery blocks writes. Successful replacement resets runtime/drafts/Undo and rebuilds indexes. Local recoveries are bounded to three portable and three raw copies.
+- [TOOL] Xcode 27.0 unsigned Debug build and plist validation passed during implementation. This Mac has one Apple Development identity and no Developer ID Application identity. Account/team provisioning, signed iCloud transfer and two-Mac/DMG verification are UNCONFIRMED release prerequisites documented in docs/backups.md.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -544,3 +554,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-07 [TOOL] Wallpaper/menu refinements: unsigned Debug build, 60 wallpaper control, 25 menu preference/display/minimum-layout, 76 silent music/preferences/library/artwork and 22 video checks passed (183 total); whitespace check passed. Coverage includes Never persistence/cancellation/manual navigation, legacy retired-loop loading, automatic wrap, Flow hours/minutes/seconds boundaries, cross-process seconds restoration and protected archives. Rendered 32 isolated native Settings/menu/choice layouts plus six video layouts; inspected default/narrow Settings and populated Light/Dark menus with changed shared wallpapers, readable metadata and transport/volume inside the fixed panel. Physical pointer/keyboard/VoiceOver operation remains unverified. No live archives, Music authorization, real audio or output-route changes were used.
 
 - 2026-10-07 [TOOL] Never placement: unsigned Debug build, 61 wallpaper control checks and whitespace check passed. Rendered 32 isolated native layouts; inspected narrow Light timed/custom controls and narrow Dark Never selection, with three intact Change wallpaper segments and no interval row under Never. Legacy disabled settings map to Never; saved durations, manual navigation and rotation cancellation remain covered. Physical keyboard/VoiceOver operation was not exercised.
+
+- 2026-10-07 [TOOL] Optional iCloud backup: unsigned Debug build, plist validation and whitespace check passed. Passed 118 isolated backup checks and 454 regression checks (session recording, daily tasks, habits, Pomodoro completions, task activity, silent music/preferences and updater). Coverage includes portable round trips/exclusions, protected/legacy/corrupt archives, hourly scheduling, bounded retry queues, retention, native opaque-token equality/account fencing, metadata-confirmed upload and quota/error states, canceled previews, durable interrupted restore/rollback, recovery-write/commit-marker failures, concurrent timer/day-boundary settlement and completion preservation. Rendered 10 native Light/Dark default/narrow backup Settings and restore layouts; inspected validated replacement summaries and account-change status. Physical keyboard/VoiceOver, actual cloud transfers/quota/account switching, signed two-Mac and notarized DMG verification remain UNCONFIRMED; this Mac has no Developer ID Application identity or configured iCloud profile. No live archives, real audio, Music prompts or iCloud uploads were used.

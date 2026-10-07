@@ -8,6 +8,7 @@ struct SettingsView: View {
     var wallpapers: WallpaperLibrary
     var loginItem = LoginItemModel()
     var updater = AppUpdater()
+    var backup: BackupModel?
     var isVisible = true
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFolder = false
@@ -53,6 +54,8 @@ struct SettingsView: View {
             }
 
             updates
+
+            if let backup { BackupSettingsView(backup: backup) }
 
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {

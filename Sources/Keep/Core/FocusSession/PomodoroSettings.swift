@@ -1,6 +1,6 @@
 import Foundation
 
-struct PomodoroSettings: Codable, Equatable {
+nonisolated struct PomodoroSettings: Codable, Equatable {
     var focusMinutes = 25
     var shortBreakMinutes = 5
     var longBreakMinutes = 15

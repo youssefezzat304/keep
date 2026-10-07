@@ -1,7 +1,7 @@
 import Foundation
 
 /// Civil dates are stored as keys, so a timezone change never moves saved tasks to another day.
-enum TaskDay {
+nonisolated enum TaskDay {
     static func id(for date: Date, calendar: Calendar) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
@@ -24,7 +24,7 @@ enum TaskDay {
     }
 }
 
-struct TaskDaySelection {
+nonisolated struct TaskDaySelection {
     /// nil follows today's date as the app crosses midnight; browsing pins a civil date.
     private(set) var selectedID: String?
 

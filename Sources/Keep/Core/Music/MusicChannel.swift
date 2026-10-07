@@ -1,6 +1,6 @@
 import Foundation
 
-struct MusicChannel: Codable, Equatable, Identifiable {
+nonisolated struct MusicChannel: Codable, Equatable, Identifiable {
     enum Kind: String, Codable { case artist, playlist }
     let resourceID: String
     let name: String

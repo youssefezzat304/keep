@@ -26,7 +26,7 @@ nonisolated struct TimesheetEntry: Identifiable, Codable, Sendable {
     var seconds: TimeInterval
 }
 
-struct TimesheetRemoval {
+nonisolated struct TimesheetRemoval {
     let project: FocusProject
     let entries: [TimesheetEntry]
     let sessions: [RecordedSession]
@@ -41,7 +41,7 @@ nonisolated enum WorkspaceChange: Sendable {
 }
 
 /// Saved totals, sessions, and catalog metadata. Display totals are derived, never stored separately.
-struct TimesheetLedger: Codable {
+nonisolated struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
     private(set) var customProjects: [FocusProject] = []
     /// Saved edits to built-in projects; absent in older archives.
@@ -292,7 +292,7 @@ struct TimesheetLedger: Codable {
     }
 }
 
-struct TimesheetDay: Identifiable {
+nonisolated struct TimesheetDay: Identifiable {
     let date: Date
     let id: String
     let label: String
@@ -300,7 +300,7 @@ struct TimesheetDay: Identifiable {
     let isWeekend: Bool
 }
 
-struct TimesheetWeek {
+nonisolated struct TimesheetWeek {
     let days: [TimesheetDay]
     let range: String
     let number: String

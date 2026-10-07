@@ -4,8 +4,10 @@ import Observation
 struct HabitPersistence {
     let defaults: UserDefaults
     let key: String
+    var access: BackupRestoreGate?
     init(defaults: UserDefaults = .standard, key: String = "keep.habits.v1") { self.defaults = defaults; self.key = key }
     func load() throws -> HabitArchive {
+        guard access?.isLocked != true else { throw BackupFailure.restoreLocked }
         guard defaults.object(forKey: key) != nil else { return HabitArchive() }
         guard let data = defaults.data(forKey: key) else { throw CocoaError(.coderReadCorrupt) }
         let archive = try JSONDecoder().decode(HabitArchive.self, from: data)
@@ -13,6 +15,7 @@ struct HabitPersistence {
         return archive
     }
     func save(_ archive: HabitArchive) throws {
+        guard access?.isLocked != true else { throw BackupFailure.restoreLocked }
         guard archive.isValid else { throw CocoaError(.coderInvalidValue) }
         defaults.set(try JSONEncoder().encode(archive), forKey: key)
     }
@@ -34,7 +37,7 @@ struct HabitStatistics {
     private var progressByHabit: [UUID: [String: Int]] = [:]
     private(set) var loadFailed = false
     private(set) var persistenceError: String?
-    var canEdit: Bool { !loadFailed }
+    var canEdit: Bool { !loadFailed && persistence?.access?.isLocked != true }
     var habits: [Habit] { archive.habits }
     @ObservationIgnored private let persistence: HabitPersistence?
     @ObservationIgnored private let calendarSource: Calendar
@@ -56,6 +59,12 @@ struct HabitStatistics {
             do { self.archive = try persistence.load() }
             catch { loadFailed = true; persistenceError = "Couldn’t load your saved habits. Retry before changing them." }
         }
+        rebuildProgressIndex()
+    }
+
+    func installBackup(_ value: HabitArchive) {
+        archive = value; loadFailed = false; persistenceError = nil; needsSave = false
+        revision &+= 1
         rebuildProgressIndex()
     }
 
@@ -124,6 +133,7 @@ struct HabitStatistics {
     }
 
     func retryPersistence() {
+        guard persistence?.access?.isLocked != true else { return }
         if loadFailed, let persistence {
             do {
                 archive = try persistence.load()

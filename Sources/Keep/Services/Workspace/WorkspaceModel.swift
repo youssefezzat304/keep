@@ -16,11 +16,29 @@ final class WorkspaceModel {
     /// Lets the status item use the workspace refresh without owning another timeline.
     private(set) var displayInstant = ContinuousClock.now
     private(set) var lastTimesheetRemoval: TimesheetRemoval?
-    var canTrack: Bool { !loadFailed }
+    var canTrack: Bool { !loadFailed && persistence?.access?.isLocked != true }
     let readIndex: WorkspaceReadIndex
     var projects: [FocusProject] { _ = readIndex.metadataRevision; return readIndex.activeProjects }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
     var taskSuggestions: [TaskActivity] { _ = readIndex.metadataRevision; return readIndex.suggestions }
+
+    func captureBackup() throws -> TimesheetLedger {
+        guard canTrack else { throw BackupFailure.localDataUnavailable }
+        synchronize()
+        save()
+        guard persistenceError == nil else { throw BackupFailure.localDataUnavailable }
+        return ledger
+    }
+
+    func installBackup(_ value: TimesheetLedger) {
+        ledger = value; _ = ledger.takeChanges()
+        readIndex.rebuild(ledger)
+        pomodoro = FocusTimer(mode: .pomodoro); flow = FocusTimer(mode: .flow)
+        pomodoro.configure(value.pomodoroSettings ?? .defaults)
+        selectedProject = nil; taskName = ""; lastTimesheetRemoval = nil
+        recordingContext = nil; recordingSessionID = UUID(); checkpoint = nil; checkpointDate = nil
+        ledgerDirty = false; loadFailed = false; persistenceError = nil; lastSave = nil
+    }
 
     func selectTask(_ activity: TaskActivity, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack, let current = taskSuggestions.first(where: { $0.id == activity.id }) else { return }
@@ -87,6 +105,7 @@ final class WorkspaceModel {
     }
 
     func selectProject(_ project: FocusProject?, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack else { return }
         guard project.map({ !ledger.deletedProjectIDs.contains($0.id) }) ?? true else { return }
         synchronize(at: instant, date: date)
         selectedProject = project.map { ledger.projectMetadata(for: $0) }
@@ -190,6 +209,7 @@ final class WorkspaceModel {
     }
 
     func stop(_ mode: FocusTimer.Mode, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack else { return }
         synchronize(at: instant, date: date)
         if mode == .pomodoro { pomodoro.stop(at: instant) } else { flow.stop(at: instant) }
         save(at: instant)
@@ -209,6 +229,7 @@ final class WorkspaceModel {
     }
 
     func reset(_ mode: FocusTimer.Mode, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack else { return }
         synchronize(at: instant, date: date)
         if mode == .pomodoro { pomodoro.reset() } else { flow.reset() }
         save(at: instant)
@@ -365,6 +386,7 @@ final class WorkspaceModel {
     }
 
     func retryPersistence() {
+        guard persistence?.access?.isLocked != true else { return }
         if loadFailed, let persistence {
             do {
                 ledger = try persistence.load()
@@ -396,7 +418,7 @@ final class WorkspaceModel {
     private func save(at instant: ContinuousClock.Instant = .now) {
         updateRecordingContext(at: instant)
         publishChanges()
-        guard !loadFailed, ledgerDirty, let persistence else { return }
+        guard canTrack, ledgerDirty, let persistence else { return }
         do {
             try persistence.save(ledger)
             ledgerDirty = false

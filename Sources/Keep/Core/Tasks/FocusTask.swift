@@ -1,6 +1,6 @@
 import Foundation
 
-struct FocusTask: Identifiable, Codable, Equatable {
+nonisolated struct FocusTask: Identifiable, Codable, Equatable {
     let id: UUID
     var title: String
     var isComplete = false

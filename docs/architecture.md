@@ -54,7 +54,7 @@ keep.xcodeproj/            # Native macOS target and keep scheme
 | `Sources/Keep/UI/DesignSystem/` | Shared semantic theme, controls, scrolling, palettes and styles |
 | `Sources/Keep/Support/PreviewData/` | TimesheetPreviewData and StatsPreviewData fixtures; never seed live stores |
 | `Resources/Assets.xcassets/` | Semantic Light/Dark colors, bundled artwork and app icon |
-| `Resources/Info.plist`, `Resources/keep.entitlements` | Sparkle plist options and native sandbox/bookmark/Music/installer capability configuration |
+| `Resources/Info.plist`, `Resources/keep.entitlements` | Sparkle/iCloud plist options and native sandbox/bookmark/Music/installer/container capability configuration |
 | `Resources/ThirdPartyNotices/` | Bundled Sparkle license and notices |
 | `Configuration/Updates.xcconfig` | Public update feed/key configuration, shared by Debug and Release |
 | `Tests/` | Standalone checks; no Xcode test target |
@@ -234,6 +234,14 @@ Layout constraints:
 - KeepScrollView preserves native overlay scrolling with thin, transparent tracks. CardStyle adds padding/rounding, not fixed maximum height. Timer digits have stable widths and explicit phase labels.
 - Inputs/actions expose labels, visible focus and native shortcuts. Reflow completed-focus controls instead of clipping them. Decorative overlays never intercept input.
 - MusicGlassPanel aligns a crop of the artwork beneath its controls; Zen supplies the inline card’s position in the full-screen artwork coordinate space. Glassiness reduces blur/paper opacity, retains a readability wash, and uses solid paper at zero or under Reduce Transparency. Liquid Glass adds the native treatment; Settings places the live preview before Card material and the Glassiness slider. Glassiness uses the same native SwiftUI Slider as music volume, bound to the normalized AppPreferences value with theme tint, a 44-point control area and a percentage accessibility value. It saves/previews continuously through AppPreferences. KeepSelectionMenu gives its entire padded label a rectangular content shape and disables hit testing on its decorative border. Music volume remains a SwiftUI Slider.
+
+### Optional iCloud backup
+
+`KeepApp` owns one `BackupModel` (`Core/Backups`, `Services/Backups`, `UI/Backups`) shared with Settings in every workspace. Its injected cloud/file/clock adapters capture the four existing value archives after recorder settlement in one main-actor checkpoint. Nonisolated archive types/validators allow background encoding and validation without moving live models off the main actor. Portable settings use an explicit whitelist; folder permissions, runtime/cache state and device-local backup/login/update settings never enter cloud payloads.
+
+Native iCloud Documents uses `iCloud.com.youssef.keep`, versioned files under per-installation folders, coordinated background I/O and metadata-driven upload confirmation. Device-local opt-in/outbox/status are separate from portable settings. Automatic captures are hourly when changed, only while Keep is open; retention keeps the latest 24 plus daily versions for 30 UTC days, pruning only this Mac's confirmed uploads. Account changes revoke opt-in and fence pending work. Local creation, pending upload and confirmed upload remain distinct.
+
+A shared `BackupRestoreGate` protects models and persistence adapters during restore. A durable raw recovery/journal precedes multi-key replacement; explicit preference flush/readback precedes the commit marker. Startup resolves unfinished journals before constructing any stores. Failed recovery blocks loading/writes. Successful restore updates existing owners, resets runtime timers/target and Undo, rebuilds read indexes and replaces workspace/menu view subtrees through a shared generation to discard stale drafts/sheets. Music preferences are passive; timers and playback never resume automatically. Three local portable recovery versions and three raw journals are kept. See `docs/backups.md` for format limits, recovery semantics, Developer ID provisioning and signed two-Mac verification; source entitlements and unsigned builds do not establish signed cloud access.
 
 ### Software updates
 
