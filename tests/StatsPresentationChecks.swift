@@ -97,6 +97,14 @@ import SwiftUI
             size: NSSize(width: 420, height: 350), url: output.appendingPathComponent("stats-date-picker.png"))
         try await render(StatsTaskPicker(options: [.init(id: "practice and notes", name: "Practice and notes"), .init(id: "a little reading", name: "A little reading")], selection: ["practice and notes"], onApply: { _ in }),
             size: NSSize(width: 420, height: 430), url: output.appendingPathComponent("stats-task-picker.png"))
+        for appearance in [AppAppearance.light, .dark] {
+            try await render(StatsProjectPicker(options: [
+                .init(id: "no-project", name: "No project", accent: "neutral", deleted: false),
+                .init(id: "german", name: "German", accent: "sage", deleted: false),
+                .init(id: "personal", name: "Personal projects with a longer name that wraps across lines", accent: "terracotta", deleted: true)
+            ], selection: "german", onApply: { _ in }).keepAppearance(appearance),
+                size: NSSize(width: 420, height: 430), url: output.appendingPathComponent("stats-project-picker-\(appearance.rawValue).png"))
+        }
         try await render(StatsGoalEditor(preferences: prefs), size: NSSize(width: 480, height: 320), url: output.appendingPathComponent("stats-goal-editor.png"))
         var filtered = StatsQuery(); filtered.projectID = "german"; filtered.taskKeys = ["a little reading"]
         try await render(StatsView(workspace: workspace, tasks: tasks, habits: habits, preferences: prefs, isVisible: true, initialQuery: filtered).keepAppearance(.light).padding(24).background(KeepTheme.paper),
@@ -112,7 +120,7 @@ import SwiftUI
             habits: HabitStore(persistence: HabitPersistence(defaults: defaults, key: "bad-habits")), preferences: protected, isVisible: true).keepAppearance(.light).padding(24).background(KeepTheme.paper),
             size: NSSize(width: 680, height: 1500), url: output.appendingPathComponent("stats-errors.png"))
         workspace.shutdown()
-        print("Passed \(checks) Stats preference/model checks; rendered 14 native layouts in \(output.path)")
+        print("Passed \(checks) Stats preference/model checks; rendered 16 native layouts in \(output.path)")
     }
     static func render<V: View>(_ root: V, size: NSSize, url: URL) async throws {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: .borderless, backing: .buffered, defer: false)

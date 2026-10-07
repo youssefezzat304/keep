@@ -8,6 +8,7 @@ struct StatsView: View {
     let isVisible: Bool
     @State private var model = StatsModel()
     @State private var showsDates = false
+    @State private var showsProjects = false
     @State private var showsTasks = false
     @State private var showsGoal = false
     @State private var contentWidth: CGFloat = 0
@@ -65,6 +66,14 @@ struct StatsView: View {
         .popover(isPresented: $showsTasks) {
             StatsTaskPicker(options: model.taskOptions, selection: model.query.taskKeys) { model.query.taskKeys = $0 }
         }
+        .popover(isPresented: $showsProjects) {
+            StatsProjectPicker(options: model.projects, selection: model.query.projectID) { projectID in
+                if model.query.projectID != projectID {
+                    model.query.projectID = projectID
+                    model.query.taskKeys = nil
+                }
+            }
+        }
         .sheet(isPresented: $showsGoal) { StatsGoalEditor(preferences: preferences) }
     }
 
@@ -119,15 +128,7 @@ struct StatsView: View {
         return next != model.query
     }
     private var projectPicker: some View {
-        Menu {
-            Button("All projects") { model.query.projectID = nil; model.query.taskKeys = nil }
-            Divider()
-            ForEach(model.projects) { project in
-                Button(project.name + (project.deleted ? " (Deleted)" : "")) {
-                    model.query.projectID = project.id; model.query.taskKeys = nil
-                }
-            }
-        } label: {
+        Button { showsProjects = true } label: {
             Label(model.projects.first { $0.id == model.query.projectID }.map { $0.name + ($0.deleted ? " (Deleted)" : "") } ?? "All projects", systemImage: "folder")
                 .lineLimit(1)
         }.buttonStyle(KeepButtonStyle(emphasis: .quiet)).accessibilityLabel("Filter by project")

@@ -47,6 +47,53 @@ struct StatsDateRangePicker: View {
     }
 }
 
+struct StatsProjectPicker: View {
+    let options: [StatsInput.Project]
+    let onApply: (String?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selected: String?
+    @State private var search = ""
+
+    init(options: [StatsInput.Project], selection: String?, onApply: @escaping (String?) -> Void) {
+        self.options = options; self.onApply = onApply
+        _selected = State(initialValue: selection)
+    }
+
+    private var filtered: [StatsInput.Project] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return options.filter { query.isEmpty || $0.name.localizedStandardContains(query) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Choose a project").font(KeepTheme.headingFont(size: 25))
+            TextField("Search projects", text: $search).modifier(KeepInputStyle())
+                .accessibilityLabel("Search projects")
+            KeepScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Picker("Project", selection: $selected) {
+                        Text("All projects").tag(nil as String?)
+                        ForEach(filtered) { project in
+                            Text(project.name + (project.deleted ? " (Deleted)" : ""))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .tag(Optional(project.id))
+                        }
+                    }.pickerStyle(.radioGroup).labelsHidden()
+                    if filtered.isEmpty {
+                        Text("No projects match your search.").foregroundStyle(KeepTheme.mutedInk)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(4)
+            }.frame(height: 269)
+            HStack {
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Apply") { onApply(selected); dismiss() }
+                    .buttonStyle(KeepButtonStyle(emphasis: .primary)).keyboardShortcut(.defaultAction)
+            }
+        }.padding(24).frame(width: 360).background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
+    }
+}
+
 struct StatsTaskPicker: View {
     let options: [StatsModel.TaskOption]
     let onApply: (Set<String>?) -> Void

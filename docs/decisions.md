@@ -283,6 +283,8 @@ Implement Stats with recorded focus totals/trends, project → multiple task fil
 
 2026-10-07 [USER] Remove the comparison/recording and Pomodoro-coverage explanation lines beneath the summary cards. Always show streaks and remove the checkbox. [CODE] The streak-visibility preference is retired; older archives remain readable and cannot hide streaks. This supersedes D044’s optional streak presentation; calculations and completion coverage remain unchanged.
 
+2026-10-07 [USER] Style the Stats project list like the task picker. [CODE] A matching searchable paper popover provides single-project selection and Cancel/Apply; applying a different project resets task filters, while reapplying the same project preserves them. All projects, No project and marked deleted history remain available.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -428,3 +430,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-07 [TOOL] Bar hover callouts: unsigned Debug build, 13 Stats preference/model checks and whitespace check passed; rendered 14 native layouts. Inspected two additional Light/Dark callout previews with an initial-selection fixture, including a zero bucket at the right edge of a narrow chart. Pointer interaction remains unverified because the native computer-use tool is unavailable; the selected previews do not simulate hovering.
 
 - 2026-10-07 [TOOL] Always-visible streaks: unsigned Debug build, 37 Stats aggregation checks, 13 preference/model checks and whitespace check passed. Legacy preferences with the retired streak visibility field remain readable. Rendered 14 native layouts and inspected full Stats content: both requested explanation lines and the checkbox are absent, while streaks remain visible.
+
+- 2026-10-07 [TOOL] Stats project picker: unsigned Debug build, 13 preference/model checks and whitespace check passed; rendered 16 native layouts. Inspected matching Light/Dark project popovers with single selection, wrapped long names and deleted-history labels. Live picker interaction remains unverified because the native computer-use tool is unavailable.
