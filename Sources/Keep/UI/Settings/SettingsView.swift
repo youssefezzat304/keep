@@ -75,6 +75,12 @@ struct SettingsView: View {
                             .frame(width: 160)
                     }
                     .disabled(!preferences.menuBarEnabled)
+                    if preferences.menuBarTimer == .flow {
+                        Toggle("Show seconds", isOn: $preferences.menuBarShowSeconds)
+                            .toggleStyle(.switch).controlSize(.small)
+                            .font(.system(size: 13))
+                            .disabled(!preferences.menuBarEnabled)
+                    }
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
@@ -113,12 +119,11 @@ struct SettingsView: View {
                             }
                         }
                     } else if preferences.wallpaperSource == .folder {
-                        Text(wallpapers.isLoading ? "Opening your wallpapers…" : "\(wallpapers.count) wallpapers\(wallpapers.rotationFinished ? " · Rotation finished" : "")")
+                        Text(wallpapers.isLoading ? "Opening your wallpapers…" : "\(wallpapers.count) wallpapers")
                             .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
                     }
 
                     VStack(alignment: .leading, spacing: 16) {
-                        Toggle("Rotate wallpapers automatically", isOn: $preferences.automaticallyRotate)
                         settingRow("Order") {
                             KeepSegmentedPicker(label: "Wallpaper order", selection: $preferences.wallpaperOrder,
                                                 options: WallpaperOrder.allCases, title: { $0.title })
@@ -126,19 +131,16 @@ struct SettingsView: View {
                         settingRow("Change wallpaper") {
                             KeepSegmentedPicker(label: "Wallpaper rotation", selection: $preferences.wallpaperRotationTrigger,
                                                 options: WallpaperRotationTrigger.allCases, title: { $0.title })
-                        }.disabled(!preferences.automaticallyRotate)
+                        }
                         if preferences.wallpaperRotationTrigger == .interval {
                             settingRow("Change every") {
                                 KeepSelectionMenu(label: "Wallpaper rotation interval", selection: $preferences.wallpaperIntervalChoice,
                                                   options: WallpaperIntervalChoice.all, title: { $0.title }).frame(width: 190)
-                            }.disabled(!preferences.automaticallyRotate)
+                            }
                             if preferences.wallpaperIntervalChoice == .custom {
                                 WallpaperIntervalEditor(preferences: preferences)
-                                    .disabled(!preferences.automaticallyRotate)
                             }
                         }
-                        Toggle("Loop", isOn: $preferences.loopWallpapers)
-                            .disabled(!preferences.automaticallyRotate)
                     }
                     .font(.system(size: 13))
                     .toggleStyle(.switch)
@@ -146,7 +148,7 @@ struct SettingsView: View {
                     .disabled(preferences.wallpaperSource != .folder)
 
                     if preferences.wallpaperSource == .folder {
-                        helper("Use ← and → in Zen, or while hovering over the music card, to change wallpapers.")
+                        helper("Use ⌘⌥← and ⌘⌥→ in Focus or Zen to change wallpapers, including while typing.")
                     }
                 }
 
@@ -296,7 +298,6 @@ struct SettingsView: View {
             Slider(value: $preferences.glassiness, in: 0...1)
                 .tint(KeepTheme.accentStrong)
                 .frame(height: 44)
-                .focusedValue(\.wallpaperArrowKeysReserved, true)
                 .accessibilityLabel("Glassiness")
                 .accessibilityValue("\(Int((preferences.glassiness * 100).rounded())) percent")
             HStack {

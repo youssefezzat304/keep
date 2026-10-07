@@ -9,11 +9,11 @@ import SwiftUI
         precondition(value(), message)
     }
 
-    static func main() throws {
+    static func main() async throws {
         if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--reload" {
             guard let defaults = UserDefaults(suiteName: CommandLine.arguments[2]) else { throw CocoaError(.coderInvalidValue) }
             let preferences = AppPreferences(persistence: SettingsPersistence(defaults: defaults))
-            precondition(!preferences.menuBarEnabled && preferences.menuBarTimer == .flow, "Cross-process menu preference reload")
+            precondition(!preferences.menuBarEnabled && preferences.menuBarTimer == .flow && !preferences.menuBarShowSeconds, "Cross-process menu preference reload")
             return
         }
         let suite = "keep.menu-checks.\(UUID().uuidString)"
@@ -21,11 +21,12 @@ import SwiftUI
         defer { defaults.removePersistentDomain(forName: suite) }
         let persistence = SettingsPersistence(defaults: defaults)
         let saved = AppPreferences(persistence: persistence)
-        expect(saved.menuBarEnabled && saved.menuBarTimer == .pomodoro, "Menu bar defaults to visible Pomodoro")
+        expect(saved.menuBarEnabled && saved.menuBarTimer == .pomodoro && saved.menuBarShowSeconds, "Menu bar defaults to visible Pomodoro")
         saved.menuBarEnabled = false
         saved.menuBarTimer = .flow
+        saved.menuBarShowSeconds = false
         let reload = AppPreferences(persistence: persistence)
-        expect(!reload.menuBarEnabled && reload.menuBarTimer == .flow, "Restore saved menu preferences")
+        expect(!reload.menuBarEnabled && reload.menuBarTimer == .flow && !reload.menuBarShowSeconds, "Restore saved menu preferences")
         defaults.synchronize()
         let child = Process()
         child.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
@@ -39,15 +40,17 @@ import SwiftUI
         var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(saved.snapshot)) as? [String: Any] ?? [:]
         legacy.removeValue(forKey: "menuBarEnabled")
         legacy.removeValue(forKey: "menuBarTimer")
+        legacy.removeValue(forKey: "menuBarShowSeconds")
         defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: persistence.key)
         let migrated = AppPreferences(persistence: persistence)
-        expect(migrated.canEdit && migrated.menuBarEnabled && migrated.menuBarTimer == .pomodoro, "Load archives without menu fields")
+        expect(migrated.canEdit && migrated.menuBarEnabled && migrated.menuBarTimer == .pomodoro && migrated.menuBarShowSeconds, "Load archives without menu fields")
         legacy["menuBarTimer"] = "unknown"
         let corrupt = try JSONSerialization.data(withJSONObject: legacy)
         defaults.set(corrupt, forKey: persistence.key)
         let blocked = AppPreferences(persistence: persistence)
         blocked.menuBarEnabled = false
         blocked.menuBarTimer = .flow
+        blocked.menuBarShowSeconds = false
         expect(!blocked.canEdit && defaults.data(forKey: persistence.key) == corrupt, "Invalid menu values preserve saved data and block edits")
 
         let workspace = WorkspaceModel()
@@ -58,6 +61,12 @@ import SwiftUI
         workspace.synchronize(at: later, date: date.addingTimeInterval(3))
         expect(workspace.displayInstant == later, "Status labels use the existing workspace display refresh")
         expect(workspace.pomodoro.display(at: workspace.displayInstant) == "24:57" && workspace.flow.display(at: workspace.displayInstant) == "00:00:03", "Both status choices derive their text from recorded clock state")
+        expect(MenuBarLabel.display(workspace.flow, showFlowSeconds: false, at: later) == "00:00", "Hide Flow seconds without rounding minutes up")
+        expect(MenuBarLabel.display(workspace.flow, showFlowSeconds: true, at: later) == "00:00:03", "Show Flow seconds from the same clock")
+        expect(MenuBarLabel.display(workspace.pomodoro, showFlowSeconds: false, at: later) == "24:57", "Show seconds preference never changes Pomodoro")
+        for (seconds, expected) in [(59, "00:00"), (60, "00:01"), (3599, "00:59"), (3600, "01:00"), (3661, "01:01")] {
+            expect(MenuBarLabel.display(workspace.flow, showFlowSeconds: false, at: instant.advanced(by: .seconds(seconds))) == expected, "Flow formatting preserves hour/minute boundaries")
+        }
         saved.menuBarEnabled = false
         saved.menuBarTimer = .none
         expect(workspace.pomodoro.phase(at: later) == .running && workspace.flow.phase(at: later) == .running, "Hiding the menu or its timer never stops either timer")
@@ -68,6 +77,7 @@ import SwiftUI
         let panelWorkspace = WorkspaceModel()
         let panelTasks = DailyTaskStore()
         let panelPreferences = AppPreferences()
+        let panelWallpapers = WallpaperLibrary()
         let panelMusic = MusicPlayerModel(preferences: panelPreferences)
         for populated in [false, true] {
             if populated {
@@ -81,7 +91,7 @@ import SwiftUI
                 panelPreferences.appearance = appearance
                 let host = NSHostingController(rootView: MenuBarWorkspaceView(
                     workspace: panelWorkspace, music: panelMusic,
-                    tasks: panelTasks, preferences: panelPreferences))
+                    tasks: panelTasks, preferences: panelPreferences, wallpapers: panelWallpapers))
                 for proposal in [CGSize.zero, CGSize(width: 380, height: 1)] {
                     let size = host.sizeThatFits(in: proposal)
                     expect(size.width >= 320 && size.width <= 500 && size.height >= 400 && size.height <= 700,

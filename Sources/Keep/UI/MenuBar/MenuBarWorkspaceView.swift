@@ -6,6 +6,7 @@ struct MenuBarWorkspaceView: View {
     @Bindable var music: MusicPlayerModel
     let tasks: DailyTaskStore
     let preferences: AppPreferences
+    let wallpapers: WallpaperLibrary
     @Environment(\.openWindow) private var openWindow
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.self) private var environment
@@ -254,6 +255,17 @@ struct MenuBarWorkspaceView: View {
                     .accessibilityLabel("Music volume")
                     .accessibilityValue("\(Int(music.volume * 100)) percent")
             }
+        }
+        .padding(12)
+        .background {
+            MusicArtworkView(preferences: preferences, wallpapers: wallpapers, animates: page == .controls)
+                .overlay(KeepTheme.paper.opacity(environment.colorScheme == .dark ? 0.72 : 0.78))
+                .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14).strokeBorder(KeepTheme.border, lineWidth: 1)
+                .allowsHitTesting(false)
         }
     }
 

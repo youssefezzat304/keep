@@ -37,6 +37,7 @@ struct keepApp: App {
         }
         .defaultSize(width: 1000, height: 900)
         .commands {
+            MusicCommands(player: music, preferences: preferences)
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.checkForUpdates() }
                     .disabled(!updater.isStarted || !updater.canCheckForUpdates)
@@ -44,10 +45,10 @@ struct keepApp: App {
         }
 
         MenuBarExtra(isInserted: Binding(get: { preferences.menuBarEnabled }, set: { preferences.menuBarEnabled = $0 })) {
-            MenuBarWorkspaceView(workspace: workspace, music: music, tasks: tasks, preferences: preferences)
+            MenuBarWorkspaceView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers)
                 .onAppear { connectRuntime() }
         } label: {
-            MenuBarLabel(workspace: workspace, timer: preferences.menuBarTimer)
+            MenuBarLabel(workspace: workspace, timer: preferences.menuBarTimer, showFlowSeconds: preferences.menuBarShowSeconds)
                 .onAppear { connectRuntime() }
         }
         .menuBarExtraStyle(.window)

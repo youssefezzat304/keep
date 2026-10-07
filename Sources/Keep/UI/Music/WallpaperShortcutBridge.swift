@@ -1,16 +1,7 @@
 import AppKit
 import SwiftUI
 
-extension FocusedValues {
-    /// Sliders retain their native arrow-key operation even inside a wallpaper shortcut area.
-    var wallpaperArrowKeysReserved: Bool? {
-        get { self[WallpaperArrowKeysKey.self] }
-        set { self[WallpaperArrowKeysKey.self] = newValue }
-    }
-    private struct WallpaperArrowKeysKey: FocusedValueKey { typealias Value = Bool }
-}
-
-/// Window-scoped shortcuts work on hover without moving keyboard focus into the card.
+/// Modified shortcuts work throughout the active workspace, including text editors.
 struct WallpaperShortcutBridge: NSViewRepresentable {
     let enabled: Bool
     let onMove: (Int) -> Void
@@ -43,10 +34,8 @@ final class WallpaperShortcutView: NSView {
     func handle(_ event: NSEvent) -> NSEvent? {
         guard enabled, event.type == .keyDown,
               event.keyCode == 123 || event.keyCode == 124,
-              event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty,
-              let window, event.window === window, window.attachedSheet == nil,
-              !(window.firstResponder is NSTextView), !(window.firstResponder is NSTextField),
-              !(window.firstResponder is NSSlider) else { return event }
+              event.modifierFlags.intersection([.command, .control, .option, .shift]) == [.command, .option],
+              let window, event.window === window, window.attachedSheet == nil else { return event }
         if !event.isARepeat { onMove(event.keyCode == 123 ? -1 : 1) }
         return nil
     }

@@ -21,7 +21,7 @@ import SwiftUI
         let persistence = SettingsPersistence(defaults: defaults)
         let preferences = AppPreferences(persistence: persistence)
         expect(SettingsArchive.rotationIntervals == [30, 60, 300, 900, 3600, 18000, 43200, 86400], "Keep old intervals and add all requested hours")
-        expect(preferences.wallpaperRotationTrigger == .interval && preferences.loopWallpapers, "Legacy behavior remains timed and looping")
+        expect(preferences.wallpaperRotationTrigger == .interval && preferences.automaticallyRotate, "Legacy behavior remains timed and looping")
         expect(WallpaperIntervalChoice.customMinutes(hours: "12", minutes: "30") == 750, "Parse custom hours/minutes")
         expect(WallpaperIntervalChoice.customMinutes(hours: "999", minutes: "59") == 59999, "Bound maximum without overflow")
         for (hours, minutes) in [("0", "0"), ("1", "60"), ("-1", "30"), ("x", "1"), ("1000", "0"), ("99999999999999999999", "0")] {
@@ -34,12 +34,22 @@ import SwiftUI
         preferences.wallpaperRotationTrigger = .song
         let reopened = AppPreferences(persistence: persistence)
         expect(reopened.wallpaperIntervalChoice == .custom && reopened.customRotationMinutes == 750 && reopened.snapshot.effectiveRotationSeconds == 45000 && reopened.wallpaperRotationTrigger == .song, "Custom selection, duration and song trigger survive reload")
+        preferences.wallpaperIntervalChoice = .never
+        let never = AppPreferences(persistence: persistence)
+        expect(never.wallpaperIntervalChoice == .never && !never.snapshot.wallpaperConfiguration.automatic, "Never persists using the existing automatic rotation flag")
+        expect(never.customRotationMinutes == 750, "Never preserves the previous custom duration")
+        preferences.wallpaperIntervalChoice = .custom
+        expect(preferences.automaticallyRotate && preferences.customRotationMinutes == 750 && preferences.wallpaperRotationTrigger == .interval, "Choosing custom resumes timed rotation with the remembered duration")
+        preferences.wallpaperIntervalChoice = .never
+        preferences.wallpaperRotationTrigger = .song
+        expect(preferences.automaticallyRotate, "Choosing song rotation explicitly leaves Never")
         preferences.customRotationMinutes = 0
         expect(preferences.customRotationMinutes == 750, "Invalid writes preserve saved preference")
         preferences.rotationSeconds = 18000
         expect(preferences.customRotationMinutes == nil && preferences.snapshot.effectiveRotationSeconds == 18000, "Preset clears custom mode")
         var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(SettingsArchive())) as? [String: Any] ?? [:]
         legacy.removeValue(forKey: "customRotationMinutes"); legacy.removeValue(forKey: "wallpaperRotationTrigger")
+        legacy["loopWallpapers"] = false
         defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: persistence.key)
         let old = AppPreferences(persistence: persistence)
         expect(old.canEdit && old.wallpaperIntervalChoice == .preset(60) && old.wallpaperRotationTrigger == .interval, "Older archives use previous defaults")
@@ -50,13 +60,13 @@ import SwiftUI
         expect(!blocked.canEdit && defaults.data(forKey: persistence.key) == corrupt, "Corrupt preference bytes remain protected")
 
         var cycle = WallpaperCycle(); cycle.reset(count: 3, shuffled: false)
-        expect(cycle.retreat() == 2 && cycle.advance(loop: true, shuffled: false) == 0, "Previous wraps, and next reverses it")
-        expect(cycle.advance(loop: false, shuffled: false) == 1 && cycle.retreat() == 0, "Previous follows the current order")
+        expect(cycle.retreat() == 2 && cycle.advance(shuffled: false) == 0, "Previous wraps, and next reverses it")
+        expect(cycle.advance(shuffled: false) == 1 && cycle.retreat() == 0, "Previous follows the current order")
         cycle.reset(count: 0, shuffled: true)
         expect(cycle.retreat() == nil, "Empty folder cannot go backwards")
         cycle.reset(count: 6, shuffled: true)
         let initial = cycle.current
-        _ = cycle.advance(loop: true, shuffled: true)
+        _ = cycle.advance(shuffled: true)
         expect(cycle.retreat() == initial, "Previous reverses a shuffled step")
 
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("keep-wallpapers-\(UUID().uuidString)", isDirectory: true)
@@ -96,20 +106,28 @@ import SwiftUI
         expect(!library.isLoading, "Switching providers establishes a new baseline")
         library.songChanged(provider: .appleMusic, trackID: "apple-two"); try await settle(library)
         expect(library.image?.tiffRepresentation != second, "Apple Music song changes use the same rotation")
-        settings.loopWallpapers = false; library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
-        library.songChanged(provider: .appleMusic, trackID: "apple-three")
-        expect(library.rotationFinished && !library.isLoading, "Song rotation honors Loop off at the final wallpaper")
+        let third = library.image?.tiffRepresentation
+        library.songChanged(provider: .appleMusic, trackID: "apple-three"); try await settle(library)
+        expect(library.image?.tiffRepresentation == first, "Song rotation wraps automatically at the final wallpaper")
         library.previous(); try await settle(library)
-        expect(!library.rotationFinished && library.image?.tiffRepresentation == second, "Manual navigation restarts a finished cycle")
-        settings.automaticallyRotate = false; library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
+        expect(library.image?.tiffRepresentation == third, "Manual Previous wraps back to the final wallpaper")
+        settings.wallpaperIntervalChoice = .never; library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
         library.songChanged(provider: .appleMusic, trackID: "apple-four")
-        expect(!library.isLoading && library.image?.tiffRepresentation == second, "Automatic off suppresses song rotation")
+        expect(!library.isLoading && library.image?.tiffRepresentation == third, "Never suppresses song rotation")
         settings.automaticallyRotate = true; settings.wallpaperRotationTrigger = .interval
         var fast = settings.snapshot.wallpaperConfiguration
-        fast = WallpaperConfiguration(source: fast.source, bookmark: fast.bookmark, order: fast.order, seconds: 1, automatic: true, loop: true)
+        fast = WallpaperConfiguration(source: fast.source, bookmark: fast.bookmark, order: fast.order, seconds: 1, automatic: true)
         library.configure(fast, preferences: settings)
         try await Task.sleep(for: .milliseconds(1200)); try await settle(library)
-        expect(library.image?.tiffRepresentation != second, "Timed rotation still advances through its single task")
+        expect(library.image?.tiffRepresentation != third, "Timed rotation still advances through its single task")
+        let beforeNever = library.image?.tiffRepresentation
+        settings.wallpaperIntervalChoice = .never
+        library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
+        expect(!library.isLoading && library.image?.tiffRepresentation == beforeNever, "Never retains the selected wallpaper without decoding again")
+        try await Task.sleep(for: .milliseconds(1200))
+        expect(library.image?.tiffRepresentation == beforeNever, "Never cancels the pending timed change")
+        library.next(); try await settle(library)
+        expect(library.image?.tiffRepresentation != beforeNever, "Manual Next remains available with Never")
         library.shutdown()
         try shortcutChecks()
         print("Passed \(checks) wallpaper control checks")
@@ -129,20 +147,33 @@ import SwiftUI
                 isARepeat: repeatKey, keyCode: code) else { throw CocoaError(.coderInvalidValue) }
             return event
         }
-        let left = try key(123), right = try key(124)
-        expect(view.handle(right) != nil, "Inactive or unhovered card leaves arrows alone")
+        let left = try key(123, modifiers: [.command, .option]), right = try key(124, modifiers: [.command, .option])
+        expect(view.handle(right) != nil, "Inactive workspace leaves wallpaper shortcuts alone")
         view.enabled = true
-        expect(view.handle(left) == nil && view.handle(right) == nil && moves == [-1, 1], "Left/right route previous/next")
-        expect(view.handle(try key(124, modifiers: .command)) != nil, "Modified shortcuts retain native behavior")
-        expect(view.handle(try key(124, repeatKey: true)) == nil && moves == [-1, 1], "Held arrows are consumed silently without flooding image loads")
-        expect(view.handle(try key(124, target: other)) != nil, "Other windows keep independent shortcut scope")
+        expect(view.handle(left) == nil && view.handle(right) == nil && moves == [-1, 1], "Command-Option-Left/Right route previous/next")
+        expect(view.handle(try key(124, modifiers: .command)) != nil, "Command arrows retain native text navigation")
+        expect(view.handle(try key(124, modifiers: [.command, .option], repeatKey: true)) == nil && moves == [-1, 1], "Held arrows are consumed silently without flooding image loads")
+        expect(view.handle(try key(124, modifiers: [.command, .option], target: other)) != nil, "Other windows keep independent shortcut scope")
         expect(view.handle(try key(125)) != nil, "Up/down remain available for scrolling")
         let editor = NSTextView(); view.addSubview(editor); window.makeFirstResponder(editor)
-        expect(view.handle(left) != nil, "Text editing retains arrow navigation")
+        expect(view.handle(try key(123)) != nil, "Text editing retains unmodified arrows")
+        expect(view.handle(try key(123, modifiers: .command)) != nil, "Text editing retains start/end-of-line navigation")
+        expect(view.handle(left) == nil && moves.last == -1, "Modified wallpaper shortcuts work with a focused text editor")
+        let slider = NSSlider(); view.addSubview(slider); window.makeFirstResponder(slider)
+        expect(view.handle(try key(124)) != nil, "Sliders retain unmodified arrows")
+        expect(view.handle(right) == nil && moves.last == 1, "Modified wallpaper shortcuts also work with a focused slider")
+        for modifiers: NSEvent.ModifierFlags in [[], .option, .control, [.command, .option, .shift], [.command, .option, .control]] {
+            expect(view.handle(try key(124, modifiers: modifiers)) != nil, "Other modifier combinations retain native behavior")
+        }
+        let sheet = NSWindow(contentRect: .zero, styleMask: .titled, backing: .buffered, defer: false)
+        sheet.isReleasedWhenClosed = false
+        window.beginSheet(sheet)
+        expect(view.handle(left) != nil, "Sheets suspend wallpaper shortcuts")
+        window.endSheet(sheet); sheet.orderOut(nil); sheet.close()
         window.makeFirstResponder(nil)
         expect(view.filterEvent(right) == nil, "Native callback preserves consumption instead of restoring the event through optional coalescing")
         NSApplication.shared.sendEvent(right)
-        expect(moves == [-1, 1, 1, 1], "Installed native monitor dispatches the shortcut")
+        expect(moves == [-1, 1, -1, 1, 1, 1], "Installed native monitor dispatches the shortcut")
         view.enabled = false
         expect(view.handle(right) != nil, "Hidden tabs disable shortcuts immediately")
         expect(view.filterEvent(right) === right, "Native callback preserves unhandled events")

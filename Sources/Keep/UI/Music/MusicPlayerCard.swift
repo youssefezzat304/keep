@@ -10,8 +10,6 @@ struct MusicPlayerCard: View {
     @State private var showsAppleLibrary = false
     @State private var providerMenuHovered = false
     @State private var showsProvider = false
-    @State private var wallpaperHovered = false
-    @FocusedValue(\.wallpaperArrowKeysReserved) private var reservesArrowKeys
     @FocusState private var providerMenuFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -68,12 +66,6 @@ struct MusicPlayerCard: View {
         .simultaneousGesture(TapGesture(count: 2).onEnded {
             if wallpaperIsActive { onEnterZen?() }
         })
-        .onHover { wallpaperHovered = $0 }
-        .background {
-            WallpaperShortcutBridge(enabled: wallpaperIsActive && wallpaperHovered && wallpapers.canAdvance && reservesArrowKeys != true) {
-                if $0 < 0 { wallpapers.previous() } else { wallpapers.next() }
-            }.allowsHitTesting(false).accessibilityHidden(true)
-        }
         .accessibilityAction(named: "Previous wallpaper") { wallpapers.previous() }
         .accessibilityAction(named: "Next wallpaper") { wallpapers.next() }
         .onChange(of: player.provider) { _, provider in
@@ -151,7 +143,6 @@ struct MusicPlayerCard: View {
                 }
                 .disabled(!preferences.canEdit)
                 Slider(value: $player.volume, in: 0...1)
-                    .focusedValue(\.wallpaperArrowKeysReserved, true)
                     .frame(minWidth: 55, idealWidth: 80, maxWidth: 100)
                     .tint(KeepTheme.accentStrong)
                     .accessibilityLabel("Music volume")

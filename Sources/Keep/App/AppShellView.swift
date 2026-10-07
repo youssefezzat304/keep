@@ -119,6 +119,11 @@ struct AppShellView: View {
                 }
             }
         }
+        .background {
+            WallpaperShortcutBridge(enabled: (selectedTab == .focus || zen.isPresented) && wallpapers.canAdvance) {
+                if $0 < 0 { wallpapers.previous() } else { wallpapers.next() }
+            }.allowsHitTesting(false).accessibilityHidden(true)
+        }
         .background { ZenWindowBridge(model: zen).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(true) }
         .frame(minWidth: 680, minHeight: 650)
         .environment(\.artworkPalette, wallpapers.palette(for: preferences.wallpaperSource))

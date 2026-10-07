@@ -11,19 +11,18 @@ struct WallpaperConfiguration: Equatable {
     let order: WallpaperOrder
     let seconds: Int
     let automatic: Bool
-    let loop: Bool
     var trigger: WallpaperRotationTrigger = .interval
 }
 
 extension SettingsArchive {
     var wallpaperConfiguration: WallpaperConfiguration {
         WallpaperConfiguration(source: wallpaperSource, bookmark: folderBookmark, order: wallpaperOrder,
-                               seconds: effectiveRotationSeconds, automatic: automaticallyRotate, loop: loopWallpapers,
+                               seconds: effectiveRotationSeconds, automatic: automaticallyRotate,
                                trigger: wallpaperRotationTrigger ?? .interval)
     }
 }
 
-/// A shuffled cycle visits every wallpaper once, then starts a fresh cycle only when looping is enabled.
+/// A shuffled cycle visits every wallpaper once and avoids immediate repeats between cycles.
 struct WallpaperCycle {
     private(set) var indices: [Int] = []
     private(set) var position = 0
@@ -36,10 +35,9 @@ struct WallpaperCycle {
     mutating func select(_ index: Int) {
         if let position = indices.firstIndex(of: index) { self.position = position }
     }
-    mutating func advance(loop: Bool, shuffled: Bool) -> Int? {
+    mutating func advance(shuffled: Bool) -> Int? {
         guard !indices.isEmpty else { return nil }
         if position + 1 < indices.count { position += 1; return current }
-        guard loop else { return nil }
         let last = current
         if shuffled {
             indices.shuffle()
@@ -79,7 +77,6 @@ final class WallpaperLibrary {
     private(set) var count = 0
     private(set) var isLoading = false
     private(set) var error: String?
-    private(set) var rotationFinished = false
     @ObservationIgnored private var configuration: WallpaperConfiguration?
     @ObservationIgnored private var folder: URL?
     @ObservationIgnored private var files: [URL] = []
@@ -134,7 +131,6 @@ final class WallpaperLibrary {
         let orderChanged = configuration?.order != newValue.order
         configuration = newValue
         rotationTask?.cancel()
-        rotationFinished = false
         if newValue.source != .folder {
             loadTask?.cancel(); generation = UUID()
             video = nil; image = nil; isLoading = false; error = nil
@@ -161,9 +157,9 @@ final class WallpaperLibrary {
         guard let previous, previous.provider == provider, previous.id != trackID,
               let configuration, configuration.source == .folder, configuration.automatic,
               configuration.trigger == .song, count > 1, !isLoading else { return }
-        if let index = cycle.advance(loop: configuration.loop, shuffled: configuration.order == .shuffle) {
+        if let index = cycle.advance(shuffled: configuration.order == .shuffle) {
             showWallpaper(at: index)
-        } else { rotationFinished = true }
+        }
     }
 
     /// One decoded artwork image feeds both the player and the window, across tabs/windows.
@@ -258,15 +254,12 @@ final class WallpaperLibrary {
     func retry(preferences: AppPreferences) { loadFolder(preferences: preferences) }
     func next() {
         guard canAdvance, let configuration else { return }
-        // Manual navigation can begin another cycle even when automatic looping is off.
-        if let index = cycle.advance(loop: true, shuffled: configuration.order == .shuffle) {
-            rotationFinished = false
+        if let index = cycle.advance(shuffled: configuration.order == .shuffle) {
             showWallpaper(at: index)
         }
     }
     func previous() {
         guard canAdvance, let index = cycle.retreat() else { return }
-        rotationFinished = false
         showWallpaper(at: index, direction: -1)
     }
     func shutdown() {
@@ -278,7 +271,7 @@ final class WallpaperLibrary {
     private func loadFolder(preferences: AppPreferences) {
         loadTask?.cancel(); rotationTask?.cancel(); generation = UUID()
         let token = generation
-        video = nil; image = nil; files = []; count = 0; error = nil; rotationFinished = false
+        video = nil; image = nil; files = []; count = 0; error = nil
         guard let bookmark = preferences.snapshot.folderBookmark else {
             isLoading = false
             error = "Choose a wallpaper folder in Settings. The cozy corner is shown until then."
@@ -357,9 +350,9 @@ final class WallpaperLibrary {
         rotationTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(configuration.seconds)) } catch { return }
             guard let self, !Task.isCancelled else { return }
-            if let index = self.cycle.advance(loop: configuration.loop, shuffled: configuration.order == .shuffle) {
+            if let index = self.cycle.advance(shuffled: configuration.order == .shuffle) {
                 self.showWallpaper(at: index)
-            } else { self.rotationFinished = true }
+            }
         }
     }
 

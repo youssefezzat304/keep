@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarLabel: View {
     let workspace: WorkspaceModel
     let timer: MenuBarTimer
+    var showFlowSeconds = true
 
     private var selectedTimer: FocusTimer? {
         switch timer { case .pomodoro: workspace.pomodoro; case .flow: workspace.flow; case .none: nil }
@@ -14,11 +15,18 @@ struct MenuBarLabel: View {
         HStack(spacing: 4) {
             Image(systemName: "leaf.fill")
             if let selectedTimer {
-                Text(selectedTimer.display(at: instant)).monospacedDigit()
+                Text(Self.display(selectedTimer, showFlowSeconds: showFlowSeconds, at: instant)).monospacedDigit()
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Keep")
-        .accessibilityValue(selectedTimer.map { "\(timer.title) \($0.display(at: instant))" } ?? "Open focus controls")
+        .accessibilityValue(selectedTimer.map { "\(timer.title) \(Self.display($0, showFlowSeconds: showFlowSeconds, at: instant))" } ?? "Open focus controls")
     }
+
+    static func display(_ timer: FocusTimer, showFlowSeconds: Bool, at instant: ContinuousClock.Instant) -> String {
+        guard timer.mode == .flow, !showFlowSeconds else { return timer.display(at: instant) }
+        let seconds = timer.seconds(at: instant)
+        return String(format: "%02d:%02d", seconds / 3600, seconds / 60 % 60)
+    }
+
 }

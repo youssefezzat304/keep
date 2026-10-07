@@ -27,7 +27,6 @@ struct ZenMusicControls: View {
                 control("forward.end.fill", label: "Next track", disabled: !player.canSkip) { player.next() }
                 control(player.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill", label: player.volume == 0 ? "Unmute music" : "Mute music", disabled: !preferences.canEdit) { player.toggleMute() }
                 Slider(value: $player.volume, in: 0...1)
-                    .focusedValue(\.wallpaperArrowKeysReserved, true)
                     .frame(width: 92).tint(.white).environment(\.colorScheme, .dark)
                     .disabled(!preferences.canEdit).accessibilityLabel("Music volume")
                     .accessibilityValue("\(Int(player.volume * 100)) percent")

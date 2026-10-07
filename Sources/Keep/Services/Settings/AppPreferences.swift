@@ -31,10 +31,11 @@ enum WallpaperRotationTrigger: String, Codable, CaseIterable {
 }
 
 enum WallpaperIntervalChoice: Hashable {
-    case preset(Int), custom
-    static var all: [Self] { SettingsArchive.rotationIntervals.map { .preset($0) } + [.custom] }
+    case never, preset(Int), custom
+    static var all: [Self] { [.never] + SettingsArchive.rotationIntervals.map { .preset($0) } + [.custom] }
     var title: String {
         switch self {
+        case .never: "Never"
         case .custom: "Custom"
         case .preset(let seconds):
             seconds < 60 ? "30 seconds" : seconds < 3600 ? "\(seconds / 60) minute\(seconds == 60 ? "" : "s")" : "\(seconds / 3600) hour\(seconds == 3600 ? "" : "s")"
@@ -69,7 +70,6 @@ struct SettingsArchive: Codable, Equatable {
     var wallpaperOrder: WallpaperOrder = .sequential
     var rotationSeconds: Int = 60
     var automaticallyRotate = true
-    var loopWallpapers = true
     var glassStyle: MusicGlassStyle = .frosted
     var glassiness: Double = 0.45
     var channels: [MusicChannel] = []
@@ -80,6 +80,7 @@ struct SettingsArchive: Codable, Equatable {
     // Missing menu-bar fields in older archives use the current defaults.
     var menuBarEnabled: Bool?
     var menuBarTimer: MenuBarTimer?
+    var menuBarShowSeconds: Bool?
     var weeklyFocusGoalMinutes: Int?
     var wallpaperRotationTrigger: WallpaperRotationTrigger?
     var customRotationMinutes: Int?
@@ -151,28 +152,37 @@ final class AppPreferences {
     }
     var wallpaperRotationTrigger: WallpaperRotationTrigger {
         get { snapshot.wallpaperRotationTrigger ?? .interval }
-        set { update { $0.wallpaperRotationTrigger = newValue } }
+        set { update { $0.wallpaperRotationTrigger = newValue; $0.automaticallyRotate = true } }
     }
     var customRotationMinutes: Int? {
         get { snapshot.customRotationMinutes }
         set { update { $0.customRotationMinutes = newValue } }
     }
     var wallpaperIntervalChoice: WallpaperIntervalChoice {
-        get { snapshot.customRotationMinutes == nil ? .preset(snapshot.rotationSeconds) : .custom }
+        get {
+            guard snapshot.automaticallyRotate else { return .never }
+            return snapshot.customRotationMinutes == nil ? .preset(snapshot.rotationSeconds) : .custom
+        }
         set {
-            switch newValue {
-            case .preset(let seconds): rotationSeconds = seconds
-            case .custom: customRotationMinutes = snapshot.customRotationMinutes ?? max(1, snapshot.rotationSeconds / 60)
+            update { archive in
+                archive.wallpaperRotationTrigger = .interval
+                switch newValue {
+                case .never:
+                    archive.automaticallyRotate = false
+                case .preset(let seconds):
+                    archive.automaticallyRotate = true
+                    archive.rotationSeconds = seconds
+                    archive.customRotationMinutes = nil
+                case .custom:
+                    archive.automaticallyRotate = true
+                    archive.customRotationMinutes = archive.customRotationMinutes ?? max(1, archive.rotationSeconds / 60)
+                }
             }
         }
     }
     var automaticallyRotate: Bool {
         get { snapshot.automaticallyRotate }
         set { update { $0.automaticallyRotate = newValue } }
-    }
-    var loopWallpapers: Bool {
-        get { snapshot.loopWallpapers }
-        set { update { $0.loopWallpapers = newValue } }
     }
     var glassStyle: MusicGlassStyle {
         get { snapshot.glassStyle }
@@ -198,6 +208,10 @@ final class AppPreferences {
     var menuBarTimer: MenuBarTimer {
         get { snapshot.menuBarTimer ?? .pomodoro }
         set { update { $0.menuBarTimer = newValue } }
+    }
+    var menuBarShowSeconds: Bool {
+        get { snapshot.menuBarShowSeconds ?? true }
+        set { update { $0.menuBarShowSeconds = newValue } }
     }
     var weeklyFocusGoalMinutes: Int? {
         get { snapshot.weeklyFocusGoalMinutes }
