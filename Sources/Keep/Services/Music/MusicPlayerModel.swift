@@ -4,9 +4,15 @@ import AppKit
 
 @Observable
 final class MusicPlayerModel {
-    private(set) var state: MusicPlaybackState = .idle
-    private(set) var track: MusicTrack?
-    private(set) var wantsPlayback = false
+    private(set) var state: MusicPlaybackState = .idle { didSet { synchronizeSystemControls() } }
+    private(set) var track: MusicTrack? {
+        didSet {
+            if oldValue?.id != track?.id { onTrackChange?(provider, track?.id) }
+            synchronizeSystemControls()
+        }
+    }
+    @ObservationIgnored var onTrackChange: ((MusicProvider, String?) -> Void)?
+    private(set) var wantsPlayback = false { didSet { synchronizeSystemControls() } }
     private(set) var selectedChannel: MusicChannel?
     private(set) var queue: [MusicTrack] = []
     var provider: MusicProvider { preferences.musicProvider }
@@ -32,6 +38,7 @@ final class MusicPlayerModel {
     @ObservationIgnored private let catalog: any MusicCatalog
     @ObservationIgnored private let playback: any MusicPlayback
     @ObservationIgnored private let appleMusic: any AppleMusicControlling
+    @ObservationIgnored private let systemControls: (any MusicSystemControlling)?
     @ObservationIgnored private let launchAppleMusic: @MainActor () async throws -> Void
     private let preferences: AppPreferences
     @ObservationIgnored private let timeoutInterval: Duration
@@ -58,19 +65,20 @@ final class MusicPlayerModel {
     private var index = 0
     private var hasItem = false
 
-    convenience init(preferences: AppPreferences = AppPreferences()) {
-        self.init(catalog: AudiusClient(), playback: AVMusicPlayback(), preferences: preferences)
+    convenience init(preferences: AppPreferences = AppPreferences(), systemControls: (any MusicSystemControlling)? = nil) {
+        self.init(catalog: AudiusClient(), playback: AVMusicPlayback(), preferences: preferences, systemControls: systemControls)
     }
 
     init(catalog: any MusicCatalog, playback: any MusicPlayback, preferences: AppPreferences = AppPreferences(),
          appleMusic: any AppleMusicControlling = AppleMusicController(),
          launchAppleMusic: (@MainActor () async throws -> Void)? = nil, timeoutInterval: Duration = .seconds(30),
          appleRefreshInterval: Duration = .seconds(1), isMusicRunning: (@MainActor () -> Bool)? = nil,
-         appleRecoveryGrace: Duration = .seconds(8)) {
+         appleRecoveryGrace: Duration = .seconds(8), systemControls: (any MusicSystemControlling)? = nil) {
         self.catalog = catalog
         self.playback = playback
         self.preferences = preferences
         self.appleMusic = appleMusic
+        self.systemControls = systemControls
         self.launchAppleMusic = launchAppleMusic ?? { try await Self.launchMusicIfNeeded() }
         self.timeoutInterval = timeoutInterval
         self.appleRefreshInterval = appleRefreshInterval
@@ -78,6 +86,30 @@ final class MusicPlayerModel {
         self.isMusicRunning = isMusicRunning ?? { !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").isEmpty }
         unmutedVolume = preferences.musicVolume > 0 ? preferences.musicVolume : 0.5
         playback.volume = Float(volume)
+        systemControls?.connect(command: { [weak self] action in self?.handleRemoteAction(action) ?? false },
+                                outputChanged: { [weak self] in self?.pauseForOutputChange() })
+        synchronizeSystemControls()
+    }
+
+    private func synchronizeSystemControls() {
+        systemControls?.update(MusicSystemSnapshot(provider: provider, track: track, state: state,
+                                                  wantsPlayback: wantsPlayback, canSkip: canSkip))
+    }
+    /// Native media keys never change provider or start a previously unengaged library.
+    func handleRemoteAction(_ action: MusicRemoteAction) -> Bool {
+        guard provider == .audius, track != nil, preferences.canEdit else { return false }
+        switch action {
+        case .toggle: togglePlayback()
+        case .play: if !wantsPlayback { togglePlayback() }
+        case .pause: if wantsPlayback { togglePlayback() }
+        case .next: guard canSkip else { return false }; next()
+        case .previous: guard canSkip else { return false }; previous()
+        }
+        return true
+    }
+    func pauseForOutputChange() {
+        guard wantsPlayback else { return }
+        togglePlayback()
     }
 
     var canSkip: Bool { provider == .appleMusic ? appleMusicConnected && track != nil : queue.count > 1 }
@@ -268,6 +300,7 @@ final class MusicPlayerModel {
         hasItem = false
         itemToken = nil
         state = .idle
+        systemControls?.shutdown()
         return appleRelease
     }
 

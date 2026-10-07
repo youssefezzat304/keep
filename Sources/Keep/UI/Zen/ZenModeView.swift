@@ -6,6 +6,7 @@ struct ZenModeView: View {
     let preferences: AppPreferences
     let wallpapers: WallpaperLibrary
     let onExit: () -> Void
+    @FocusedValue(\.wallpaperArrowKeysReserved) private var reservesArrowKeys
 
     var body: some View {
         GeometryReader { geometry in
@@ -37,6 +38,13 @@ struct ZenModeView: View {
         }
         .foregroundStyle(.white)
         .onExitCommand(perform: onExit)
+        .background {
+            WallpaperShortcutBridge(enabled: wallpapers.canAdvance && reservesArrowKeys != true) {
+                if $0 < 0 { wallpapers.previous() } else { wallpapers.next() }
+            }.allowsHitTesting(false).accessibilityHidden(true)
+        }
+        .accessibilityAction(named: "Previous wallpaper") { wallpapers.previous() }
+        .accessibilityAction(named: "Next wallpaper") { wallpapers.next() }
     }
 
     private var timers: some View {

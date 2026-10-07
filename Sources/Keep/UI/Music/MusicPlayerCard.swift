@@ -9,6 +9,9 @@ struct MusicPlayerCard: View {
     @State private var showsSavedChannels = false
     @State private var showsAppleLibrary = false
     @State private var providerMenuHovered = false
+    @State private var showsProvider = false
+    @State private var wallpaperHovered = false
+    @FocusedValue(\.wallpaperArrowKeysReserved) private var reservesArrowKeys
     @FocusState private var providerMenuFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -61,6 +64,18 @@ struct MusicPlayerCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: 288, maxHeight: .infinity)
+        .contentShape(RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            if wallpaperIsActive { onEnterZen?() }
+        })
+        .onHover { wallpaperHovered = $0 }
+        .background {
+            WallpaperShortcutBridge(enabled: wallpaperIsActive && wallpaperHovered && wallpapers.canAdvance && reservesArrowKeys != true) {
+                if $0 < 0 { wallpapers.previous() } else { wallpapers.next() }
+            }.allowsHitTesting(false).accessibilityHidden(true)
+        }
+        .accessibilityAction(named: "Previous wallpaper") { wallpapers.previous() }
+        .accessibilityAction(named: "Next wallpaper") { wallpapers.next() }
         .onChange(of: player.provider) { _, provider in
             if provider != .audius { showsSavedChannels = false }
             if provider != .appleMusic { showsAppleLibrary = false }
@@ -87,10 +102,6 @@ struct MusicPlayerCard: View {
             }
             providerMenu
             Spacer(minLength: 4)
-            if preferences.wallpaperSource == .folder {
-                musicControl("photo.badge.arrow.down", label: "Next wallpaper", disabled: !wallpapers.canAdvance) { wallpapers.next() }
-                    .background(KeepTheme.paper.opacity(0.95), in: Circle())
-            }
             Button { onEnterZen?() } label: {
                 Image(systemName: "chevron.up.chevron.right.chevron.down.chevron.left")
                     .font(.system(size: 22, weight: .light))
@@ -140,6 +151,7 @@ struct MusicPlayerCard: View {
                 }
                 .disabled(!preferences.canEdit)
                 Slider(value: $player.volume, in: 0...1)
+                    .focusedValue(\.wallpaperArrowKeysReserved, true)
                     .frame(minWidth: 55, idealWidth: 80, maxWidth: 100)
                     .tint(KeepTheme.accentStrong)
                     .accessibilityLabel("Music volume")
@@ -217,18 +229,7 @@ struct MusicPlayerCard: View {
     }
 
     private var providerMenu: some View {
-        Menu {
-            ForEach(MusicProvider.allCases) { provider in
-                Button { player.selectProvider(provider) } label: {
-                    Label(provider.title, systemImage: player.provider == provider ? "checkmark" : "music.note")
-                }
-            }
-            if player.provider == .appleMusic {
-                Divider()
-                Button("Browse Music library…") { showsAppleLibrary = true }
-                Button("Open Music…") { player.openAppleMusic() }
-            }
-        } label: {
+        Button { showsProvider.toggle() } label: {
             Label("Choose music provider", systemImage: "waveform.mid")
                 .labelStyle(.iconOnly)
                 .font(.system(size: 12, weight: .medium))
@@ -236,7 +237,7 @@ struct MusicPlayerCard: View {
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).buttonStyle(.plain)
+        .buttonStyle(.plain)
         .frame(width: 28, height: 28)
         .background(KeepTheme.paper.opacity(providerMenuHovered ? 0.98 : 0.85), in: Circle())
         .contentShape(Circle())
@@ -247,6 +248,22 @@ struct MusicPlayerCard: View {
         .accessibilityLabel("Choose music provider")
         .accessibilityValue(player.provider.title)
         .help("Music provider: \(player.provider.title)")
+        .popover(isPresented: $showsProvider) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Music provider").font(KeepTheme.headingFont(size: 20))
+                KeepSegmentedPicker(label: "Music provider", selection: Binding(get: { player.provider }, set: {
+                    player.selectProvider($0); showsProvider = false
+                }), options: MusicProvider.allCases, title: { $0.title })
+                if player.provider == .appleMusic {
+                    Button("Browse Music library…") { showsProvider = false; showsAppleLibrary = true }
+                        .buttonStyle(KeepButtonStyle())
+                    Button("Open Music…") { showsProvider = false; player.openAppleMusic() }
+                        .buttonStyle(KeepButtonStyle())
+                }
+            }
+            .padding(16).background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
+            .onExitCommand { showsProvider = false }
+        }
     }
 
     @ViewBuilder private var status: some View {

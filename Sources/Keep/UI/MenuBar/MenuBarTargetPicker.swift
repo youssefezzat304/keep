@@ -11,17 +11,12 @@ struct MenuBarTargetPicker: View {
     @Environment(\.self) private var environment
     @FocusState private var nameFocused: Bool
 
-    private var query: String {
-        editor.text == workspace.taskName ? "" : editor.text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
     private var projects: [FocusProject] {
-        workspace.projects.filter { query.isEmpty || $0.name.localizedStandardContains(query) }
+        workspace.projects
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
     private var recentTasks: [TaskActivity] {
-        workspace.taskSuggestions.filter {
-            query.isEmpty || $0.title.localizedStandardContains(query) || $0.project.name.localizedStandardContains(query)
-        }
+        workspace.taskSuggestions
     }
 
     var body: some View {
@@ -33,9 +28,9 @@ struct MenuBarTargetPicker: View {
                 Spacer()
                 Text("Working on").font(KeepTheme.headingFont(size: 20))
             }
-            TextField("Name a task or search…", text: $editor.text)
+            TextField("Name a task…", text: $editor.text)
                 .modifier(KeepInputStyle()).focused($nameFocused)
-                .accessibilityLabel("Task name or search projects and recent tasks")
+                .accessibilityLabel("Task name")
                 .help("Press Return to use this task name")
                 .onSubmit(submit)
                 .disabled(!workspace.canTrack)
@@ -62,13 +57,12 @@ struct MenuBarTargetPicker: View {
                         .accessibilityLabel("Select task \(task.title), project \(task.project.name)")
                     }
                     if recentTasks.isEmpty {
-                        helper(workspace.taskSuggestions.isEmpty ? "Tasks you use with a timer will appear here." : "No matching recent tasks.")
+                        helper("Tasks you use with a timer will appear here.")
                     }
                     Divider().overlay(KeepTheme.border).padding(.vertical, 10)
                     heading("Projects")
                     projectRow(nil)
                     ForEach(projects) { project in projectRow(project) }
-                    if projects.isEmpty { helper("No matching projects.") }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2)
             }
             .disabled(!workspace.canTrack)

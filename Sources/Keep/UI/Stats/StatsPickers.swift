@@ -71,14 +71,10 @@ struct StatsProjectPicker: View {
                 .accessibilityLabel("Search projects")
             KeepScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Picker("Project", selection: $selected) {
-                        Text("All projects").tag(nil as String?)
-                        ForEach(filtered) { project in
-                            Text(project.name + (project.deleted ? " (Deleted)" : ""))
-                                .fixedSize(horizontal: false, vertical: true)
-                                .tag(Optional(project.id))
-                        }
-                    }.pickerStyle(.radioGroup).labelsHidden()
+                    projectOption("All projects", id: nil)
+                    ForEach(filtered) { project in
+                        projectOption(project.name + (project.deleted ? " (Deleted)" : ""), id: project.id)
+                    }
                     if filtered.isEmpty {
                         Text("No projects match your search.").foregroundStyle(KeepTheme.mutedInk)
                     }
@@ -91,6 +87,10 @@ struct StatsProjectPicker: View {
                     .buttonStyle(KeepButtonStyle(emphasis: .primary)).keyboardShortcut(.defaultAction)
             }
         }.padding(24).frame(width: 360).background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
+    }
+    private func projectOption(_ title: String, id: String?) -> some View {
+        Toggle(title, isOn: Binding(get: { selected == id }, set: { if $0 { selected = id } }))
+            .toggleStyle(KeepCheckboxStyle()).fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -111,7 +111,7 @@ struct StatsTaskPicker: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Choose tasks").font(KeepTheme.headingFont(size: 25))
             TextField("Search tasks", text: $search).modifier(KeepInputStyle())
-            Toggle("All tasks", isOn: $all)
+            Toggle("All tasks", isOn: $all).toggleStyle(KeepCheckboxStyle())
             KeepScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(options.filter { search.isEmpty || $0.name.localizedStandardContains(search) }) { task in
@@ -119,6 +119,7 @@ struct StatsTaskPicker: View {
                             all = false
                             if checked { selected.insert(task.id) } else { selected.remove(task.id) }
                         }))
+                        .toggleStyle(KeepCheckboxStyle())
                         .fixedSize(horizontal: false, vertical: true)
                     }
                     if options.isEmpty { Text("No recorded tasks in this project yet.").foregroundStyle(KeepTheme.mutedInk) }

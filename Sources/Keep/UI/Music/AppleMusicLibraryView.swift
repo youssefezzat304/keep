@@ -59,10 +59,8 @@ struct AppleMusicLibraryView: View {
                     Spacer()
                     Button("Play playlist") { player.playAppleItem(playlist) }.disabled(!preferences.canEdit)
                 } else {
-                    Picker("Browse library", selection: $kind) {
-                        Text("Songs").tag(AppleMusicItem.Kind.songs)
-                        Text("Playlists").tag(AppleMusicItem.Kind.playlists)
-                    }.pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                    KeepSegmentedPicker(label: "Browse library", selection: $kind,
+                                        options: [.songs, .playlists], title: { $0 == .songs ? "Songs" : "Playlists" })
                     Spacer()
                     Button { offset = 0; revision += 1 } label: { Image(systemName: "arrow.clockwise") }
                         .accessibilityLabel("Refresh Music library").help("Refresh Music library")

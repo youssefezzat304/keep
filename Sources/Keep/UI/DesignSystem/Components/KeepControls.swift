@@ -32,45 +32,106 @@ struct KeepButtonStyle: ButtonStyle {
     }
 }
 
+/// Two-choice pickers use the same selected-button treatment as Appearance.
+struct KeepSegmentedPicker<Value: Hashable>: View {
+    let label: String
+    @Binding var selection: Value
+    let options: [Value]
+    let title: (Value) -> String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.self) { option in
+                Button { selection = option } label: {
+                    HStack(spacing: 5) {
+                        if selection == option { Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold)) }
+                        Text(title(option)).fixedSize(horizontal: true, vertical: false)
+                    }
+                }
+                .buttonStyle(KeepButtonStyle(emphasis: selection == option ? .primary : .quiet))
+                .accessibilityLabel("\(label): \(title(option))")
+                .accessibilityAddTraits(selection == option ? .isSelected : [])
+            }
+        }
+        .padding(4).background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .contain).accessibilityLabel(label)
+    }
+}
+
 struct KeepSelectionMenu<Value: Hashable>: View {
     let label: String
     @Binding var selection: Value
     let options: [Value]
     let title: (Value) -> String
-    @State private var hovered = false
-    @Environment(\.isEnabled) private var enabled
-    @Environment(\.isFocused) private var focused
+    @State private var isPresented = false
 
     var body: some View {
-        Menu {
-            ForEach(options, id: \.self) { option in
-                Button { selection = option } label: {
-                    if option == selection { Label(title(option), systemImage: "checkmark") }
-                    else { Text(title(option)) }
+        if options.count == 2 {
+            KeepSegmentedPicker(label: label, selection: $selection, options: options, title: title)
+        } else {
+            Button { isPresented.toggle() } label: {
+                HStack(spacing: 12) {
+                    Text(title(selection)).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(KeepTheme.accentStrong)
                 }
+                .frame(maxWidth: .infinity).contentShape(Rectangle())
             }
-        } label: {
-            HStack(spacing: 12) {
-                Text(title(selection)).lineLimit(1)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(KeepTheme.accentStrong)
-            }
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(KeepTheme.ink)
-            .padding(.horizontal, 12).frame(height: 36)
-            .contentShape(Rectangle())
-            .background(hovered ? KeepTheme.mutedWarm : KeepTheme.paper, in: RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(focused ? KeepTheme.focusRing : KeepTheme.border, lineWidth: focused ? 2 : 1)
-                    .allowsHitTesting(false)
+            .buttonStyle(KeepButtonStyle())
+            .accessibilityLabel(label).accessibilityValue(title(selection))
+            .popover(isPresented: $isPresented) {
+                KeepOptionList(label: label, options: options, selection: selection, title: title) { option in
+                    selection = option; isPresented = false
+                }
+                .onExitCommand { isPresented = false }
             }
         }
-        .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain)
-        .opacity(enabled ? 1 : 0.4)
-        .onHover { hovered = $0 }
-        .accessibilityLabel(label).accessibilityValue(title(selection))
+    }
+}
+
+/// Themed dropdown contents with complete row hit areas and native button accessibility.
+struct KeepOptionList<Value: Hashable>: View {
+    let label: String
+    let options: [Value]
+    let selection: Value
+    let title: (Value) -> String
+    let onSelect: (Value) -> Void
+    @FocusState private var focused: Value?
+
+    var body: some View {
+        ScrollViewReader { reader in
+            KeepScrollView {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(options, id: \.self) { option in
+                        Button { onSelect(option) } label: {
+                            HStack(spacing: 10) {
+                                Text(title(option)).fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 8)
+                                Image(systemName: "checkmark").opacity(option == selection ? 1 : 0)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }
+                        .buttonStyle(KeepButtonStyle(emphasis: option == selection ? .secondary : .quiet))
+                        .focused($focused, equals: option)
+                        .accessibilityAddTraits(option == selection ? .isSelected : [])
+                        .id(option)
+                    }
+                }.padding(8)
+            }
+            .frame(width: 260, height: CGFloat(min(options.count, 7)) * 40 + 16)
+            .background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
+            .accessibilityElement(children: .contain).accessibilityLabel(label)
+            .onAppear { focused = selection; reader.scrollTo(selection) }
+            .onChange(of: focused) { _, value in if let value { reader.scrollTo(value) } }
+            .onKeyPress(.downArrow) { moveFocus(1); return .handled }
+            .onKeyPress(.upArrow) { moveFocus(-1); return .handled }
+        }
+    }
+    private func moveFocus(_ step: Int) {
+        guard !options.isEmpty else { return }
+        let index = options.firstIndex(of: focused ?? selection) ?? 0
+        focused = options[(index + step + options.count) % options.count]
     }
 }
 

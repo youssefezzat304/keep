@@ -309,6 +309,8 @@ private actor DelayedMusic: AppleMusicControlling {
         let preferences = AppPreferences(persistence: persistence)
         let catalog = SourceCatalog()
         let model = MusicPlayerModel(catalog: catalog, playback: SourcePlayback(), preferences: preferences)
+        var songIDs: [String] = []
+        model.onTrackChange = { _, id in if let id { songIDs.append(id) } }
         model.playAudiusSource(nil)
         try await waitUntil { model.track?.id == "lofi1" && model.state == .playing }
         expect(preferences.snapshot.channels.isEmpty && model.wantsPlayback, "All Lofi plays before any sources are saved")
@@ -320,6 +322,7 @@ private actor DelayedMusic: AppleMusicControlling {
         model.next()
         try await waitUntil { model.track?.id == "saved2" && model.state == .playing }
         expect(model.selectedChannel == playlist, "Next stays inside the chosen playlist")
+        expect(songIDs == ["lofi1", "saved1", "saved2"], "App-owned identity callback follows real selections once")
         model.playAudiusSource(nil)
         try await waitUntil { model.track?.id == "lofi1" && model.state == .playing }
         expect(model.selectedChannel == nil && preferences.selectedChannel == nil && model.wantsPlayback, "All Lofi leaves a playlist and starts discovery")
@@ -327,12 +330,14 @@ private actor DelayedMusic: AppleMusicControlling {
         let reads = catalog.streamReads
         model.playAudiusSource(nil)
         expect(catalog.streamReads == reads && model.track?.id == "lofi1", "Selecting an already-playing source does not restart it")
+        expect(songIDs.last == "lofi1" && songIDs.count == 4, "Repeated selection emits no duplicate song event")
         model.next()
         try await waitUntil { model.track?.id == "lofi2" && model.state == .playing }
         expect(model.selectedChannel == nil, "Next uses the lofi queue after leaving a playlist")
         model.togglePlayback()
         model.playAudiusSource(nil)
         expect(model.wantsPlayback && model.track?.id == "lofi2", "Selecting a paused source resumes without resetting its track")
+        expect(songIDs.count == 5, "Pause/resume keeps the same song identity")
         let reopened = AppPreferences(persistence: persistence)
         expect(reopened.selectedChannel == nil && reopened.snapshot.channels == [playlist], "All Lofi selection survives reload without changing saved playlists")
         model.selectProvider(.appleMusic)

@@ -12,12 +12,14 @@ struct WallpaperConfiguration: Equatable {
     let seconds: Int
     let automatic: Bool
     let loop: Bool
+    var trigger: WallpaperRotationTrigger = .interval
 }
 
 extension SettingsArchive {
     var wallpaperConfiguration: WallpaperConfiguration {
         WallpaperConfiguration(source: wallpaperSource, bookmark: folderBookmark, order: wallpaperOrder,
-                               seconds: rotationSeconds, automatic: automaticallyRotate, loop: loopWallpapers)
+                               seconds: effectiveRotationSeconds, automatic: automaticallyRotate, loop: loopWallpapers,
+                               trigger: wallpaperRotationTrigger ?? .interval)
     }
 }
 
@@ -44,6 +46,11 @@ struct WallpaperCycle {
             if indices.count > 1, indices.first == last { indices.swapAt(0, 1) }
         }
         position = 0
+        return current
+    }
+    mutating func retreat() -> Int? {
+        guard !indices.isEmpty else { return nil }
+        position = position > 0 ? position - 1 : indices.count - 1
         return current
     }
 }
@@ -82,6 +89,7 @@ final class WallpaperLibrary {
     @ObservationIgnored private var bundledBackdropTask: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var artworkURL: URL?
+    @ObservationIgnored private var lastSong: (provider: MusicProvider, id: String)?
     @ObservationIgnored private var artworkData: Data?
     @ObservationIgnored private var nativeArtworkTask: Task<Void, Never>?
     @ObservationIgnored private var nativeGeneration = UUID()
@@ -123,6 +131,7 @@ final class WallpaperLibrary {
     func configure(_ newValue: WallpaperConfiguration, preferences: AppPreferences) {
         guard configuration != newValue else { return }
         let needsReload = configuration?.bookmark != newValue.bookmark || configuration?.source != newValue.source
+        let orderChanged = configuration?.order != newValue.order
         configuration = newValue
         rotationTask?.cancel()
         rotationFinished = false
@@ -134,9 +143,27 @@ final class WallpaperLibrary {
         }
         if needsReload || files.isEmpty { loadFolder(preferences: preferences) }
         else {
-            cycle.reset(count: files.count, shuffled: newValue.order == .shuffle)
-            if let index = cycle.current { showWallpaper(at: index) }
+            if orderChanged {
+                let selected = cycle.current
+                cycle.reset(count: files.count, shuffled: newValue.order == .shuffle)
+                if let selected { cycle.select(selected) }
+            }
+            armRotation()
         }
+    }
+
+    /// Called once by the app-owned music model, including with no workspace windows open.
+    /// Cover refreshes, pause/resume and provider restoration never advance a wallpaper.
+    func songChanged(provider: MusicProvider, trackID: String?) {
+        guard let trackID else { return }
+        let previous = lastSong
+        lastSong = (provider, trackID)
+        guard let previous, previous.provider == provider, previous.id != trackID,
+              let configuration, configuration.source == .folder, configuration.automatic,
+              configuration.trigger == .song, count > 1, !isLoading else { return }
+        if let index = cycle.advance(loop: configuration.loop, shuffled: configuration.order == .shuffle) {
+            showWallpaper(at: index)
+        } else { rotationFinished = true }
     }
 
     /// One decoded artwork image feeds both the player and the window, across tabs/windows.
@@ -237,6 +264,11 @@ final class WallpaperLibrary {
             showWallpaper(at: index)
         }
     }
+    func previous() {
+        guard canAdvance, let index = cycle.retreat() else { return }
+        rotationFinished = false
+        showWallpaper(at: index, direction: -1)
+    }
     func shutdown() {
         loadTask?.cancel(); rotationTask?.cancel(); bundledBackdropTask?.cancel(); nativeArtworkTask?.cancel()
         generation = UUID(); nativeGeneration = UUID()
@@ -289,11 +321,11 @@ final class WallpaperLibrary {
         }
     }
 
-    private func showWallpaper(at index: Int) {
+    private func showWallpaper(at index: Int, direction: Int = 1) {
         loadTask?.cancel(); rotationTask?.cancel(); generation = UUID()
         let token = generation
         guard let folder, files.indices.contains(index) else { return }
-        let candidates = Array(files[index...] + files[..<index])
+        let candidates = (0..<files.count).map { files[(index + direction * $0 + files.count) % files.count] }
         video = nil
         isLoading = true
         loadTask = Task { [weak self] in
@@ -320,7 +352,8 @@ final class WallpaperLibrary {
 
     private func armRotation() {
         rotationTask?.cancel()
-        guard let configuration, configuration.source == .folder, configuration.automatic, count > 1 else { return }
+        guard let configuration, configuration.source == .folder, configuration.automatic,
+              configuration.trigger == .interval, count > 1 else { return }
         rotationTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(configuration.seconds)) } catch { return }
             guard let self, !Task.isCancelled else { return }

@@ -3,6 +3,7 @@ import SwiftUI
 struct ZenTimerReadout: View {
     let workspace: WorkspaceModel
     let mode: FocusTimer.Mode
+    @State private var showsActions = false
     private var timer: FocusTimer { mode == .pomodoro ? workspace.pomodoro : workspace.flow }
 
     var body: some View {
@@ -14,10 +15,12 @@ struct ZenTimerReadout: View {
                     .font(.system(size: 10, weight: .medium)).tracking(1)
                     .foregroundStyle(.white.opacity(0.85))
                 HStack(spacing: 8) {
-                    Text(timer.display(at: instant))
+                    Button { showsActions.toggle() } label: { Text(timer.display(at: instant)) }
+                        .buttonStyle(.plain)
                         .font(.system(size: 32, weight: .light)).monospacedDigit().lineLimit(1)
                         .accessibilityLabel(mode == .flow ? "Flow time elapsed" : timer.interval == .rest ? "Break time remaining" : "Focus time remaining")
                         .accessibilityValue(timer.display(at: instant))
+                        .help("Timer actions")
                     Button {
                         if phase == .running { workspace.stop(mode) }
                         else { workspace.play(mode) }
@@ -30,11 +33,16 @@ struct ZenTimerReadout: View {
                 }
             }
             .foregroundStyle(.white).shadow(color: .black.opacity(0.65), radius: 3, y: 1)
-            .contextMenu {
-                Button("Reset timer") { workspace.reset(mode) }.disabled(phase == .idle)
-                if mode == .pomodoro, timer.interval == .focus, phase == .completed {
-                    Button("Start break") { workspace.startBreak() }.disabled(!workspace.canTrack)
+            .popover(isPresented: $showsActions) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button("Reset timer") { showsActions = false; workspace.reset(mode) }.disabled(phase == .idle)
+                    if mode == .pomodoro, timer.interval == .focus, phase == .completed {
+                        Button("Start break") { showsActions = false; workspace.startBreak() }.disabled(!workspace.canTrack)
+                    }
                 }
+                .buttonStyle(KeepButtonStyle()).padding(12)
+                .background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
+                .onExitCommand { showsActions = false }
             }
         }
     }

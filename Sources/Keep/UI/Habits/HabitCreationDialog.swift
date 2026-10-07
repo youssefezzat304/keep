@@ -62,14 +62,14 @@ struct HabitCreationDialog: View {
             VStack(alignment: .leading, spacing: 18) {
                 frequency
                 labeled("Goal") {
-                    KeepSelectionMenu(label: "Habit goal", selection: $goalKind, options: GoalKind.allCases, title: { $0.title })
+                    KeepSegmentedPicker(label: "Habit goal", selection: $goalKind, options: GoalKind.allCases, title: { $0.title })
                 }
                 if goalKind == .amount {
                     HStack(spacing: 12) {
                         Text("Per day").font(.system(size: 13, weight: .medium)).frame(width: 90, alignment: .leading)
                         TextField("Amount", text: $target).modifier(KeepInputStyle())
                             .frame(width: 80).accessibilityLabel("Daily target amount")
-                        KeepSelectionMenu(label: "Target unit", selection: $unit, options: HabitUnit.allCases, title: { $0.title })
+                        KeepSegmentedPicker(label: "Target unit", selection: $unit, options: HabitUnit.allCases, title: { $0.title })
                     }
                 }
                 labeled("Starts") { HabitDateField(label: "Start date", date: $startDate, calendar: store.calendar) }

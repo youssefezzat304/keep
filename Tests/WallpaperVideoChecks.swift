@@ -64,6 +64,10 @@ private final class VideoFixtureWindow: NSWindow {
         expect(playback.player.rate == 0 && playback.player.items().isEmpty && playback.video == nil && playback.looper == nil, "Hidden renderers release their queue and looper")
         otherWindow.stop()
         try await nativePresentation(preferences: preferences, library: library)
+        library.previous(); try await waitUntil { !library.isLoading }
+        expect(library.video == nil && library.image != nil, "Previous skips corrupt files in the backward direction")
+        library.previous(); try await waitUntil { !library.isLoading }
+        expect(library.video != nil, "Previous reaches the preceding valid video")
         let output = URL(fileURLWithPath: "/tmp/keep-video-renders")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         for appearance in [AppAppearance.light, .dark] {

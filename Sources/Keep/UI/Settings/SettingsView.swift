@@ -22,8 +22,6 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Make yourself at home.")
                     .font(KeepTheme.headingFont(size: 36))
-                Text("A few small touches for your focus space.")
-                    .font(.system(size: 14)).foregroundStyle(KeepTheme.mutedInk)
             }
             if let error = preferences.persistenceError {
                 HStack {
@@ -43,7 +41,6 @@ struct SettingsView: View {
                 }))
                 .toggleStyle(.switch).controlSize(.small).font(.system(size: 13))
                 .disabled(loginItem.isChanging)
-                helper("Open Keep when you log in to your Mac.")
                 if loginItem.status == .requiresApproval {
                     helper("Allow Keep in System Settings → General → Login Items to finish enabling this.")
                 } else if loginItem.status == .notFound {
@@ -59,7 +56,7 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {
-                    settingRow("Dark mode", detail: "System follows your Mac’s appearance.") {
+                    settingRow("Dark mode") {
                         appearanceChoices
                     }
                     Divider().overlay(KeepTheme.border).allowsHitTesting(false)
@@ -72,7 +69,7 @@ struct SettingsView: View {
                     Toggle("Show Keep in the menu bar", isOn: $preferences.menuBarEnabled)
                         .toggleStyle(.switch).controlSize(.small)
                         .font(.system(size: 13))
-                    settingRow("Timer beside the leaf", detail: "Control both timers, see today’s tasks, and control the selected music provider without opening the workspace.") {
+                    settingRow("Timer beside the leaf") {
                         KeepSelectionMenu(label: "Menu bar timer", selection: $preferences.menuBarTimer,
                                           options: MenuBarTimer.allCases, title: { $0.title })
                             .frame(width: 160)
@@ -81,11 +78,11 @@ struct SettingsView: View {
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
-                    settingRow("Apple Music", detail: "Uses the account signed in to Music on this Mac. Search and play your library inside Keep. Choose Track artwork to use available cover art; your volume is saved for both providers.") {
+                    settingRow("Apple Music") {
                         Button("Open Music…") { player.openAppleMusic() }
                     }
                     Divider().overlay(KeepTheme.border).allowsHitTesting(false)
-                    settingRow("Wallpaper", detail: "Your backdrop for a slower afternoon.") {
+                    settingRow("Wallpaper") {
                         KeepSelectionMenu(label: "Wallpaper source", selection: $preferences.wallpaperSource,
                                           options: WallpaperSource.allCases, title: { $0.title }).frame(width: 190)
                     }
@@ -96,7 +93,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(preferences.snapshot.folderName ?? "No wallpaper folder selected")
                                 .font(.system(size: 13, weight: .medium)).lineLimit(1)
-                            Text("Images and MP4 videos directly inside the folder · read-only access")
+                            Text("Images and MP4 videos")
                                 .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
                         }
                         Spacer(minLength: 8)
@@ -123,16 +120,24 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Toggle("Rotate wallpapers automatically", isOn: $preferences.automaticallyRotate)
                         settingRow("Order") {
-                            KeepSelectionMenu(label: "Wallpaper order", selection: $preferences.wallpaperOrder,
-                                              options: WallpaperOrder.allCases, title: { $0.title }).frame(width: 160)
+                            KeepSegmentedPicker(label: "Wallpaper order", selection: $preferences.wallpaperOrder,
+                                                options: WallpaperOrder.allCases, title: { $0.title })
                         }
-                        settingRow("Change every") {
-                            KeepSelectionMenu(label: "Wallpaper rotation interval", selection: $preferences.rotationSeconds,
-                                              options: SettingsArchive.rotationIntervals, title: { seconds in
-                                seconds == 30 ? "30 seconds" : "\(seconds / 60) minute\(seconds == 60 ? "" : "s")"
-                            }).frame(width: 160)
+                        settingRow("Change wallpaper") {
+                            KeepSegmentedPicker(label: "Wallpaper rotation", selection: $preferences.wallpaperRotationTrigger,
+                                                options: WallpaperRotationTrigger.allCases, title: { $0.title })
                         }.disabled(!preferences.automaticallyRotate)
-                        Toggle("Loop after the last wallpaper", isOn: $preferences.loopWallpapers)
+                        if preferences.wallpaperRotationTrigger == .interval {
+                            settingRow("Change every") {
+                                KeepSelectionMenu(label: "Wallpaper rotation interval", selection: $preferences.wallpaperIntervalChoice,
+                                                  options: WallpaperIntervalChoice.all, title: { $0.title }).frame(width: 190)
+                            }.disabled(!preferences.automaticallyRotate)
+                            if preferences.wallpaperIntervalChoice == .custom {
+                                WallpaperIntervalEditor(preferences: preferences)
+                                    .disabled(!preferences.automaticallyRotate)
+                            }
+                        }
+                        Toggle("Loop", isOn: $preferences.loopWallpapers)
                             .disabled(!preferences.automaticallyRotate)
                     }
                     .font(.system(size: 13))
@@ -140,16 +145,13 @@ struct SettingsView: View {
                     .controlSize(.small)
                     .disabled(preferences.wallpaperSource != .folder)
 
-                    if preferences.wallpaperSource == .audius {
-                        helper("Displays the current track’s artwork. It changes with each track; missing or unavailable artwork falls back to the cozy corner.")
-                    } else if preferences.wallpaperSource == .folder {
-                        helper("MP4 videos loop silently. Shuffle visits each wallpaper once per cycle; folder rotation can stop on the last wallpaper or repeat.")
+                    if preferences.wallpaperSource == .folder {
+                        helper("Use ← and → in Zen, or while hovering over the music card, to change wallpapers.")
                     }
                 }
 
 
                 section("Saved Audius channels", symbol: "bookmark") {
-                    helper("Save an artist profile or playlist link, then find it in the player’s channel menu. Audio starts only when you press Play.")
                     HStack(spacing: 10) {
                         TextField("Paste an Audius artist or playlist link…", text: $channelURL)
                             .modifier(KeepInputStyle())
@@ -230,7 +232,9 @@ struct SettingsView: View {
             ))
             .toggleStyle(.switch).controlSize(.small).font(.system(size: 13))
             .disabled(!updater.isStarted)
-            helper(updater.statusText)
+            if updater.status != .idle || updater.restartGate.isPending || !updater.configuration.isValid || updater.configuration.isDevelopmentBuild {
+                helper(updater.statusText)
+            }
             if let date = updater.lastChecked {
                 helper("Last checked \(date.formatted(date: .abbreviated, time: .shortened))")
             }
@@ -242,7 +246,7 @@ struct SettingsView: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Apple Music").font(.system(size: 14, weight: .medium))
-                    helper("Allow Keep to read your Music library and control playback. Requesting access won’t start a song.")
+                    helper("Read your Music library and control playback.")
                 }
                 Spacer(minLength: 0)
                 Text(player.appleMusicAccess.title)
@@ -280,8 +284,8 @@ struct SettingsView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Music card preview")
             settingRow("Card material") {
-                KeepSelectionMenu(label: "Music card material", selection: $preferences.glassStyle,
-                                  options: MusicGlassStyle.allCases, title: { $0.title }).frame(width: 190)
+                KeepSegmentedPicker(label: "Music card material", selection: $preferences.glassStyle,
+                                    options: MusicGlassStyle.allCases, title: { $0.title })
             }
             HStack {
                 Text("Glassiness").font(.system(size: 13, weight: .medium))
@@ -292,6 +296,7 @@ struct SettingsView: View {
             Slider(value: $preferences.glassiness, in: 0...1)
                 .tint(KeepTheme.accentStrong)
                 .frame(height: 44)
+                .focusedValue(\.wallpaperArrowKeysReserved, true)
                 .accessibilityLabel("Glassiness")
                 .accessibilityValue("\(Int((preferences.glassiness * 100).rounded())) percent")
             HStack {
@@ -303,23 +308,8 @@ struct SettingsView: View {
     }
 
     private var appearanceChoices: some View {
-        HStack(spacing: 4) {
-            ForEach(AppAppearance.allCases) { appearance in
-                Button { preferences.appearance = appearance } label: {
-                    HStack(spacing: 5) {
-                        if preferences.appearance == appearance {
-                            Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold))
-                        }
-                        Text(appearance.title)
-                    }
-                }
-                .buttonStyle(KeepButtonStyle(emphasis: preferences.appearance == appearance ? .primary : .quiet))
-                .accessibilityLabel("\(appearance.title) appearance")
-                .accessibilityAddTraits(preferences.appearance == appearance ? .isSelected : [])
-            }
-        }
-        .padding(4)
-        .background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 14))
+        KeepSegmentedPicker(label: "Appearance", selection: $preferences.appearance,
+                            options: AppAppearance.allCases, title: { $0.title })
     }
 
     private func section<Content: View>(_ title: String, symbol: String, @ViewBuilder content: () -> Content) -> some View {
@@ -331,23 +321,17 @@ struct SettingsView: View {
         .background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         .overlay { RoundedRectangle(cornerRadius: KeepTheme.cardRadius).strokeBorder(KeepTheme.border, lineWidth: 1).allowsHitTesting(false) }
     }
-    private func settingRow<Content: View>(_ title: String, detail: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+    private func settingRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 16) {
-                settingLabel(title, detail: detail)
+                Text(title).font(.system(size: 13, weight: .medium))
                 Spacer(minLength: 8)
                 content().fixedSize(horizontal: true, vertical: false)
             }
             VStack(alignment: .leading, spacing: 12) {
-                settingLabel(title, detail: detail)
+                Text(title).font(.system(size: 13, weight: .medium))
                 content()
             }
-        }
-    }
-    private func settingLabel(_ title: String, detail: String?) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title).font(.system(size: 13, weight: .medium))
-            if let detail { helper(detail) }
         }
     }
     private func helper(_ text: String) -> some View {

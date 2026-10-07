@@ -7,7 +7,7 @@ struct keepApp: App {
     @State private var updater: AppUpdater
     @State private var music: MusicPlayerModel
     @State private var preferences: AppPreferences
-    @State private var wallpapers = WallpaperLibrary()
+    @State private var wallpapers: WallpaperLibrary
     @State private var tasks: DailyTaskStore
     @State private var habits: HabitStore
     @State private var loginItem = LoginItemModel()
@@ -18,7 +18,10 @@ struct keepApp: App {
         _habits = State(initialValue: habits)
         _tasks = State(initialValue: DailyTaskStore(persistence: TaskPersistence(), habits: habits))
         let preferences = AppPreferences(persistence: SettingsPersistence())
-        let music = MusicPlayerModel(preferences: preferences)
+        let music = MusicPlayerModel(preferences: preferences, systemControls: MusicSystemController())
+        let wallpapers = WallpaperLibrary()
+        music.onTrackChange = { [weak wallpapers] provider, id in wallpapers?.songChanged(provider: provider, trackID: id) }
+        _wallpapers = State(initialValue: wallpapers)
         music.selectChannel(preferences.selectedChannel)
         _preferences = State(initialValue: preferences)
         _music = State(initialValue: music)

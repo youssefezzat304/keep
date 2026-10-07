@@ -25,6 +25,28 @@ enum WallpaperOrder: String, Codable, CaseIterable, Identifiable {
     var title: String { self == .sequential ? "In order" : "Shuffle" }
 }
 
+enum WallpaperRotationTrigger: String, Codable, CaseIterable {
+    case interval, song
+    var title: String { self == .interval ? "On a timer" : "With each song" }
+}
+
+enum WallpaperIntervalChoice: Hashable {
+    case preset(Int), custom
+    static var all: [Self] { SettingsArchive.rotationIntervals.map { .preset($0) } + [.custom] }
+    var title: String {
+        switch self {
+        case .custom: "Custom"
+        case .preset(let seconds):
+            seconds < 60 ? "30 seconds" : seconds < 3600 ? "\(seconds / 60) minute\(seconds == 60 ? "" : "s")" : "\(seconds / 3600) hour\(seconds == 3600 ? "" : "s")"
+        }
+    }
+    static func customMinutes(hours: String, minutes: String) -> Int? {
+        guard let hours = Int(hours), let minutes = Int(minutes), (0...999).contains(hours),
+              (0...59).contains(minutes), hours * 60 + minutes > 0 else { return nil }
+        return hours * 60 + minutes
+    }
+}
+
 enum MusicGlassStyle: String, Codable, CaseIterable, Identifiable {
     case frosted, liquid
     var id: String { rawValue }
@@ -59,12 +81,16 @@ struct SettingsArchive: Codable, Equatable {
     var menuBarEnabled: Bool?
     var menuBarTimer: MenuBarTimer?
     var weeklyFocusGoalMinutes: Int?
+    var wallpaperRotationTrigger: WallpaperRotationTrigger?
+    var customRotationMinutes: Int?
 
-    static let rotationIntervals = [30, 60, 300, 900]
+    static let rotationIntervals = [30, 60, 300, 900, 3600, 18000, 43200, 86400]
+    var effectiveRotationSeconds: Int { customRotationMinutes.map { $0 * 60 } ?? rotationSeconds }
 
     var isValid: Bool {
         glassiness.isFinite && (0...1).contains(glassiness)
         && Self.rotationIntervals.contains(rotationSeconds)
+        && (customRotationMinutes == nil || customRotationMinutes.map { (1...59999).contains($0) } == true)
         && (folderBookmark == nil) == (folderName == nil)
         && channels.allSatisfy(\.isValid)
         && Set(channels.map(\.id)).count == channels.count
@@ -121,7 +147,24 @@ final class AppPreferences {
     }
     var rotationSeconds: Int {
         get { snapshot.rotationSeconds }
-        set { update { $0.rotationSeconds = newValue } }
+        set { update { $0.rotationSeconds = newValue; $0.customRotationMinutes = nil } }
+    }
+    var wallpaperRotationTrigger: WallpaperRotationTrigger {
+        get { snapshot.wallpaperRotationTrigger ?? .interval }
+        set { update { $0.wallpaperRotationTrigger = newValue } }
+    }
+    var customRotationMinutes: Int? {
+        get { snapshot.customRotationMinutes }
+        set { update { $0.customRotationMinutes = newValue } }
+    }
+    var wallpaperIntervalChoice: WallpaperIntervalChoice {
+        get { snapshot.customRotationMinutes == nil ? .preset(snapshot.rotationSeconds) : .custom }
+        set {
+            switch newValue {
+            case .preset(let seconds): rotationSeconds = seconds
+            case .custom: customRotationMinutes = snapshot.customRotationMinutes ?? max(1, snapshot.rotationSeconds / 60)
+            }
+        }
     }
     var automaticallyRotate: Bool {
         get { snapshot.automaticallyRotate }

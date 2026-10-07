@@ -7,6 +7,7 @@ xcuserdata/
 *.xcuserstate
 __pycache__/
 *.pyc
+TODO.md
 
 # Build artifacts
 build/
