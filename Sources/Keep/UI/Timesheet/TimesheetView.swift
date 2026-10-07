@@ -62,7 +62,7 @@ struct TimesheetView: View {
         }
         .foregroundStyle(KeepTheme.ink)
         .sheet(isPresented: $showsProjectCreation) {
-            ProjectCreationDialog { name, accent in
+            ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
                 let project = try workspace.createProject(name: name, accent: accent)
                 workspace.addProject(project, on: week.days.first?.date ?? workspace.today)
             }

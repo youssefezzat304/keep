@@ -89,7 +89,7 @@ final class WorkspaceModel {
     func selectProject(_ project: FocusProject?, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard project.map({ !ledger.deletedProjectIDs.contains($0.id) }) ?? true else { return }
         synchronize(at: instant, date: date)
-        selectedProject = project
+        selectedProject = project.map { ledger.projectMetadata(for: $0) }
         if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
     }
@@ -119,6 +119,28 @@ final class WorkspaceModel {
         return project
     }
 
+    /// Rename/recolor in place. Settle the finishing target before changing its metadata.
+    func updateProject(_ project: FocusProject, name: String, accent: FocusProject.Accent,
+                       at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack else { throw ProjectCreationError.unavailable }
+        guard let current = projects.first(where: { $0.id == project.id }) else { throw ProjectCreationError.missing }
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= 80 else { throw ProjectCreationError.invalidName }
+        guard accent != .neutral else { throw ProjectCreationError.invalidColor }
+        guard !(projects + [.unassigned]).contains(where: {
+            $0.id != current.id && $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }) else { throw ProjectCreationError.duplicateName }
+        synchronize(at: instant, date: date)
+        let edited = FocusProject(id: current.id, name: name, accent: accent, category: current.category)
+        ledger.updateProject(edited)
+        reconcileProjectSelection()
+        if let removal = lastTimesheetRemoval, removal.project.id == edited.id {
+            lastTimesheetRemoval = TimesheetRemoval(project: edited, entries: removal.entries, sessions: removal.sessions)
+        }
+        ledgerDirty = true
+        save(at: instant)
+    }
+
     /// Removing a catalog project never erases time. Running timers continue unassigned.
     func deleteProject(_ project: FocusProject, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack, projects.contains(where: { $0.id == project.id }) else { return }
@@ -131,7 +153,9 @@ final class WorkspaceModel {
     }
 
     private func reconcileProjectSelection() {
-        if let selectedProject, ledger.deletedProjectIDs.contains(selectedProject.id) { self.selectedProject = nil }
+        if let selectedProject {
+            self.selectedProject = ledger.deletedProjectIDs.contains(selectedProject.id) ? nil : ledger.projectMetadata(for: selectedProject)
+        }
     }
 
     func play(_ mode: FocusTimer.Mode, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
@@ -212,7 +236,7 @@ final class WorkspaceModel {
     func edit(seconds: TimeInterval, project: FocusProject, dayID: String, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack, seconds.isFinite, seconds >= 0 else { return }
         synchronize(at: instant, date: date)
-        ledger.setSeconds(seconds, project: project, dayID: dayID)
+        ledger.setSeconds(seconds, project: ledger.projectMetadata(for: project), dayID: dayID)
         ledgerDirty = true
         save(at: instant)
     }
@@ -243,7 +267,7 @@ final class WorkspaceModel {
     func addProject(_ project: FocusProject, on date: Date, at instant: ContinuousClock.Instant = .now, now: Date = .now) {
         guard canTrack else { return }
         synchronize(at: instant, date: now)
-        ledger.ensureEntry(project: project, on: date, calendar: calendar)
+        ledger.ensureEntry(project: ledger.projectMetadata(for: project), on: date, calendar: calendar)
         ledgerDirty = true
         save(at: instant)
     }

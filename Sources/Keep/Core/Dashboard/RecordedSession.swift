@@ -10,7 +10,7 @@ nonisolated struct RecordedSession: Identifiable, Codable, Sendable {
     let id: String
     let recordingID: UUID
     let dayID: String
-    let project: FocusProject
+    var project: FocusProject
     let task: String
     let source: Source
     let timeZoneID: String

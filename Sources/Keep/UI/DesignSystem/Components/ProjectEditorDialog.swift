@@ -1,7 +1,9 @@
 import SwiftUI
 
-struct ProjectCreationDialog: View {
-    let onCreate: (String, FocusProject.Accent) throws -> Void
+struct ProjectEditorDialog: View {
+    let project: FocusProject?
+    let usedColors: Set<FocusProject.Accent>
+    let onSave: (String, FocusProject.Accent) throws -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var accent = FocusProject.Accent.terracotta
@@ -10,13 +12,22 @@ struct ProjectCreationDialog: View {
     @FocusState private var nameFocused: Bool
     @FocusState private var focusedColor: FocusProject.Accent?
 
+    init(project: FocusProject? = nil, usedColors: Set<FocusProject.Accent> = [],
+         onSave: @escaping (String, FocusProject.Accent) throws -> Void) {
+        self.project = project
+        self.usedColors = usedColors
+        self.onSave = onSave
+        _name = State(initialValue: project?.name ?? "")
+        _accent = State(initialValue: project?.accent ?? .terracotta)
+    }
+
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var validName: Bool { !trimmedName.isEmpty && trimmedName.count <= 80 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 7) {
-                Text("A new place to focus.")
+                Text(project == nil ? "A new place to focus." : "Edit project.")
                     .font(KeepTheme.headingFont(size: 27))
                 Text("Give your project a name and a color.")
                     .font(.system(size: 13))
@@ -33,11 +44,12 @@ struct ProjectCreationDialog: View {
                     .overlay {
                         RoundedRectangle(cornerRadius: 10)
                             .strokeBorder(nameFocused ? KeepTheme.focusRing : KeepTheme.controlBorder, lineWidth: nameFocused ? 2 : 1)
+                            .allowsHitTesting(false)
                     }
                     .focused($nameFocused)
                     .accessibilityLabel("Project name")
                     .onChange(of: name) { error = nil }
-                    .onSubmit(create)
+                    .onSubmit(save)
                 if trimmedName.count > 80 {
                     Text("Use 80 characters or fewer.")
                         .font(.system(size: 12))
@@ -69,10 +81,10 @@ struct ProjectCreationDialog: View {
             HStack(spacing: 12) {
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .buttonStyle(KeepButtonStyle(emphasis: .quiet))
                     .keyboardShortcut(.cancelAction)
-                Button("Create project", action: create)
-                    .buttonStyle(.borderedProminent)
-                    .tint(KeepTheme.accentStrong)
+                Button(project == nil ? "Create project" : "Save changes", action: save)
+                    .buttonStyle(KeepButtonStyle(emphasis: .primary))
                     .keyboardShortcut(.defaultAction)
                     .disabled(!validName)
             }
@@ -87,6 +99,7 @@ struct ProjectCreationDialog: View {
 
     private func colorOption(_ color: FocusProject.Accent) -> some View {
         let selected = accent == color
+        let used = usedColors.contains(color)
         return Button { accent = color } label: {
             Circle()
                 .fill(color.color)
@@ -103,7 +116,12 @@ struct ProjectCreationDialog: View {
                 .padding(5)
                 .background(hoveredColor == color ? KeepTheme.mutedWarm.opacity(0.5) : .clear, in: Circle())
                 .overlay {
-                    Circle().strokeBorder(selected || focusedColor == color ? KeepTheme.focusRing : KeepTheme.border, lineWidth: selected || focusedColor == color ? 2 : 1)
+                    Circle().strokeBorder(used ? KeepTheme.projectUsedColorRing : KeepTheme.border, lineWidth: used ? 2 : 1)
+                        .allowsHitTesting(false)
+                    if selected || focusedColor == color {
+                        Circle().strokeBorder(KeepTheme.focusRing, lineWidth: 2).padding(-3)
+                            .allowsHitTesting(false)
+                    }
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .contentShape(Rectangle())
@@ -111,15 +129,15 @@ struct ProjectCreationDialog: View {
         .buttonStyle(.plain)
         .onHover { hoveredColor = $0 ? color : nil }
         .focused($focusedColor, equals: color)
-        .accessibilityLabel(color.name)
+        .accessibilityLabel(used ? "\(color.name), already used" : color.name)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help(color.name)
+        .help(used ? "\(color.name) · already used; you can choose it again" : color.name)
     }
 
-    private func create() {
+    private func save() {
         guard validName else { return }
         do {
-            try onCreate(trimmedName, accent)
+            try onSave(trimmedName, accent)
             dismiss()
         } catch {
             self.error = error.localizedDescription
@@ -128,5 +146,5 @@ struct ProjectCreationDialog: View {
 }
 
 #Preview {
-    ProjectCreationDialog { _, _ in }
+    ProjectEditorDialog { _, _ in }
 }

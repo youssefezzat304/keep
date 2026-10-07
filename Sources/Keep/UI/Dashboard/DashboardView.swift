@@ -20,6 +20,7 @@ struct DashboardView: View {
     @State private var model = DashboardQueryModel()
     @State private var page: DashboardPage
     @State private var weekOffset = 0
+    @State private var showsProjectCreation = false
 
     init(workspace: WorkspaceModel, initialPage: DashboardPage = .timesheet, isVisible: Bool = true) {
         self.workspace = workspace
@@ -43,7 +44,13 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 12) { heading; status }
             }
             if page == .projects {
-                HStack { Spacer(minLength: 0); pagePicker }
+                HStack(spacing: 12) {
+                    Button { showsProjectCreation = true } label: { Label("Add project", systemImage: "plus") }
+                        .buttonStyle(KeepButtonStyle(emphasis: .primary))
+                        .disabled(!workspace.canTrack)
+                    Spacer(minLength: 0)
+                    pagePicker
+                }
             } else {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 20) {
@@ -90,6 +97,11 @@ struct DashboardView: View {
         }
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
+        .sheet(isPresented: $showsProjectCreation) {
+            ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
+                _ = try workspace.createProject(name: name, accent: accent)
+            }
+        }
         .task(id: isVisible) { refresh() }
         .onChange(of: week.dayIDs) { _, _ in refresh() }
         .onChange(of: workspace.readIndex.revision) { _, _ in refresh() }

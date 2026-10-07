@@ -173,10 +173,6 @@ struct StatsView: View {
                 }
                 VStack(spacing: 20) { weekdayChart(snapshot); hourChart(snapshot) }
             }
-            Text(model.query.taskKeys == nil
-                 ? "Timesheet total, including manual adjustments: \(TimesheetDuration.total(snapshot.adjustedTotal)). Focus charts use recorded sessions only."
-                 : "Manual Timesheet adjustments have no task attribution and are excluded from task-filtered statistics.")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
         }
     }
     private func weekdayChart(_ snapshot: StatsSnapshot) -> some View {
@@ -189,7 +185,6 @@ struct StatsView: View {
     private func hourChart(_ snapshot: StatsSnapshot) -> some View {
         card {
             StatsBarChart(title: "Focus by hour", points: snapshot.hours.enumerated().map { .init(id: $0.offset, label: String(format: "%02d:00", $0.offset), seconds: $0.element) })
-            Text("Local hours where each session was recorded.").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
         }
     }
     private func distribution(_ snapshot: StatsSnapshot) -> some View {

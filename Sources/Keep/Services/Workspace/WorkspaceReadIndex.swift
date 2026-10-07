@@ -125,9 +125,13 @@ nonisolated struct WorkspaceMutation: Sendable {
             }
         }
         if metadataChanged {
-            activeProjects = (FocusProject.defaults + ledger.customProjects).filter { !ledger.deletedProjectIDs.contains($0.id) }
+            activeProjects = ledger.catalogProjects.filter { !ledger.deletedProjectIDs.contains($0.id) }
             var catalog = historicalProjects.filter { projectReferences[$0.key, default: 0] > 0 }
+            // Catalog edits win over old completion snapshots, including deleted history.
             for project in activeProjects + [.unassigned] { catalog[project.id] = project }
+            for project in ledger.projectOverrides + ledger.customProjects where catalog[project.id] != nil {
+                catalog[project.id] = project
+            }
             let updatedProjects: [StatsInput.Project] = catalog.values.map { .init(id: $0.id, name: $0.name, accent: $0.accent.rawValue, deleted: ledger.deletedProjectIDs.contains($0.id)) }
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             if updatedProjects != statsProjects { catalogRevision &+= 1; statsProjects = updatedProjects }

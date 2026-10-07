@@ -35,13 +35,14 @@ nonisolated struct FocusProject: Identifiable, Equatable, Codable, Sendable {
 }
 
 enum ProjectCreationError: LocalizedError {
-    case invalidName, duplicateName, unavailable, invalidColor
+    case invalidName, duplicateName, unavailable, invalidColor, missing
 
     var errorDescription: String? {
         switch self {
         case .invalidName: "Enter a project name with 1–80 characters."
         case .duplicateName: "A project with this name already exists. Choose another name."
-        case .unavailable: "Retry loading your saved data before creating a project."
+        case .unavailable: "Retry loading your saved data before changing projects."
+        case .missing: "This project is no longer available. Close this dialog and choose another project."
         case .invalidColor: "Choose one of the project colors."
         }
     }

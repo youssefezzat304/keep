@@ -15,6 +15,7 @@ enum KeepTheme {
     static let sageInk = Color("SageForeground")
     static let mistBlue = Color("MistBlue")
     static let border = Color("Border")
+    static let projectUsedColorRing = Color("ProjectUsedColorRing")
     static let controlBorder = Color("ControlBorder")
     static let focusRing = Color("FocusRing")
     static let taskBothTimerFill = Color("TaskBothTimerFill")

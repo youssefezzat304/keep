@@ -19,6 +19,13 @@ struct TimesheetPersistence {
             !project.id.isEmpty && !project.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             project.name.count <= 80 && project.accent != .neutral && projectIDs.insert(project.id).inserted
         }) else { throw CocoaError(.coderReadCorrupt) }
+        let builtInIDs = Set(FocusProject.defaults.map(\.id))
+        var overrideIDs: Set<String> = []
+        guard ledger.projectOverrides.allSatisfy({ project in
+            builtInIDs.contains(project.id) && overrideIDs.insert(project.id).inserted &&
+            !project.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            project.name.count <= 80 && project.accent != .neutral
+        }) else { throw CocoaError(.coderReadCorrupt) }
         guard ledger.deletedProjectIDs.isSubset(of: projectIDs), !ledger.deletedProjectIDs.contains(FocusProject.unassigned.id) else {
             throw CocoaError(.coderReadCorrupt)
         }

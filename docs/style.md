@@ -45,6 +45,8 @@ Named asset-catalog colors are authoritative; KeepTheme exposes semantic referen
 
 Project identity uses the saved accent mapped by FocusProjectStyle. Match project names and folder marks across the active target, picker, Timesheet, Calendar, and project catalog. Preserve hue while adjusting lightness for readable Light/Dark shades. Other text/actions remain on the semantic palette. Color choices need names and an explicit selected state; color alone is insufficient.
 
+Project management uses a standalone terracotta Add project button beside Dashboard’s view switch, matching Add habit. Row edit/delete controls retain accessible labels. Create/edit sheets share Keep’s rounded headings, paper surface and action styles; deletion uses the same treatment. A fixed dark charcoal `ProjectUsedColorRing` marks used colors in both appearances without disabling selection; selected checks and keyboard focus remain separate markers.
+
 Use stronger ink on peach or colored fills. Quiet borders separate decoration; essential controls need the stronger control-boundary token. Preserve the distinction between normal, selected, focused, disabled, and destructive states rather than relying on subtle hue shifts.
 
 ## 4. Typography

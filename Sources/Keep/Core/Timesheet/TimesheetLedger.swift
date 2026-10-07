@@ -14,14 +14,14 @@ nonisolated struct CompletedPomodoro: Identifiable, Codable, Sendable {
 nonisolated struct TaskActivity: Identifiable, Codable, Sendable {
     let id: UUID
     var title: String
-    let project: FocusProject
+    var project: FocusProject
     var lastUsed: Date
     var isPinned = false
 }
 
 nonisolated struct TimesheetEntry: Identifiable, Codable, Sendable {
     var id: String { "\(project.id)/\(dayID)" }
-    let project: FocusProject
+    var project: FocusProject
     let dayID: String
     var seconds: TimeInterval
 }
@@ -44,6 +44,8 @@ nonisolated enum WorkspaceChange: Sendable {
 struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
     private(set) var customProjects: [FocusProject] = []
+    /// Saved edits to built-in projects; absent in older archives.
+    private(set) var projectOverrides: [FocusProject] = []
     private(set) var deletedProjectIDs: Set<String> = []
     private(set) var pomodoroSettings: PomodoroSettings?
     private(set) var sessions: [RecordedSession] = []
@@ -60,13 +62,14 @@ struct TimesheetLedger: Codable {
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case entries, customProjects, deletedProjectIDs, pomodoroSettings, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, projectOverrides, deletedProjectIDs, pomodoroSettings, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         entries = try container.decode([TimesheetEntry].self, forKey: .entries)
         // Existing v1 records predate project creation and contain only entries.
         customProjects = try container.decodeIfPresent([FocusProject].self, forKey: .customProjects) ?? []
+        projectOverrides = try container.decodeIfPresent([FocusProject].self, forKey: .projectOverrides) ?? []
         deletedProjectIDs = try container.decodeIfPresent(Set<String>.self, forKey: .deletedProjectIDs) ?? []
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
         sessions = try container.decodeIfPresent([RecordedSession].self, forKey: .sessions) ?? []
@@ -120,6 +123,38 @@ struct TimesheetLedger: Codable {
         changes.append(.catalog)
     }
 
+    var catalogProjects: [FocusProject] {
+        FocusProject.defaults.map { original in projectOverrides.first { $0.id == original.id } ?? original } + customProjects
+    }
+
+    func projectMetadata(for project: FocusProject) -> FocusProject {
+        projectOverrides.first { $0.id == project.id } ?? customProjects.first { $0.id == project.id } ?? project
+    }
+
+    /// Refresh display metadata without changing identities, time, tasks, or completion snapshots.
+    mutating func updateProject(_ project: FocusProject) {
+        if let index = customProjects.firstIndex(where: { $0.id == project.id }) {
+            customProjects[index] = project
+        } else if let index = projectOverrides.firstIndex(where: { $0.id == project.id }) {
+            projectOverrides[index] = project
+        } else {
+            projectOverrides.append(project)
+        }
+        for index in entries.indices where entries[index].project.id == project.id {
+            entries[index].project = project
+            changes.append(.entry(entries[index]))
+        }
+        for index in sessions.indices where sessions[index].project.id == project.id {
+            sessions[index].project = project
+            changes.append(.session(sessions[index]))
+        }
+        for index in taskActivities.indices where taskActivities[index].project.id == project.id {
+            taskActivities[index].project = project
+            changes.append(.activity(taskActivities[index]))
+        }
+        changes.append(.catalog)
+    }
+
     /// Delete from the active catalog, preserving metadata and all recorded history.
     mutating func deleteProject(id: String) { deletedProjectIDs.insert(id); changes.append(.catalog) }
 
@@ -169,7 +204,9 @@ struct TimesheetLedger: Codable {
 
     /// Undo restores removed time while keeping any time recorded since removal.
     mutating func restoreEntries(_ removed: [TimesheetEntry]) {
-        for entry in removed {
+        for saved in removed {
+            var entry = saved
+            entry.project = projectMetadata(for: saved.project)
             setSeconds(seconds(projectID: entry.project.id, dayID: entry.dayID) + entry.seconds, project: entry.project, dayID: entry.dayID)
         }
     }
@@ -202,7 +239,9 @@ struct TimesheetLedger: Codable {
 
     mutating func restoreSessions(_ removed: [RecordedSession]) {
         // A running recorder may have recreated a segment with the same identifier.
-        for session in removed {
+        for saved in removed {
+            var session = saved
+            session.project = projectMetadata(for: saved.project)
             if let index = sessions.firstIndex(where: { $0.id == session.id }) {
                 let new = sessions.remove(at: index)
                 changes.append(.removeSession(new))

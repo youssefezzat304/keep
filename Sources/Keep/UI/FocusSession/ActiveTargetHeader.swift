@@ -42,7 +42,7 @@ struct ActiveTargetHeader: View {
         }
         .onDisappear { finishEditing() }
         .sheet(isPresented: $showsProjectCreation, onDismiss: { focusedField = nil }) {
-            ProjectCreationDialog { name, accent in
+            ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
                 let project = try workspace.createProject(name: name, accent: accent)
                 workspace.selectProject(project)
             }
