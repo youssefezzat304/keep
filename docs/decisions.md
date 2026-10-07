@@ -2,7 +2,7 @@
 
 ## [SNAPSHOT]
 
-- 2026-10-07 [CODE] Change every includes Never and automatic folder rotation always wraps, replacing Loop/automatic switches. Flow’s leaf text has a saved Show seconds preference; menu music shares the current wallpaper. See D057.
+- 2026-10-07 [CODE] Change wallpaper offers Never alongside On a timer and With each song; timed intervals remain in Change every. Automatic folder rotation always wraps, replacing Loop/automatic switches. Flow’s leaf text has a saved Show seconds preference; menu music shares the current wallpaper. See D057/D058.
 
 - 2026-10-07 [CODE] Wallpaper shortcuts are now ⌘⌥Left/Right throughout Focus/Zen, including while typing; ⌘M toggles shared music mute through the native Music menu. Window-menu Minimize/Zoom remain available without a conflicting ⌘M shortcut. See D056.
 - 2026-10-07 [CODE] Audius uses native Now Playing media commands; output-route changes pause playback for both providers. Menu-bar naming no longer searches, wallpaper arrows are consumed quietly, and double-clicking the music card enters Zen. See D055.
@@ -360,11 +360,17 @@ Use Command-Option-Left/Right for wallpapers so shortcuts work while the task fi
 
 2026-10-07 [CODE] A single shell-owned, window-scoped wallpaper monitor works throughout Focus or Zen without hover. Plain/Command arrows keep editing/slider behavior; sheets, other windows and inactive tabs do not route wallpaper changes. Consume handled shortcuts and held repeats before native fallback. Native Music commands toggle the existing app-owned player’s mute/remembered volume and honor protected preferences. Replace the default Minimize/Zoom command group to retain those Window-menu actions without competing for Command-M. This supersedes D054/D055’s plain-arrow/hover shortcut routing; no timer, recording, archive or permission changes.
 
-### D057 ACTIVE — 2026-10-07 [USER]
+### D057 PARTIALLY SUPERSEDED BY D058 — 2026-10-07 [USER]
 
 Remove Loop and add Never to Change every. Add Show seconds for the Flow timer beside the leaf. Use the current wallpaper behind the menu-bar music section.
 
 2026-10-07 [CODE] Never reuses automaticallyRotate, retains the current media/custom duration and cancels scheduling while preserving manual navigation. It replaces the redundant automatic-rotation switch; choosing timed/custom/song rotation enables it. Folder rotation always wraps; retired loopWallpapers archive values are ignored. This supersedes D015/D054’s configurable folder looping. Optional menuBarShowSeconds defaults to true for legacy archives, affects only the Flow leaf label, and uses WorkspaceModel’s display clock. The menu receives the existing app-owned WallpaperLibrary and shares MusicArtworkView/image/video lifecycle, with a semantic readability wash inside its unchanged 380 × 680 viewport. No duplicate player, recorder, wallpaper requests or tickers.
+
+### D058 ACTIVE — 2026-10-07 [USER]
+
+Move Never to the third Change wallpaper segment beside On a timer and With each song; remove it from the Change every interval dropdown. Change nothing else.
+
+2026-10-07 [CODE] The rotation selector maps Never to the existing automatic-rotation flag, including older disabled archives. Stored timed/custom intervals are retained. Change every appears only for On a timer and contains only durations/Custom. This supersedes D057’s placement of Never; menu-bar settings, music presentation, rotation and shortcuts otherwise remain unchanged.
 
 ## [PROGRESS]
 
@@ -536,3 +542,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-07 [TOOL] Focus/Zen shortcuts: unsigned Debug build, 53 wallpaper control, 76 silent music/preferences/library/artwork and 10 native shortcut checks passed; whitespace check passed. Native checks dispatch the modified wallpaper shortcut with an NSTextField focused, exercise Command-M through the SwiftUI-generated menu, preserve draft/window state and restore the previous volume. Window-menu Minimize/Zoom remain present with exactly one Command-M owner. Rendered 24 isolated native layouts; inspected the updated shortcut hint in default Light and narrow Dark Settings with no clipping. Other wallpaper checks cover text/slider arrows, sheets, inactive/other windows and held repeats. Physical keyboard/VoiceOver interaction remains unverified; no live archives, audio, Music authorization or system route changes were used.
 
 - 2026-10-07 [TOOL] Wallpaper/menu refinements: unsigned Debug build, 60 wallpaper control, 25 menu preference/display/minimum-layout, 76 silent music/preferences/library/artwork and 22 video checks passed (183 total); whitespace check passed. Coverage includes Never persistence/cancellation/manual navigation, legacy retired-loop loading, automatic wrap, Flow hours/minutes/seconds boundaries, cross-process seconds restoration and protected archives. Rendered 32 isolated native Settings/menu/choice layouts plus six video layouts; inspected default/narrow Settings and populated Light/Dark menus with changed shared wallpapers, readable metadata and transport/volume inside the fixed panel. Physical pointer/keyboard/VoiceOver operation remains unverified. No live archives, Music authorization, real audio or output-route changes were used.
+
+- 2026-10-07 [TOOL] Never placement: unsigned Debug build, 61 wallpaper control checks and whitespace check passed. Rendered 32 isolated native layouts; inspected narrow Light timed/custom controls and narrow Dark Never selection, with three intact Change wallpaper segments and no interval row under Never. Legacy disabled settings map to Never; saved durations, manual navigation and rotation cancellation remain covered. Physical keyboard/VoiceOver operation was not exercised.

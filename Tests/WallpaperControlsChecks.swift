@@ -34,13 +34,13 @@ import SwiftUI
         preferences.wallpaperRotationTrigger = .song
         let reopened = AppPreferences(persistence: persistence)
         expect(reopened.wallpaperIntervalChoice == .custom && reopened.customRotationMinutes == 750 && reopened.snapshot.effectiveRotationSeconds == 45000 && reopened.wallpaperRotationTrigger == .song, "Custom selection, duration and song trigger survive reload")
-        preferences.wallpaperIntervalChoice = .never
+        preferences.wallpaperRotationTrigger = .never
         let never = AppPreferences(persistence: persistence)
-        expect(never.wallpaperIntervalChoice == .never && !never.snapshot.wallpaperConfiguration.automatic, "Never persists using the existing automatic rotation flag")
+        expect(never.wallpaperRotationTrigger == .never && !never.snapshot.wallpaperConfiguration.automatic, "Never persists using the existing automatic rotation flag")
         expect(never.customRotationMinutes == 750, "Never preserves the previous custom duration")
         preferences.wallpaperIntervalChoice = .custom
         expect(preferences.automaticallyRotate && preferences.customRotationMinutes == 750 && preferences.wallpaperRotationTrigger == .interval, "Choosing custom resumes timed rotation with the remembered duration")
-        preferences.wallpaperIntervalChoice = .never
+        preferences.wallpaperRotationTrigger = .never
         preferences.wallpaperRotationTrigger = .song
         expect(preferences.automaticallyRotate, "Choosing song rotation explicitly leaves Never")
         preferences.customRotationMinutes = 0
@@ -53,6 +53,10 @@ import SwiftUI
         defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: persistence.key)
         let old = AppPreferences(persistence: persistence)
         expect(old.canEdit && old.wallpaperIntervalChoice == .preset(60) && old.wallpaperRotationTrigger == .interval, "Older archives use previous defaults")
+        legacy["automaticallyRotate"] = false
+        defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: persistence.key)
+        let previouslyDisabled = AppPreferences(persistence: persistence)
+        expect(previouslyDisabled.wallpaperRotationTrigger == .never && previouslyDisabled.wallpaperIntervalChoice == .preset(60), "Legacy disabled rotation selects Never while retaining its timed interval")
         legacy["customRotationMinutes"] = -1
         let corrupt = try JSONSerialization.data(withJSONObject: legacy)
         defaults.set(corrupt, forKey: persistence.key)
@@ -111,7 +115,7 @@ import SwiftUI
         expect(library.image?.tiffRepresentation == first, "Song rotation wraps automatically at the final wallpaper")
         library.previous(); try await settle(library)
         expect(library.image?.tiffRepresentation == third, "Manual Previous wraps back to the final wallpaper")
-        settings.wallpaperIntervalChoice = .never; library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
+        settings.wallpaperRotationTrigger = .never; library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
         library.songChanged(provider: .appleMusic, trackID: "apple-four")
         expect(!library.isLoading && library.image?.tiffRepresentation == third, "Never suppresses song rotation")
         settings.automaticallyRotate = true; settings.wallpaperRotationTrigger = .interval
@@ -121,7 +125,7 @@ import SwiftUI
         try await Task.sleep(for: .milliseconds(1200)); try await settle(library)
         expect(library.image?.tiffRepresentation != third, "Timed rotation still advances through its single task")
         let beforeNever = library.image?.tiffRepresentation
-        settings.wallpaperIntervalChoice = .never
+        settings.wallpaperRotationTrigger = .never
         library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
         expect(!library.isLoading && library.image?.tiffRepresentation == beforeNever, "Never retains the selected wallpaper without decoding again")
         try await Task.sleep(for: .milliseconds(1200))

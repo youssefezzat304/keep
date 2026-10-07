@@ -62,7 +62,7 @@ import SwiftUI
                 .keepAppearance(appearance), size: NSSize(width: 680, height: 900),
                              url: output.appendingPathComponent("song-settings-\(appearance.rawValue).png"))
             preferences.wallpaperRotationTrigger = .interval
-            preferences.wallpaperIntervalChoice = .never
+            preferences.wallpaperRotationTrigger = .never
             try await render(settingsSection(preferences: preferences, music: music, wallpapers: wallpapers, anchor: .bottom)
                 .keepAppearance(appearance), size: NSSize(width: 680, height: 900),
                 url: output.appendingPathComponent("never-settings-\(appearance.rawValue).png"))

@@ -26,16 +26,21 @@ enum WallpaperOrder: String, Codable, CaseIterable, Identifiable {
 }
 
 enum WallpaperRotationTrigger: String, Codable, CaseIterable {
-    case interval, song
-    var title: String { self == .interval ? "On a timer" : "With each song" }
+    case interval, song, never
+    var title: String {
+        switch self {
+        case .interval: "On a timer"
+        case .song: "With each song"
+        case .never: "Never"
+        }
+    }
 }
 
 enum WallpaperIntervalChoice: Hashable {
-    case never, preset(Int), custom
-    static var all: [Self] { [.never] + SettingsArchive.rotationIntervals.map { .preset($0) } + [.custom] }
+    case preset(Int), custom
+    static var all: [Self] { SettingsArchive.rotationIntervals.map { .preset($0) } + [.custom] }
     var title: String {
         switch self {
-        case .never: "Never"
         case .custom: "Custom"
         case .preset(let seconds):
             seconds < 60 ? "30 seconds" : seconds < 3600 ? "\(seconds / 60) minute\(seconds == 60 ? "" : "s")" : "\(seconds / 3600) hour\(seconds == 3600 ? "" : "s")"
@@ -151,8 +156,8 @@ final class AppPreferences {
         set { update { $0.rotationSeconds = newValue; $0.customRotationMinutes = nil } }
     }
     var wallpaperRotationTrigger: WallpaperRotationTrigger {
-        get { snapshot.wallpaperRotationTrigger ?? .interval }
-        set { update { $0.wallpaperRotationTrigger = newValue; $0.automaticallyRotate = true } }
+        get { snapshot.automaticallyRotate ? snapshot.wallpaperRotationTrigger ?? .interval : .never }
+        set { update { $0.wallpaperRotationTrigger = newValue; $0.automaticallyRotate = newValue != .never } }
     }
     var customRotationMinutes: Int? {
         get { snapshot.customRotationMinutes }
@@ -160,15 +165,12 @@ final class AppPreferences {
     }
     var wallpaperIntervalChoice: WallpaperIntervalChoice {
         get {
-            guard snapshot.automaticallyRotate else { return .never }
             return snapshot.customRotationMinutes == nil ? .preset(snapshot.rotationSeconds) : .custom
         }
         set {
             update { archive in
                 archive.wallpaperRotationTrigger = .interval
                 switch newValue {
-                case .never:
-                    archive.automaticallyRotate = false
                 case .preset(let seconds):
                     archive.automaticallyRotate = true
                     archive.rotationSeconds = seconds
