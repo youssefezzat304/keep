@@ -2,7 +2,7 @@
 
 ## [SNAPSHOT]
 
-- 2026-10-07 [CODE] Stats is active with recorded focus charts, project/task filters, custom dates, completion history, date-scoped task/habit summaries and optional all-project weekly goals/streaks. Completed Pomodoros use the finishing target; old history is never estimated.
+- 2026-10-07 [CODE] Stats is active with recorded focus charts, project/task filters, custom dates, completion history, date-scoped task/habit summaries, always-visible streaks and optional all-project weekly goals. Completed Pomodoros use the finishing target; old history is never estimated.
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
 - 2026-10-07 [CODE] The leaf menu panel shares both timers, today's task/habit checkboxes, selected-provider playback/volume and a sliding project/recent-task/name picker. Its fixed main page keeps timer/music controls visible, with internal task/picker scrolling. Start both / Stop both works in the menu and main app. It follows Keep appearance with default timer colors. Settings saves visibility/status timer choice and offers native Start on login. Habit information supports name/icon editing with all other definition fields locked. Recording/playback continue after closing workspace windows.
@@ -281,6 +281,8 @@ Implement Stats with recorded focus totals/trends, project → multiple task fil
 
 2026-10-07 [USER] Show bar-chart values on hover instead of an expandable Show values list. [CODE] Focus trend, weekday and hour bars show themed date/time callouts on hover, including zero buckets, while retaining keyboard and accessibility inspection.
 
+2026-10-07 [USER] Remove the comparison/recording and Pomodoro-coverage explanation lines beneath the summary cards. Always show streaks and remove the checkbox. [CODE] The streak-visibility preference is retired; older archives remain readable and cannot hide streaks. This supersedes D044’s optional streak presentation; calculations and completion coverage remain unchanged.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -424,3 +426,5 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-07 [TOOL] Distribution ring: unsigned Debug build, 37 Stats aggregation checks, 13 preference/model checks and diff whitespace check passed. Rendered 14 isolated native layouts, including Light/Dark default/narrow/wide and a multi-task project ring. Inspected the project/task rings and reused contrast-adjusted project shades for readable sectors. Live computer-use startup still fails; live hover/click/keyboard/VoiceOver interaction remains unverified. No recorder, archive or playback behavior changed.
 
 - 2026-10-07 [TOOL] Bar hover callouts: unsigned Debug build, 13 Stats preference/model checks and whitespace check passed; rendered 14 native layouts. Inspected two additional Light/Dark callout previews with an initial-selection fixture, including a zero bucket at the right edge of a narrow chart. Pointer interaction remains unverified because the native computer-use tool is unavailable; the selected previews do not simulate hovering.
+
+- 2026-10-07 [TOOL] Always-visible streaks: unsigned Debug build, 37 Stats aggregation checks, 13 preference/model checks and whitespace check passed. Legacy preferences with the retired streak visibility field remain readable. Rendered 14 native layouts and inspected full Stats content: both requested explanation lines and the checkbox are absent, while streaks remain visible.

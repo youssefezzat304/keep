@@ -59,7 +59,6 @@ struct SettingsArchive: Codable, Equatable {
     var menuBarEnabled: Bool?
     var menuBarTimer: MenuBarTimer?
     var weeklyFocusGoalMinutes: Int?
-    var showStatsStreaks: Bool?
 
     static let rotationIntervals = [30, 60, 300, 900]
 
@@ -160,10 +159,6 @@ final class AppPreferences {
     var weeklyFocusGoalMinutes: Int? {
         get { snapshot.weeklyFocusGoalMinutes }
         set { update { $0.weeklyFocusGoalMinutes = newValue } }
-    }
-    var showStatsStreaks: Bool {
-        get { snapshot.showStatsStreaks ?? false }
-        set { update { $0.showStatsStreaks = newValue } }
     }
 
     func saveChannel(_ channel: MusicChannel) {

@@ -143,7 +143,6 @@ nonisolated struct StatsSnapshot: Sendable {
     let activeDays: Int
     var average: Double { activeDays == 0 ? 0 : total / Double(activeDays) }
     let pomodoros: Int
-    let pomodoroCoverage: Date?
     let pomodorosAvailable: Bool
     let adjustedTotal: Double
     let buckets: [Bucket]
@@ -294,7 +293,7 @@ nonisolated struct StatsSnapshot: Sendable {
             habitRows.append(Habit(id: habit.id, name: habit.name, icon: habit.icon, completed: due.filter { complete.contains($0) }.count, due: due.count, currentStreak: current, bestStreak: best))
         }
         return StatsSnapshot(range: range, total: total, previousTotal: previousTotal, activeDays: selectedDaily.count,
-            pomodoros: completed, pomodoroCoverage: input.historyStartedAt,
+            pomodoros: completed,
             pomodorosAvailable: input.historyStartedAt.map { dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
             adjustedTotal: adjusted, buckets: buckets,
             distribution: distribution.values.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds },

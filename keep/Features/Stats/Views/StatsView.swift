@@ -39,9 +39,7 @@ struct StatsView: View {
                         habitsContent(snapshot)
                         tasksContent(snapshot)
                         if let error = preferences.persistenceError { issue(error) { preferences.retryPersistence() } }
-                        Toggle("Show streaks", isOn: $preferences.showStatsStreaks)
-                            .disabled(!preferences.canEdit)
-                        if preferences.showStatsStreaks { streaks(snapshot) }
+                        streaks(snapshot)
                     } else if model.calculationError == nil {
                         ProgressView("Preparing your statistics…").padding(32).frame(maxWidth: .infinity)
                     }
@@ -160,12 +158,6 @@ struct StatsView: View {
                 let difference = snapshot.total - snapshot.previousTotal
                 Text(difference == 0 ? "The same focus time as the previous equivalent period" : "\(TimesheetDuration.total(abs(difference))) \(difference < 0 ? "less" : "more") than the previous equivalent period")
                     .font(.system(size: 14, weight: .medium))
-                Text("Current periods compare matching elapsed days and time. Focus time excludes Pomodoro breaks and counts simultaneous timers once.")
-                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
-                if let began = snapshot.pomodoroCoverage {
-                    Text("Pomodoro counts available since \(began.formatted(date: .abbreviated, time: .shortened)). Counts belong to the project and task active at completion.")
-                        .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
-                }
             }
             card {
                 StatsBarChart(title: "Your focus over time", points: snapshot.buckets.enumerated().map { .init(id: $0.offset, label: $0.element.label, seconds: $0.element.seconds) })

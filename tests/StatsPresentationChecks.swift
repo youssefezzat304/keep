@@ -15,7 +15,7 @@ import SwiftUI
         if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--reload" {
             guard let defaults = UserDefaults(suiteName: CommandLine.arguments[2]) else { throw CocoaError(.coderInvalidValue) }
             let prefs = AppPreferences(persistence: SettingsPersistence(defaults: defaults))
-            precondition(prefs.weeklyFocusGoalMinutes == 180 && prefs.showStatsStreaks)
+            precondition(prefs.weeklyFocusGoalMinutes == 180)
             return
         }
         let suite = "keep.stats-presentation.\(UUID().uuidString)"
@@ -23,12 +23,12 @@ import SwiftUI
         defer { defaults.removePersistentDomain(forName: suite) }
         let persistence = SettingsPersistence(defaults: defaults)
         let preferences = AppPreferences(persistence: persistence)
-        expect(preferences.weeklyFocusGoalMinutes == nil && !preferences.showStatsStreaks, "Goal and streaks default off")
-        preferences.weeklyFocusGoalMinutes = 180; preferences.showStatsStreaks = true
+        expect(preferences.weeklyFocusGoalMinutes == nil, "Goal defaults off")
+        preferences.weeklyFocusGoalMinutes = 180
         defaults.synchronize()
         let child = Process(); child.executableURL = URL(fileURLWithPath: CommandLine.arguments[0]); child.arguments = ["--reload", suite]
         try child.run(); child.waitUntilExit()
-        expect(child.terminationStatus == 0, "Goal and streak preferences survive another process")
+        expect(child.terminationStatus == 0, "Goal preference survives another process")
         preferences.weeklyFocusGoalMinutes = 0
         expect(preferences.weeklyFocusGoalMinutes == 180, "Reject invalid zero goal")
         preferences.weeklyFocusGoalMinutes = 10081
@@ -38,10 +38,11 @@ import SwiftUI
         preferences.weeklyFocusGoalMinutes = nil
         expect(try persistence.load().weeklyFocusGoalMinutes == nil, "Remove goal persists")
         var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences.snapshot)) as? [String: Any] ?? [:]
-        legacy.removeValue(forKey: "weeklyFocusGoalMinutes"); legacy.removeValue(forKey: "showStatsStreaks")
+        legacy.removeValue(forKey: "weeklyFocusGoalMinutes")
+        legacy["showStatsStreaks"] = false
         defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: persistence.key)
         let old = AppPreferences(persistence: persistence)
-        expect(old.canEdit && old.weeklyFocusGoalMinutes == nil && !old.showStatsStreaks, "Legacy preferences stay readable")
+        expect(old.canEdit && old.weeklyFocusGoalMinutes == nil, "Legacy preferences, including the retired streak visibility field, stay readable")
         legacy["weeklyFocusGoalMinutes"] = -1
         let corrupt = try JSONSerialization.data(withJSONObject: legacy)
         defaults.set(corrupt, forKey: persistence.key)
@@ -87,7 +88,7 @@ import SwiftUI
                     url: output.appendingPathComponent("stats-\(name)-\(appearance.rawValue).png"))
             }
         }
-        let prefs = AppPreferences(); prefs.weeklyFocusGoalMinutes = 180; prefs.showStatsStreaks = true
+        let prefs = AppPreferences(); prefs.weeklyFocusGoalMinutes = 180
         try await render(StatsView(workspace: workspace, tasks: tasks, habits: habits, preferences: prefs, isVisible: true).keepAppearance(.light).padding(24).background(KeepTheme.paper),
             size: NSSize(width: 1000, height: 2800), url: output.appendingPathComponent("stats-full.png"))
         try await render(StatsView(workspace: WorkspaceModel(), tasks: DailyTaskStore(), habits: HabitStore(), preferences: AppPreferences(), isVisible: true).keepAppearance(.light).padding(24).background(KeepTheme.paper),
