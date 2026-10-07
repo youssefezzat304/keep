@@ -65,7 +65,7 @@ nonisolated struct StatsRange: Equatable, Sendable {
 
 /// Sendable values deliberately separate background calculations from observable store ownership.
 nonisolated struct StatsInput: Sendable {
-    struct Project: Identifiable, Sendable {
+    struct Project: Identifiable, Equatable, Sendable {
         let id: String
         let name: String
         let accent: String
@@ -128,7 +128,7 @@ nonisolated struct StatsSnapshot: Sendable {
         let accent: String
         var seconds: Double
     }
-    struct Habit: Identifiable, Sendable {
+    struct Habit: Identifiable, Equatable, Sendable {
         let id: UUID
         let name: String
         let icon: String
@@ -301,7 +301,7 @@ nonisolated struct StatsSnapshot: Sendable {
             habits: habitRows, weeklyGoalSeconds: weeklyGoalSeconds, currentStreak: streak.current, bestStreak: streak.best)
     }
 
-    private static func comparisonRange(query: StatsQuery, range: StatsRange, now: Date, calendar: Calendar) -> (range: StatsRange, wallCutoff: DateComponents?) {
+    static func comparisonRange(query: StatsQuery, range: StatsRange, now: Date, calendar: Calendar) -> (range: StatsRange, wallCutoff: DateComponents?) {
         let count = calendar.dateComponents([.day], from: range.start, to: range.end).day ?? 1
         let component: Calendar.Component = query.period == .week ? .weekOfYear : query.period == .month ? .month : query.period == .year ? .year : .day
         let previousStart = calendar.date(byAdding: component, value: query.period == .custom ? -count : -1, to: range.start) ?? range.start
@@ -314,7 +314,7 @@ nonisolated struct StatsSnapshot: Sendable {
         return (StatsRange(start: previousStart, end: exclusive), calendar.dateComponents([.hour, .minute, .second], from: now))
     }
 
-    private static func focusStreak(daily: [String: Double], startID: String, endID: String, todayID: String, calendar: Calendar) throws -> (current: Int, best: Int) {
+    static func focusStreak(daily: [String: Double], startID: String, endID: String, todayID: String, calendar: Calendar) throws -> (current: Int, best: Int) {
         let active = daily.filter { $0.value > 0 }.map(\.key).sorted()
         var best = 0, run = 0, prior: Date?
         for id in active where id >= startID && id <= endID {

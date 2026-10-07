@@ -16,11 +16,10 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		D01000000000000000000007 /* Exceptions for Resources in keep target */ = {
+		D01000000000000000000007 /* Exceptions for "Resources" folder in "keep" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				keep.entitlements,
 			);
 			target = E8BE5A3F2FE6FEC0007D9E59 /* keep */;
 		};
@@ -30,7 +29,7 @@
 		D01000000000000000000006 /* Resources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				D01000000000000000000007 /* Exceptions for Resources in keep target */,
+				D01000000000000000000007 /* Exceptions for "Resources" folder in "keep" target */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -88,8 +87,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				E8BE5A422FE6FEC0007D9E59 /* Sources */,
 				D01000000000000000000006 /* Resources */,
+				E8BE5A422FE6FEC0007D9E59 /* Sources */,
 			);
 			name = keep;
 			packageProductDependencies = (

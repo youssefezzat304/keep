@@ -1,7 +1,7 @@
 import Foundation
 
 /// A real focus completion, independent of recording segments and subsequent time edits.
-struct CompletedPomodoro: Identifiable, Codable {
+nonisolated struct CompletedPomodoro: Identifiable, Codable, Sendable {
     let id: UUID
     let project: FocusProject
     let task: String
@@ -11,7 +11,7 @@ struct CompletedPomodoro: Identifiable, Codable {
     let focusDuration: TimeInterval
 }
 
-struct TaskActivity: Identifiable, Codable {
+nonisolated struct TaskActivity: Identifiable, Codable, Sendable {
     let id: UUID
     var title: String
     let project: FocusProject
@@ -19,7 +19,7 @@ struct TaskActivity: Identifiable, Codable {
     var isPinned = false
 }
 
-struct TimesheetEntry: Identifiable, Codable {
+nonisolated struct TimesheetEntry: Identifiable, Codable, Sendable {
     var id: String { "\(project.id)/\(dayID)" }
     let project: FocusProject
     let dayID: String
@@ -32,6 +32,14 @@ struct TimesheetRemoval {
     let sessions: [RecordedSession]
 }
 
+/// Runtime mutations are drained by WorkspaceModel; never encoded in the archive.
+nonisolated enum WorkspaceChange: Sendable {
+    case entry(TimesheetEntry), removeEntry(TimesheetEntry)
+    case session(RecordedSession), removeSession(RecordedSession)
+    case completion(CompletedPomodoro)
+    case activity(TaskActivity), catalog, coverage
+}
+
 /// Saved totals, sessions, and catalog metadata. Display totals are derived, never stored separately.
 struct TimesheetLedger: Codable {
     private(set) var entries: [TimesheetEntry] = []
@@ -42,6 +50,13 @@ struct TimesheetLedger: Codable {
     private(set) var taskActivities: [TaskActivity] = []
     private(set) var completedPomodoros: [CompletedPomodoro] = []
     private(set) var pomodoroHistoryStartedAt: Date?
+
+    private var changes: [WorkspaceChange] = []
+    mutating func takeChanges() -> [WorkspaceChange] {
+        let result = changes
+        changes = []
+        return result
+    }
 
     init() {}
 
@@ -67,12 +82,13 @@ struct TimesheetLedger: Codable {
     }
 
     mutating func beginPomodoroHistory(at date: Date) {
-        if pomodoroHistoryStartedAt == nil { pomodoroHistoryStartedAt = date }
+        if pomodoroHistoryStartedAt == nil { pomodoroHistoryStartedAt = date; changes.append(.coverage) }
     }
 
     mutating func recordCompletion(_ completion: CompletedPomodoro) {
         guard !completedPomodoros.contains(where: { $0.id == completion.id }) else { return }
         completedPomodoros.append(completion)
+        changes.append(.completion(completion))
     }
 
     mutating func rememberTask(_ name: String, project: FocusProject, date: Date) {
@@ -81,14 +97,18 @@ struct TimesheetLedger: Codable {
         if let index = taskActivities.firstIndex(where: { $0.project.id == project.id && $0.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
             taskActivities[index].title = title
             taskActivities[index].lastUsed = date
+            changes.append(.activity(taskActivities[index]))
         } else {
-            taskActivities.append(TaskActivity(id: UUID(), title: title, project: project, lastUsed: date))
+            let activity = TaskActivity(id: UUID(), title: title, project: project, lastUsed: date)
+            taskActivities.append(activity)
+            changes.append(.activity(activity))
         }
     }
 
     mutating func toggleTaskPin(id: UUID) {
         guard let index = taskActivities.firstIndex(where: { $0.id == id }) else { return }
         taskActivities[index].isPinned.toggle()
+        changes.append(.activity(taskActivities[index]))
     }
 
     mutating func setPomodoroSettings(_ settings: PomodoroSettings) {
@@ -97,10 +117,11 @@ struct TimesheetLedger: Codable {
 
     mutating func registerProject(_ project: FocusProject) {
         customProjects.append(project)
+        changes.append(.catalog)
     }
 
     /// Delete from the active catalog, preserving metadata and all recorded history.
-    mutating func deleteProject(id: String) { deletedProjectIDs.insert(id) }
+    mutating func deleteProject(id: String) { deletedProjectIDs.insert(id); changes.append(.catalog) }
 
     func seconds(projectID: String, dayID: String) -> TimeInterval {
         entries.first { $0.project.id == projectID && $0.dayID == dayID }?.seconds ?? 0
@@ -121,15 +142,20 @@ struct TimesheetLedger: Codable {
     mutating func ensureEntry(project: FocusProject, on date: Date, calendar: Calendar) {
         let dayID = TimesheetWeek.dayID(for: date, calendar: calendar)
         guard !entries.contains(where: { $0.project.id == project.id && $0.dayID == dayID }) else { return }
-        entries.append(TimesheetEntry(project: project, dayID: dayID, seconds: 0))
+        let entry = TimesheetEntry(project: project, dayID: dayID, seconds: 0)
+        entries.append(entry)
+        changes.append(.entry(entry))
     }
 
     mutating func setSeconds(_ seconds: TimeInterval, project: FocusProject, dayID: String) {
         precondition(seconds.isFinite && seconds >= 0)
         if let index = entries.firstIndex(where: { $0.project.id == project.id && $0.dayID == dayID }) {
             entries[index].seconds = seconds
+            changes.append(.entry(entries[index]))
         } else {
-            entries.append(TimesheetEntry(project: project, dayID: dayID, seconds: seconds))
+            let entry = TimesheetEntry(project: project, dayID: dayID, seconds: seconds)
+            entries.append(entry)
+            changes.append(.entry(entry))
         }
     }
 
@@ -137,6 +163,7 @@ struct TimesheetLedger: Codable {
         let days = Set(dayIDs)
         let removed = entries.filter { $0.project.id == projectID && days.contains($0.dayID) }
         entries.removeAll { $0.project.id == projectID && days.contains($0.dayID) }
+        changes.append(contentsOf: removed.map(WorkspaceChange.removeEntry))
         return removed
     }
 
@@ -154,11 +181,13 @@ struct TimesheetLedger: Codable {
         setSeconds(max(0, seconds(projectID: old.project.id, dayID: old.dayID) - old.seconds + replacement.seconds),
             project: old.project, dayID: old.dayID)
         sessions[index] = replacement
+        changes.append(.session(replacement))
     }
 
     mutating func removeSession(id: String) {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
         let old = sessions.remove(at: index)
+        changes.append(.removeSession(old))
         setSeconds(max(0, seconds(projectID: old.project.id, dayID: old.dayID) - old.seconds),
             project: old.project, dayID: old.dayID)
     }
@@ -167,6 +196,7 @@ struct TimesheetLedger: Codable {
         let days = Set(dayIDs)
         let removed = sessions.filter { $0.project.id == projectID && days.contains($0.dayID) }
         sessions.removeAll { $0.project.id == projectID && days.contains($0.dayID) }
+        changes.append(contentsOf: removed.map(WorkspaceChange.removeSession))
         return removed
     }
 
@@ -175,10 +205,17 @@ struct TimesheetLedger: Codable {
         for session in removed {
             if let index = sessions.firstIndex(where: { $0.id == session.id }) {
                 let new = sessions.remove(at: index)
+                changes.append(.removeSession(new))
                 sessions.append(session)
-                sessions.append(RecordedSession(id: UUID().uuidString, recordingID: new.recordingID, dayID: new.dayID, project: new.project,
-                    task: new.task, source: new.source, timeZoneID: new.timeZoneID, start: new.start, end: new.end))
-            } else { sessions.append(session) }
+                changes.append(.session(session))
+                let separate = RecordedSession(id: UUID().uuidString, recordingID: new.recordingID, dayID: new.dayID, project: new.project,
+                    task: new.task, source: new.source, timeZoneID: new.timeZoneID, start: new.start, end: new.end)
+                sessions.append(separate)
+                changes.append(.session(separate))
+            } else {
+                sessions.append(session)
+                changes.append(.session(session))
+            }
         }
     }
 
@@ -200,11 +237,14 @@ struct TimesheetLedger: Codable {
                 if let index = sessions.indices.last, sessions[index].recordingID == sessionID, sessions[index].dayID == dayID,
                    abs(sessions[index].end.timeIntervalSince(cursor)) < 0.01 {
                     sessions[index].end = end
+                    changes.append(.session(sessions[index]))
                 } else {
                     // Discontinuous wall clocks or a removed row start a separate block.
                     let uniqueID = sessions.contains { $0.id == id } ? UUID().uuidString : id
-                    sessions.append(RecordedSession(id: uniqueID, recordingID: sessionID, dayID: dayID, project: project, task: task,
-                        source: source, timeZoneID: calendar.timeZone.identifier, start: cursor, end: end))
+                    let session = RecordedSession(id: uniqueID, recordingID: sessionID, dayID: dayID, project: project, task: task,
+                        source: source, timeZoneID: calendar.timeZone.identifier, start: cursor, end: end)
+                    sessions.append(session)
+                    changes.append(.session(session))
                 }
             }
             remaining -= segment

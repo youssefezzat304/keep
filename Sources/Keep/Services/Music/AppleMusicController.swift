@@ -4,6 +4,9 @@ import CoreServices
 /// Serial, off-main-actor Apple events using playback and read-only library access.
 /// No scripts, credentials, catalog writes, or system output-volume changes.
 actor AppleMusicController: AppleMusicControlling {
+    private var libraryCache = AppleMusicLibraryCache()
+    func invalidateLibraryCache() { libraryCache.removeAll() }
+
     private var artworkID: String?
     private var cachedArtwork: Data?
     private var artworkAttempt = Date.distantPast
@@ -20,6 +23,7 @@ actor AppleMusicController: AppleMusicControlling {
                 parameters: ["kocl": NSAppleEventDescriptor(typeCode: code("cTrk"))], requestPermission: requestPermission)
             return .allowed
         } catch let error as EventFailure {
+            if error.code == -1743 || error.code == -1744 { libraryCache.removeAll() }
             return error.code == -1744 ? .notRequested : error.code == -1743 ? .denied : .failed
         } catch { return .failed }
     }
@@ -87,75 +91,74 @@ actor AppleMusicController: AppleMusicControlling {
     }
 
     func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage {
-        try Task.checkCancellation()
-        guard request.offset >= 0, request.offset <= 1_000_000 else { throw MusicFailure.appleMusicConnection }
-        let query = String(request.query.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
-        let library = try libraryObject()
-        let container = try request.playlist.map(itemObject) ?? library
+        let processID = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").first?.processIdentifier
+        // Use a local cache value so the scoped native reads do not overlap a mutable
+        // borrow of the controller. This method never suspends while native reads run.
+        var cache = libraryCache
+        defer { libraryCache = cache }
+        do { return try cache.load(request, processID: processID, verifyAccess: {
+            do {
+                _ = try sendRaw(eventClass: "core", eventID: "getd", object: property("pPlS"), requestPermission: false)
+                _ = try sendRaw(eventClass: "core", eventID: "cnte", object: libraryObject(),
+                    parameters: ["kocl": NSAppleEventDescriptor(typeCode: code("cTrk"))], requestPermission: false)
+            } catch let error as EventFailure { throw failure(for: error.code) }
+        }, readPage: readLibraryPage, readMetadata: readLibraryMetadata) }
+        catch {
+            if error as? MusicFailure == .appleMusicPermission { cache.removeAll() }
+            throw error
+        }
+    }
+
+    private func readLibraryMetadata(_ request: AppleMusicLibraryRequest) throws -> [AppleMusicLibraryCache.Row] {
         let kind = request.playlist == nil ? request.kind : .songs
+        let source = kind == .songs ? try request.playlist.map(itemObject) ?? libraryObject() : try sourceObject()
         let type = kind == .songs ? "cTrk" : "cUsP"
-        let source = kind == .songs ? container : try sourceObject()
+        guard try count(type, in: source) > 0 else { return [] }
+        let all = try allElements(type, container: source)
+        let names = try get(property("pnam", container: all))
+        try Task.checkCancellation()
+        let ids = try get(property("ID  ", container: all))
+        let artists = kind == .songs ? try get(property("pArt", container: all)) : nil
+        try Task.checkCancellation()
+        let albums = kind == .songs ? try get(property("pAlb", container: all)) : nil
+        var rows: [AppleMusicLibraryCache.Row] = []
+        for index in 0..<names.numberOfItems {
+            try Task.checkCancellation()
+            guard let title = names.atIndex(index + 1)?.stringValue, let id = ids.atIndex(index + 1)?.int32Value else { throw MusicFailure.appleMusicConnection }
+            rows.append(.init(item: AppleMusicItem(nativeID: id, kind: kind, title: title,
+                artist: kind == .songs ? artists?.atIndex(index + 1)?.stringValue ?? "" : "Playlist",
+                playlistID: kind == .songs ? request.playlist?.nativeID : nil), album: albums?.atIndex(index + 1)?.stringValue ?? ""))
+        }
+        return rows
+    }
+
+    private func readLibraryPage(_ request: AppleMusicLibraryRequest) throws -> AppleMusicLibraryPage {
+        let kind = request.playlist == nil ? request.kind : .songs
+        let source = kind == .songs ? try request.playlist.map(itemObject) ?? libraryObject() : try sourceObject()
+        let type = kind == .songs ? "cTrk" : "cUsP"
+        let total = try count(type, in: source), start = request.offset
+        guard start < total else { return AppleMusicLibraryPage(items: [], hasMore: false) }
         let references: NSAppleEventDescriptor
-        let total: Int
-        var start = request.offset
-        if !query.isEmpty {
-            // Music's search command rejects read-only sandbox access. Read metadata
-            // instead; return only a page of matches and never request library writes.
-            guard try count(type, in: source) > 0 else { return AppleMusicLibraryPage(items: [], hasMore: false) }
-            let all = try allElements(type, container: source)
-            let names = try get(property("pnam", container: all))
-            try Task.checkCancellation()
-            let ids = try get(property("ID  ", container: all))
-            let artists = kind == .songs ? try get(property("pArt", container: all)) : nil
-            try Task.checkCancellation()
-            let albums = kind == .songs ? try get(property("pAlb", container: all)) : nil
-            var matches: [AppleMusicItem] = []
-            var matched = 0
-            for index in 0..<names.numberOfItems {
-                try Task.checkCancellation()
-                guard let title = names.atIndex(index + 1)?.stringValue,
-                      let id = ids.atIndex(index + 1)?.int32Value else { throw MusicFailure.appleMusicConnection }
-                let artist = artists?.atIndex(index + 1)?.stringValue ?? ""
-                let album = albums?.atIndex(index + 1)?.stringValue ?? ""
-                guard [title, artist, album].contains(where: { $0.localizedStandardContains(query) }) else { continue }
-                if matched >= start {
-                    if matches.count == AppleMusicLibraryRequest.pageSize {
-                        return AppleMusicLibraryPage(items: matches, hasMore: true)
-                    }
-                    matches.append(AppleMusicItem(nativeID: id, kind: kind, title: title,
-                        artist: kind == .songs ? artist : "Playlist", playlistID: kind == .songs ? request.playlist?.nativeID : nil))
-                }
-                matched += 1
+        if kind == .playlists {
+            let list = NSAppleEventDescriptor.list()
+            for index in start..<min(total, start + AppleMusicLibraryRequest.pageSize) {
+                list.insert(try element(type, container: source, selector: NSAppleEventDescriptor(int32: Int32(index + 1))), at: list.numberOfItems + 1)
             }
-            return AppleMusicLibraryPage(items: matches, hasMore: false)
+            references = list
         } else {
-            total = try count(type, in: source)
-            guard start < total else { return AppleMusicLibraryPage(items: [], hasMore: false) }
-            if kind == .playlists {
-                // Music supports indexed playlist properties but rejects getting a playlist range.
-                let list = NSAppleEventDescriptor.list()
-                for index in start..<min(total, start + AppleMusicLibraryRequest.pageSize) {
-                    list.insert(try element(type, container: source, selector: NSAppleEventDescriptor(int32: Int32(index + 1))), at: list.numberOfItems + 1)
-                }
-                references = list
-            } else {
-                let range = NSAppleEventDescriptor.record()
-                range.setDescriptor(try element(type, container: source, selector: NSAppleEventDescriptor(int32: Int32(start + 1))), forKeyword: code("star"))
-                range.setDescriptor(try element(type, container: source, selector: NSAppleEventDescriptor(int32: Int32(min(total, start + AppleMusicLibraryRequest.pageSize)))), forKeyword: code("stop"))
-                guard let selector = range.coerce(toDescriptorType: code("rang")) else { throw MusicFailure.appleMusicConnection }
-                references = try get(element(type, container: source, form: "rang", selector: selector))
-            }
-            start = 0
+            let range = NSAppleEventDescriptor.record()
+            range.setDescriptor(try element(type, container: source, selector: NSAppleEventDescriptor(int32: Int32(start + 1))), forKeyword: code("star"))
+            range.setDescriptor(try element(type, container: source, selector: NSAppleEventDescriptor(int32: Int32(min(total, start + AppleMusicLibraryRequest.pageSize)))), forKeyword: code("stop"))
+            guard let selector = range.coerce(toDescriptorType: code("rang")) else { throw MusicFailure.appleMusicConnection }
+            references = try get(element(type, container: source, form: "rang", selector: selector))
         }
         var items: [AppleMusicItem] = []
-        for index in start..<min(references.numberOfItems, start + AppleMusicLibraryRequest.pageSize) {
+        for index in 0..<min(references.numberOfItems, AppleMusicLibraryRequest.pageSize) {
             try Task.checkCancellation()
-            guard let object = references.atIndex(index + 1),
-                  let title = try get(property("pnam", container: object)).stringValue else { throw MusicFailure.appleMusicConnection }
+            guard let object = references.atIndex(index + 1), let title = try get(property("pnam", container: object)).stringValue else { throw MusicFailure.appleMusicConnection }
             let id = try get(property("ID  ", container: object)).int32Value
             let artist = kind == .songs ? try get(property("pArt", container: object)).stringValue ?? "Unknown artist" : "Playlist"
-            items.append(AppleMusicItem(nativeID: id, kind: kind, title: title, artist: artist,
-                playlistID: kind == .songs ? request.playlist?.nativeID : nil))
+            items.append(AppleMusicItem(nativeID: id, kind: kind, title: title, artist: artist, playlistID: kind == .songs ? request.playlist?.nativeID : nil))
         }
         return AppleMusicLibraryPage(items: items, hasMore: request.offset + AppleMusicLibraryRequest.pageSize < total)
     }
@@ -256,6 +259,7 @@ actor AppleMusicController: AppleMusicControlling {
     }
 
     private func failure(for code: Int) -> MusicFailure {
+        if code == -1743 || code == -1744 { libraryCache.removeAll() }
         NSLog("Keep: Music automation failed (%ld)", code)
         return code == -1743 || code == -1744 ? .appleMusicPermission : .appleMusicConnection
     }

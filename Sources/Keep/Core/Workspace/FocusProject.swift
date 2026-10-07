@@ -1,8 +1,8 @@
 import Foundation
 
 /// Shared project catalog for focus selection and recorded timesheet rows.
-struct FocusProject: Identifiable, Equatable, Codable {
-    enum Accent: String, Codable, CaseIterable {
+nonisolated struct FocusProject: Identifiable, Equatable, Codable, Sendable {
+    enum Accent: String, Codable, CaseIterable, Sendable {
         case neutral, terracotta, sage, mistBlue, butter
         case rust, clay, apricot, peach, rose, dustyRose, mauve, plum
         case lavender, lilac, periwinkle, denim, slate, teal, seafoam

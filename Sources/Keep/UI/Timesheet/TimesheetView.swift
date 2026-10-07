@@ -3,12 +3,13 @@ import SwiftUI
 struct TimesheetView: View {
     let workspace: WorkspaceModel
     let week: TimesheetWeek
+    let projection: WeeklyProjection
     @State private var showsProjectPicker = false
     @State private var showsProjectCreation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            TimesheetTable(workspace: workspace, week: week)
+            TimesheetTable(workspace: workspace, week: week, projection: projection)
 
             HStack {
                 Button { showsProjectPicker = true } label: {
@@ -70,6 +71,8 @@ struct TimesheetView: View {
 }
 
 #Preview {
-    TimesheetView(workspace: TimesheetPreviewData.workspace(), week: TimesheetWeek(containing: .now))
+    let workspace = TimesheetPreviewData.workspace()
+    let week = TimesheetWeek(containing: .now)
+    TimesheetView(workspace: workspace, week: week, projection: WeeklyProjection(days: week.dayIDs, index: workspace.readIndex))
         .padding(24).frame(width: 1000).background(KeepTheme.paper)
 }

@@ -3,10 +3,10 @@ import SwiftUI
 struct DashboardCalendarView: View {
     let week: TimesheetWeek
     let workspace: WorkspaceModel
+    let projection: WeeklyProjection
     private var today: Date { workspace.today }
     private var calendar: Calendar { workspace.calendar }
-    private var sessions: [RecordedSession] { workspace.ledger.sessions.filter { week.dayIDs.contains($0.dayID) } }
-    private func total(on dayID: String) -> TimeInterval { sessions.filter { $0.dayID == dayID }.reduce(0) { $0 + $1.seconds } }
+    private func total(on dayID: String) -> TimeInterval { projection.sessionDayTotals[dayID, default: 0] }
     @State private var hourHeight: CGFloat = 72
     @State private var selectedSession: RecordedSession?
     private let gutter: CGFloat = 62
@@ -134,7 +134,7 @@ struct DashboardCalendarView: View {
                     .help("Edit or delete this recorded session")
                 }
             }
-            if sessions.isEmpty {
+            if !projection.hasSessions {
                 VStack(spacing: 8) {
                     Text("Your focus finds its place here.").font(KeepTheme.headingFont(size: 22))
                     Text("Start a timer to record your first session.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
@@ -154,7 +154,7 @@ struct DashboardCalendarView: View {
     }
     private func placements(on dayID: String) -> [Placement] {
         var ends: [Double] = []
-        return sessions.filter { $0.dayID == dayID }.sorted { $0.start < $1.start }.map { session in
+        return projection.sessionsByDay[dayID, default: []].map { session in
             let lane = ends.firstIndex { $0 <= session.startMinute } ?? ends.count
             let end = max(session.endMinute, session.startMinute + 34 / Double(hourHeight) * 60)
             if lane == ends.count { ends.append(end) } else { ends[lane] = end }
@@ -216,7 +216,8 @@ struct CalendarSessionDetail: View {
     let workspace: WorkspaceModel
     let selectedSession: RecordedSession
     private var session: RecordedSession {
-        workspace.ledger.sessions.first { $0.id == selectedSession.id } ?? selectedSession
+        _ = workspace.readIndex.revision
+        return workspace.readIndex.sessions[selectedSession.id] ?? selectedSession
     }
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -313,6 +314,8 @@ private func calendarTime(_ minute: Double) -> String {
 }
 
 #Preview {
-    DashboardCalendarView(week: TimesheetWeek(containing: .now), workspace: WorkspaceModel())
+    let workspace = TimesheetPreviewData.workspace()
+    let week = TimesheetWeek(containing: .now)
+    DashboardCalendarView(week: week, workspace: workspace, projection: WeeklyProjection(days: week.dayIDs, index: workspace.readIndex))
         .padding(24).frame(width: 1100, height: 780).background(KeepTheme.paper)
 }

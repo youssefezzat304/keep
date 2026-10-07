@@ -90,7 +90,7 @@ struct AppleMusicLibraryView: View {
             do {
                 if !query.isEmpty { try await Task.sleep(for: .milliseconds(350)) }
                 try Task.checkCancellation()
-                await library.load(loadKey.request, append: offset > 0)
+                await library.load(loadKey.request, append: offset > 0, refreshID: loadKey.revision)
             } catch is CancellationError { /* A newer search owns the results. */ }
             catch { assertionFailure("Unexpected search delay failure") }
         }

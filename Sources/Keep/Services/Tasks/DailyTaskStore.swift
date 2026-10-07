@@ -3,6 +3,7 @@ import Observation
 
 @Observable
 final class DailyTaskStore {
+    private(set) var revision: UInt64 = 0
     private(set) var archive: TaskArchive
     private(set) var persistenceError: String?
     private(set) var loadFailed = false
@@ -95,6 +96,7 @@ final class DailyTaskStore {
         if loadFailed, let persistence {
             do {
                 archive = try persistence.load()
+                revision &+= 1
                 loadFailed = false
                 persistenceError = nil
             } catch { persistenceError = "Couldn’t load your saved tasks. Retry before changing them." }
@@ -102,6 +104,7 @@ final class DailyTaskStore {
     }
 
     private func save() {
+        revision &+= 1
         guard let persistence else { return }
         needsSave = true
         do {

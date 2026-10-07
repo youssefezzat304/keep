@@ -54,8 +54,9 @@ struct StatsView: View {
         .task(id: isVisible) { if isVisible { refresh() } else { model.cancel() } }
         .onChange(of: model.query) { _, _ in refresh() }
         .onChange(of: workspace.displayInstant) { _, _ in refresh() }
-        .onChange(of: tasks.archive) { _, _ in refresh() }
-        .onChange(of: habits.archive) { _, _ in refresh() }
+        .onChange(of: tasks.revision) { _, _ in refresh() }
+        .onChange(of: habits.revision) { _, _ in refresh() }
+        .onChange(of: workspace.readIndex.revision) { _, _ in refresh() }
         .onChange(of: workspace.loadFailed) { _, _ in refresh() }
         .onDisappear { model.cancel() }
         .popover(isPresented: $showsDates) {

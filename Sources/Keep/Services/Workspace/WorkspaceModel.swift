@@ -17,16 +17,10 @@ final class WorkspaceModel {
     private(set) var displayInstant = ContinuousClock.now
     private(set) var lastTimesheetRemoval: TimesheetRemoval?
     var canTrack: Bool { !loadFailed }
-    var projects: [FocusProject] { (FocusProject.defaults + ledger.customProjects).filter { !ledger.deletedProjectIDs.contains($0.id) } }
+    let readIndex: WorkspaceReadIndex
+    var projects: [FocusProject] { _ = readIndex.metadataRevision; return readIndex.activeProjects }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
-    var taskSuggestions: [TaskActivity] {
-        let activeIDs = Set((projects + [.unassigned]).map(\.id))
-        return ledger.taskActivities.filter { activeIDs.contains($0.project.id) }.sorted {
-            if $0.isPinned != $1.isPinned { return $0.isPinned }
-            if $0.lastUsed != $1.lastUsed { return $0.lastUsed > $1.lastUsed }
-            return $0.id.uuidString < $1.id.uuidString
-        }
-    }
+    var taskSuggestions: [TaskActivity] { _ = readIndex.metadataRevision; return readIndex.suggestions }
 
     func selectTask(_ activity: TaskActivity, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack, let current = taskSuggestions.first(where: { $0.id == activity.id }) else { return }
@@ -68,18 +62,21 @@ final class WorkspaceModel {
     }
 
     init(ledger: TimesheetLedger = TimesheetLedger(), persistence: TimesheetPersistence? = nil, calendar: Calendar = .autoupdatingCurrent, focusDuration: TimeInterval = 1500, breakDuration: TimeInterval = 300, date: Date = .now) {
-        self.ledger = ledger
+        var initialLedger = ledger
+        var failed = false
+        if let persistence {
+            do { initialLedger = try persistence.load() }
+            catch { failed = true }
+        }
+        _ = initialLedger.takeChanges()
+        self.ledger = initialLedger
+        readIndex = WorkspaceReadIndex(ledger: initialLedger)
         self.persistence = persistence
         self.calendar = calendar
         today = calendar.startOfDay(for: date)
         pomodoro = FocusTimer(mode: .pomodoro, focusDuration: focusDuration, breakDuration: breakDuration)
-        if let persistence {
-            do { self.ledger = try persistence.load() }
-            catch {
-                loadFailed = true
-                persistenceError = "Couldn’t load your saved workspace. Retry before recording, editing time, or changing projects."
-            }
-        }
+        loadFailed = failed
+        if failed { persistenceError = "Couldn’t load your saved workspace. Retry before recording, editing time, or changing projects." }
         if let settings = self.ledger.pomodoroSettings { pomodoro.configure(settings) }
         reconcileProjectSelection()
         if !loadFailed, self.ledger.pomodoroHistoryStartedAt == nil {
@@ -313,6 +310,7 @@ final class WorkspaceModel {
         checkpoint = instant
         checkpointDate = date
         updateRecordingContext(at: instant)
+        publishChanges()
         if completion?.interval == .focus { save(at: instant); return }
         if let lastSave, instant - lastSave < .seconds(5) { return }
         save(at: instant)
@@ -346,6 +344,8 @@ final class WorkspaceModel {
         if loadFailed, let persistence {
             do {
                 ledger = try persistence.load()
+                _ = ledger.takeChanges()
+                readIndex.rebuild(ledger)
                 reconcileProjectSelection()
                 if let settings = ledger.pomodoroSettings { pomodoro.configure(settings) }
                 if ledger.pomodoroHistoryStartedAt == nil {
@@ -364,8 +364,14 @@ final class WorkspaceModel {
         ledgerDirty = true
     }
 
+    private func publishChanges() {
+        let changes = ledger.takeChanges()
+        readIndex.apply(changes, ledger: ledger)
+    }
+
     private func save(at instant: ContinuousClock.Instant = .now) {
         updateRecordingContext(at: instant)
+        publishChanges()
         guard !loadFailed, ledgerDirty, let persistence else { return }
         do {
             try persistence.save(ledger)

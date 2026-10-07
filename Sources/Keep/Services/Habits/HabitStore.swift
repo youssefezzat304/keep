@@ -28,6 +28,7 @@ struct HabitStatistics {
 }
 
 @Observable final class HabitStore {
+    private(set) var revision: UInt64 = 0
     private(set) var archive: HabitArchive
     // Derived query index keeps a long history from being scanned for every visible cell.
     private var progressByHabit: [UUID: [String: Int]] = [:]
@@ -126,6 +127,7 @@ struct HabitStatistics {
         if loadFailed, let persistence {
             do {
                 archive = try persistence.load()
+                revision &+= 1
                 rebuildProgressIndex()
                 loadFailed = false
                 persistenceError = nil
@@ -175,6 +177,7 @@ struct HabitStatistics {
     }
 
     private func save() {
+        revision &+= 1
         guard let persistence else { return }
         needsSave = true
         do { try persistence.save(archive); needsSave = false; persistenceError = nil }

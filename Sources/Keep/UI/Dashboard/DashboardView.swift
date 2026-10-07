@@ -16,11 +16,14 @@ enum DashboardPage: String, CaseIterable, Identifiable {
 /// A shared browsed week and mounted Timesheet, Calendar, and Projects viewports.
 struct DashboardView: View {
     let workspace: WorkspaceModel
+    let isVisible: Bool
+    @State private var model = DashboardQueryModel()
     @State private var page: DashboardPage
     @State private var weekOffset = 0
 
-    init(workspace: WorkspaceModel, initialPage: DashboardPage = .timesheet) {
+    init(workspace: WorkspaceModel, initialPage: DashboardPage = .timesheet, isVisible: Bool = true) {
         self.workspace = workspace
+        self.isVisible = isVisible
         _page = State(initialValue: initialPage)
     }
 
@@ -61,7 +64,7 @@ struct DashboardView: View {
             }
             ZStack(alignment: .topLeading) {
                 KeepScrollView {
-                    TimesheetView(workspace: workspace, week: week)
+                    TimesheetView(workspace: workspace, week: week, projection: model.projection)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .padding(.bottom, 4)
                 }
@@ -71,7 +74,7 @@ struct DashboardView: View {
                 .allowsHitTesting(page == .timesheet)
                 .accessibilityHidden(page != .timesheet)
 
-                DashboardCalendarView(week: week, workspace: workspace)
+                DashboardCalendarView(week: week, workspace: workspace, projection: model.projection)
                     .accessibilityElement(children: page == .calendar ? .contain : .ignore)
                     .opacity(page == .calendar ? 1 : 0)
                     .allowsHitTesting(page == .calendar)
@@ -87,6 +90,11 @@ struct DashboardView: View {
         }
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
+        .task(id: isVisible) { refresh() }
+        .onChange(of: week.dayIDs) { _, _ in refresh() }
+        .onChange(of: workspace.readIndex.revision) { _, _ in refresh() }
+        .onChange(of: workspace.calendar.timeZone) { _, _ in refresh() }
+        .onChange(of: workspace.calendar.locale) { _, _ in refresh() }
     }
 
     private var heading: some View {
@@ -150,13 +158,18 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(page == .calendar ? "SESSION TIME" : "WEEK TOTAL")
                 .font(.system(size: 9, weight: .medium)).tracking(1.3).foregroundStyle(KeepTheme.mutedInk)
-            Text(TimesheetDuration.total(page == .calendar ? workspace.ledger.sessions.filter { week.dayIDs.contains($0.dayID) }.reduce(0) { $0 + $1.seconds } : workspace.ledger.total(dayIDs: week.dayIDs)))
+            Text(TimesheetDuration.total(page == .calendar ? model.projection.sessionTotal : model.projection.total))
                 .font(KeepTheme.headingFont(size: 25)).foregroundStyle(KeepTheme.accentStrong).monospacedDigit()
-            let count = page == .calendar ? Set(workspace.ledger.sessions.filter { week.dayIDs.contains($0.dayID) }.map { $0.project.id }).count : workspace.ledger.projects(dayIDs: week.dayIDs).count
+            let count = page == .calendar ? model.projection.sessionProjectCount : model.projection.projects.count
             Text("\(count) \(count == 1 ? "project" : "projects")")
                 .font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)
         }
         .fixedSize().accessibilityElement(children: .combine)
+    }
+
+    private func refresh() {
+        guard isVisible else { return }
+        model.refresh(week: week, index: workspace.readIndex, calendar: workspace.calendar)
     }
 
     private func weekArrow(_ symbol: String, label: String, offset: Int) -> some View {

@@ -248,8 +248,10 @@ final class MusicPlayerModel {
         loadingTimeout?.cancel()
         appleRefresh?.cancel()
         volumeRequest?.cancel()
-        if appleMusicEngaged {
-            appleRelease = Task { [appleMusic] in
+        let releasePlayback = appleMusicEngaged
+        appleRelease = Task { [appleMusic] in
+            await appleMusic.invalidateLibraryCache()
+            if releasePlayback {
                 do { _ = try await appleMusic.perform(.pause) }
                 catch { NSLog("Keep: Music pause on release failed (%@)", String(describing: error)) }
             }

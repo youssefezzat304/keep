@@ -26,11 +26,13 @@ nonisolated enum AppleMusicCommand: Equatable, Sendable {
 
 protocol AppleMusicControlling: Sendable {
     func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot
+    func invalidateLibraryCache() async
     func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage
     func access(requestPermission: Bool) async -> AppleMusicAccess
 }
 
 extension AppleMusicControlling {
+    func invalidateLibraryCache() async {}
     func access(requestPermission: Bool) async -> AppleMusicAccess { .notChecked }
     func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage {
         throw MusicFailure.appleMusicConnection

@@ -8,7 +8,7 @@ nonisolated enum AppleMusicRepeat: String, CaseIterable, Sendable {
 
 /// Runtime Music object IDs, never persisted or constructed from search text.
 nonisolated struct AppleMusicItem: Identifiable, Equatable, Sendable {
-    enum Kind: String, CaseIterable, Sendable { case songs, playlists }
+    enum Kind: String, CaseIterable, Hashable, Sendable { case songs, playlists }
     let nativeID: Int32
     let kind: Kind
     let title: String
@@ -38,6 +38,7 @@ nonisolated struct AppleMusicLibraryPage: Sendable {
     @ObservationIgnored private let controller: any AppleMusicControlling
     @ObservationIgnored private let launch: @MainActor () async throws -> Void
     @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var refreshID = 0
 
     init(controller: any AppleMusicControlling, launch: @escaping @MainActor () async throws -> Void) {
         self.controller = controller
@@ -45,12 +46,18 @@ nonisolated struct AppleMusicLibraryPage: Sendable {
     }
 
     /// The sheet owns its task; search/selection changes cancel and fence older replies.
-    func load(_ request: AppleMusicLibraryRequest, append: Bool = false) async {
+    func load(_ request: AppleMusicLibraryRequest, append: Bool = false, refreshID: Int = 0) async {
         generation = UUID()
         let token = generation
         state = .loading
         if !append { items = []; hasMore = false }
         do {
+            if self.refreshID != refreshID {
+                await controller.invalidateLibraryCache()
+                try Task.checkCancellation()
+                guard generation == token else { return }
+                self.refreshID = refreshID
+            }
             try await launch()
             try Task.checkCancellation()
             let page = try await controller.library(request)

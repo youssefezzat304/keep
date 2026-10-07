@@ -3,6 +3,7 @@ import SwiftUI
 struct TimesheetTable: View {
     let workspace: WorkspaceModel
     let week: TimesheetWeek
+    let projection: WeeklyProjection
     @Environment(\.self) private var environment
     private let projectWidth: CGFloat = 205
     private let totalWidth: CGFloat = 100
@@ -11,7 +12,7 @@ struct TimesheetTable: View {
     private let rowHeight: CGFloat = 78
     private let totalHeight: CGFloat = 64
 
-    private var projects: [FocusProject] { workspace.ledger.projects(dayIDs: week.dayIDs) }
+    private var projects: [FocusProject] { projection.projects }
 
     var body: some View {
         GeometryReader { geometry in
@@ -106,7 +107,7 @@ struct TimesheetTable: View {
 
             ForEach(week.days) { day in
                 TimesheetTimeCell(
-                    seconds: workspace.ledger.seconds(projectID: project.id, dayID: day.id),
+                    seconds: projection.seconds(projectID: project.id, dayID: day.id),
                     projectName: project.name,
                     day: day,
                     color: project.accentColor,
@@ -119,11 +120,11 @@ struct TimesheetTable: View {
                 .background { Rectangle().fill(day.isWeekend ? KeepTheme.paper : .clear) }
             }
 
-            Text(TimesheetDuration.total(workspace.ledger.total(dayIDs: week.dayIDs, projectID: project.id)))
+            Text(TimesheetDuration.total(projection.rowTotals[project.id, default: 0]))
                 .font(.system(size: 13, weight: .medium))
                 .monospacedDigit()
                 .frame(width: totalWidth, alignment: .trailing)
-                .accessibilityLabel("\(project.name) total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: week.dayIDs, projectID: project.id)))")
+                .accessibilityLabel("\(project.name) total: \(TimesheetDuration.clock(projection.rowTotals[project.id, default: 0]))")
             RemoveRowButton(label: "Remove \(project.name)'s time for this week") {
                 workspace.removeTimesheetProject(project, dayIDs: week.dayIDs)
             }
@@ -142,20 +143,20 @@ struct TimesheetTable: View {
                 .frame(width: projectWidth, alignment: .leading)
 
             ForEach(week.days) { day in
-                Text(TimesheetDuration.clock(workspace.ledger.total(dayIDs: [day.id])))
+                Text(TimesheetDuration.clock(projection.dayTotals[day.id, default: 0]))
                     .font(.system(size: 13, weight: .medium))
                     .monospacedDigit()
                     .frame(width: dayWidth, height: totalHeight)
                     .background { Rectangle().fill(day.isWeekend ? KeepTheme.mutedWarm.opacity(0.28) : .clear) }
-                    .accessibilityLabel("\(day.label) total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: [day.id])))")
+                    .accessibilityLabel("\(day.label) total: \(TimesheetDuration.clock(projection.dayTotals[day.id, default: 0]))")
             }
 
-            Text(TimesheetDuration.total(workspace.ledger.total(dayIDs: week.dayIDs)))
+            Text(TimesheetDuration.total(projection.total))
                 .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(KeepTheme.accentStrong)
                 .frame(width: totalWidth, alignment: .trailing)
-                .accessibilityLabel("Week total: \(TimesheetDuration.clock(workspace.ledger.total(dayIDs: week.dayIDs)))")
+                .accessibilityLabel("Week total: \(TimesheetDuration.clock(projection.total))")
             Color.clear.frame(width: removeWidth)
         }
         .frame(height: totalHeight)
@@ -168,6 +169,8 @@ struct TimesheetTable: View {
 }
 
 #Preview {
-    TimesheetTable(workspace: WorkspaceModel(), week: TimesheetWeek(containing: .now))
+    let workspace = TimesheetPreviewData.workspace()
+    let week = TimesheetWeek(containing: .now)
+    TimesheetTable(workspace: workspace, week: week, projection: WeeklyProjection(days: week.dayIDs, index: workspace.readIndex))
         .padding().frame(width: 950).background(KeepTheme.paper)
 }
