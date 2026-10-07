@@ -21,11 +21,11 @@ build = args.derived_data / "Build"
 products = build / "Products/Debug"
 original = products / "keep.app/Contents"
 architecture = platform.machine()
-sources = sorted(str(p) for p in (repo / "keep").rglob("*.swift") if p.name != "KeepApp.swift")
+sources = sorted(str(p) for p in (repo / "Sources/Keep").rglob("*.swift") if p.name != "KeepApp.swift")
 if not (original / "Info.plist").exists() or not (products / "Sparkle.framework").exists():
     parser.error("Build the unsigned Debug keep scheme first.")
 for name in args.checks:
-    if not name.isidentifier() or not (repo / f"tests/{name}.swift").is_file():
+    if not name.isidentifier() or not (repo / f"Tests/{name}.swift").is_file():
         parser.error(f"Unknown check source: {name}")
     with tempfile.TemporaryDirectory(prefix="keep-checks-") as directory:
         temporary = Path(directory)
@@ -39,7 +39,7 @@ for name in args.checks:
                     SUAutomaticallyUpdate=False)
         (contents / "Info.plist").write_bytes(plistlib.dumps(info))
         harness = temporary / "Checks.swift"
-        harness.write_text((repo / f"tests/{name}.swift").read_text())
+        harness.write_text((repo / f"Tests/{name}.swift").read_text())
         executable = contents / "MacOS/checks"
         subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-default-isolation", "MainActor",
                         "-target", f"{architecture}-apple-macos{info['LSMinimumSystemVersion']}",

@@ -1,6 +1,6 @@
 # Keep updates
 
-Keep uses [Sparkle 2](https://sparkle-project.org/), a free, open-source macOS updater, through Xcode Swift Package Manager. The package resolution currently pins 2.10.0. Its license and third-party notices ship in `keep/Resources/ThirdPartyNotices/Sparkle.txt`.
+Keep uses [Sparkle 2](https://sparkle-project.org/), a free, open-source macOS updater, through Xcode Swift Package Manager. The package resolution currently pins 2.10.0. Its license and third-party notices ship in `Resources/ThirdPartyNotices/Sparkle.txt`.
 
 ## Runtime
 
@@ -12,7 +12,7 @@ Debug builds never start Sparkle, so development copies cannot replace themselve
 
 ## Public configuration and private key
 
-`Configuration/Updates.xcconfig` supplies the public HTTPS feed and EdDSA verification key. `Configuration/Info.plist` merges those values and Sparkle options into Xcode's generated plist in both configurations. Keep retains App Sandbox and its outgoing-network capability; the installer launcher and the two bundle-scoped Sparkle Mach lookup exceptions are enabled. Downloader.xpc is bundled by Sparkle but is not enabled because Keep already has outgoing-network access.
+`Configuration/Updates.xcconfig` supplies the public HTTPS feed and EdDSA verification key. `Resources/Info.plist` merges those values and Sparkle options into Xcode's generated plist in both configurations. Keep retains App Sandbox and its outgoing-network capability; the installer launcher and the two bundle-scoped Sparkle Mach lookup exceptions are enabled. Downloader.xpc is bundled by Sparkle but is not enabled because Keep already has outgoing-network access.
 
 The configured feed is:
 
@@ -57,7 +57,7 @@ This simple feed contains the latest compatible release and no deltas. If a late
 Build the unsigned Debug scheme using `docs/architecture.md`, then run:
 
 ```sh
-python3 scripts/run-app-checks.py UpdaterChecks
+python3 Tools/run-app-checks.py UpdaterChecks
 ```
 
 The runner compiles current sources with Sparkle and copies the build's resources/framework into a temporary app with a distinct `local.keep.checks.*` identity. The updater checks validate configuration, Debug gating, exactly-once restart continuation, save-failure blocking, running/paused timer behavior, Flow-priority settlement, and native Sparkle startup/KVO/preference reload. They disable scheduling and never request a feed or install an update. Sparkle's host sandbox-extension probe can report an operation-not-permitted diagnostic in this unsigned fixture; these checks do not validate the signed sandbox installer.

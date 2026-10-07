@@ -1,6 +1,6 @@
 # Keep — Music Artwork
 
-The first draft uses artwork generated with the built-in ImageGen tool on 2026-10-05. It is bundled at `keep/Assets.xcassets/CozyCorner.imageset/cozy-corner.png`; no external download or remote image URL is required at runtime.
+The first draft uses artwork generated with the built-in ImageGen tool on 2026-10-05. It is bundled at `Resources/Assets.xcassets/CozyCorner.imageset/cozy-corner.png`; no external download or remote image URL is required at runtime.
 
 The illustration is a visual preview for future lofi/ambient playback, not album art for an existing audio track.
 

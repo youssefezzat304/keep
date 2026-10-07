@@ -18,30 +18,49 @@ Projects, recorded sessions, daily totals/edits, tasks, habits, and preferences 
 
 ## 2. Source map
 
-All Swift files share the application module. `keep/` is a filesystem-synchronized Xcode group; add source files to their feature directory. Documentation, tests, and Git-ignored visual references sit outside it.
+All Swift files still share the `keep` application module. The layout follows [vorssaint-utils](https://github.com/vorssaint/vorssaint-utils)' separation of Sources, Resources, Tests and Tools, while retaining Keep's Xcode project and existing scheme. These directories organize files; they are not separate modules or new runtime abstractions.
+
+```text
+Sources/Keep/
+  App/                     # App assembly, shell, appearance and termination
+  Core/                    # Value types, timer/domain rules and aggregation
+  Services/                # Shared stores, persistence and macOS/provider adapters
+  UI/                      # Feature views and window-local presentation models
+    DesignSystem/          # Shared theme, controls and styles
+  Support/PreviewData/     # Explicit preview fixtures
+Resources/                 # Asset catalog, plist, entitlements and notices
+Configuration/             # Public update-feed/key build settings
+Tests/                     # Standalone verification harnesses
+Tools/                     # Local development tools
+docs/                      # Canonical documentation, always lowercase
+keep.xcodeproj/            # Native macOS target and keep scheme
+```
 
 | Location | Responsibility / main entry points |
 | --- | --- |
-| `keep/App/` | KeepApp model assembly and WindowGroup; AppShellView tab/Zen composition; application-delegate termination flush; appearance and artwork backdrop |
-| `keep/Models/` | WorkspaceModel coordinates timers, selected project/task, recording, ledger mutations and saving; FocusProject supplies catalog metadata |
-| `keep/Features/FocusSession/` | FocusTimer/PomodoroSettings; window-local FocusTaskEditor; active target, timer/settings and support-card composition |
-| `keep/Features/MenuBar/` | Native leaf status label, timer/task/music panel and sliding project/recent-task picker; uses app-owned models |
-| `keep/Features/Timesheet/` | TimesheetLedger/Persistence, civil-day/duration helpers, editable weekly table; PreviewData fixtures only |
-| `keep/Features/Dashboard/` | Shared browsed week/page, Calendar and Projects UI; RecordedSession value type |
-| `keep/Features/Stats/` | Window-local StatsQuery/StatsModel, cancellable Sendable StatsSnapshot aggregation, native Charts, date/project/task/goal pickers |
-| `keep/Features/Tasks/` | DailyTaskStore/Persistence, FocusTask, day navigation and calendar picker; due-habit projection |
-| `keep/Features/Habits/` | HabitStore/Persistence, definitions/logs, cached activity and derived stats; tracker and creation/progress sheets |
-| `keep/Features/Music/` | MusicPlayerModel; AudiusClient, AVMusicPlayback, serial AppleMusicController; library browser, artwork/wallpaper loading and rotation |
-| `keep/Features/Updates/` | App-owned Sparkle controller, validated configuration and restart/save continuation gate |
-| `Configuration/` | Shared update feed/public key xcconfig and Sparkle plist options |
-| `scripts/run-app-checks.py` | Isolated native app-bundle check runner with Sparkle/resources |
-| `keep/Resources/ThirdPartyNotices/` | Bundled Sparkle license and notices |
-| `keep/Features/Settings/` | AppPreferences/SettingsPersistence and validated archive; LoginItemModel/SMAppService adapter; settings UI/importer |
-| `keep/Features/Zen/` | ZenModeModel, native-window bridge, compact timer readouts and music controls |
-| `keep/DesignSystem/` | KeepTheme and named semantic assets, project/decoded-artwork palette helpers, reusable controls, scrolling and card styles |
-| `keep/Assets.xcassets/` | Semantic Light/Dark colors, bundled artwork and app icon |
-| `keep/keep.entitlements` | Read-only folder bookmarks, scoped Music automation and bundle-scoped Sparkle installer Mach lookup; sandbox/network enabled by build settings |
-| `tests/` | Standalone domain, appearance, music and native Zen checks; no Xcode test target |
+| `Sources/Keep/App/` | KeepApp model assembly, AppShellView, appearance/backdrop and termination delegate |
+| `Sources/Keep/Core/Workspace/` | FocusProject catalog metadata |
+| `Sources/Keep/Core/FocusSession/` | FocusTimer and PomodoroSettings value types and timing rules |
+| `Sources/Keep/Core/Timesheet/`, `Sources/Keep/Core/Dashboard/` | TimesheetLedger and actual RecordedSession intervals/completion events |
+| `Sources/Keep/Core/Tasks/`, `Sources/Keep/Core/Habits/` | Task/habit definitions, civil-day helpers, schedules and derived activity |
+| `Sources/Keep/Core/Music/` | Provider, channel, track, access and playback reference types |
+| `Sources/Keep/Core/Stats/` | Immutable StatsSnapshot aggregation and range/filter value types |
+| `Sources/Keep/Services/Workspace/`, `Sources/Keep/Services/Timesheet/` | Single workspace recorder/coordinator and ledger persistence |
+| `Sources/Keep/Services/Tasks/`, `Sources/Keep/Services/Habits/` | DailyTaskStore, HabitStore and their separate persistence |
+| `Sources/Keep/Services/Music/` | MusicPlayerModel, Audius/AVPlayer, AppleMusicController/library model, wallpaper/image/palette processing |
+| `Sources/Keep/Services/Settings/` | AppPreferences/SettingsPersistence and native LoginItemModel |
+| `Sources/Keep/Services/Updates/` | App-owned Sparkle controller, validated configuration and restart continuation gate |
+| `Sources/Keep/UI/` | Existing feature views grouped by feature name; FocusTaskEditor, StatsModel and ZenModeModel remain window-local presentation state |
+| `Sources/Keep/UI/DesignSystem/` | Shared semantic theme, controls, scrolling, palettes and styles |
+| `Sources/Keep/Support/PreviewData/` | TimesheetPreviewData and StatsPreviewData fixtures; never seed live stores |
+| `Resources/Assets.xcassets/` | Semantic Light/Dark colors, bundled artwork and app icon |
+| `Resources/Info.plist`, `Resources/keep.entitlements` | Sparkle plist options and native sandbox/bookmark/Music/installer capability configuration |
+| `Resources/ThirdPartyNotices/` | Bundled Sparkle license and notices |
+| `Configuration/Updates.xcconfig` | Public update feed/key configuration, shared by Debug and Release |
+| `Tests/` | Standalone checks; no Xcode test target |
+| `Tools/run-app-checks.py` | Isolated native app-bundle check runner with current sources, Sparkle and resources |
+
+Xcode uses filesystem-synchronized `Sources` and `Resources` groups. Add Swift files under the corresponding app layer and feature. Resources' target membership excludes `Info.plist` and `keep.entitlements`: they are build inputs, not copied app resources. The asset catalog and notices are included automatically. Keep product/module name, bundle identity, scheme, package resolution, signing settings and archive keys unchanged when moving files. There is no Package.swift-based app build or newly introduced target.
 
 Canonical context: `AGENTS.md` owns working agreements, `docs/decisions.md` owns decisions/history, and `docs/style.md` owns visual intent. Consult affected source before changing behavior.
 
@@ -63,7 +82,7 @@ The 450-point Working on card includes a neutral Start both action. It commits t
 
 Views present state and pass actions; WorkspaceModel alone settles and mutates recording. Timesheet owns ledger/storage types, Dashboard owns Calendar presentation, and neither has an independent recorder. Habits, tasks, music, preferences and wallpaper loading have separate app-owned models and archives. Zen changes presentation only.
 
-Shared controls receive caller actions and remain free of feature state, persistence, and provider calls. Feature directories own feature-specific UI/logic; DesignSystem owns reusable appearance, including the native rounded heading font in KeepTheme. There is no separate MVVM/service-container/package architecture. Introduce a shared abstraction only for a concrete implemented need; preserve native SwiftUI and existing Apple frameworks.
+Shared controls receive caller actions and remain free of feature state, persistence, and provider calls. Core, Services and UI retain feature subdirectories. Core owns value types/rules, Services owns shared models and external/persistence adapters, UI owns views and window-local presentation state, and UI/DesignSystem owns reusable appearance, including the native rounded heading font in KeepTheme. Files that already combine archive types and stores stay together; this layout does not split or duplicate their state owners. There is no separate MVVM/service-container/package architecture. Introduce a shared abstraction only for a concrete implemented need; preserve native SwiftUI and existing Apple frameworks.
 
 ## 5. State and data ownership
 
@@ -102,7 +121,7 @@ The trailing × removes a project's entries and recorded sessions for the displa
 
 `DashboardProjectsView` presents an alphabetically sorted, scrollable catalog with project-colored folders/names, row delete controls, and a fixed Add project footer. It owns creation-sheet and native deletion-confirmation presentation. Adding uses the shared dialog without changing selection or inventing time. Deletion routes through `WorkspaceModel.deleteProject`: settle elapsed recording, persist the removed ID, and switch a deleted active selection to No project. Timer phases and committed task text are preserved; future running time is unassigned. Deleting an inactive project leaves the current session context intact. Timesheet/Calendar retain historical metadata and time, and Timesheet removal/Undo does not restore a deleted catalog project. Projects hides week controls and shows a project count; switching Dashboard pages retains the browsed week.
 
-`ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. The target border stays neutral; clicking task text opens `TaskSuggestionPicker`. `FocusTaskEditor` owns its window-local name/search draft; typing never changes recording. Return, dismissal, leaving Focus, or a timer action commits through the workspace; Escape cancels, while picking a saved row discards the draft and atomically selects that task/project without starting timers. The menu searches task/project names and presents one flat list directly beneath the input, with inline project-colored folder/name labels and pin controls. Pinned tasks stay first; there are no separate pinned/recent sections or inset suggestion cards. Selecting a project never forces the task field into focus. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. Cancel discards creation drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project without automatically opening or selecting task text; Timesheet adds it to the displayed week without changing the active timer project. `DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
+`ActiveTargetHeader` and `TimesheetView` own picker and creation-sheet presentation. The target border stays neutral; clicking task text opens `TaskSuggestionPicker`. `FocusTaskEditor` owns its window-local name/search draft; typing never changes recording. Return, dismissal, leaving Focus, or a timer action commits through the workspace; Escape cancels, while picking a saved row discards the draft and atomically selects that task/project without starting timers. The menu searches task/project names and presents one flat list directly beneath the input, with inline project-colored folder/name labels and pin controls. Pinned tasks stay first; there are no separate pinned/recent sections or inset suggestion cards. Selecting a project never forces the task field into focus. `ProjectPicker` owns transient search/hover/focus state and searches the shared catalog by name. Its Create action closes the popover and opens `ProjectCreationDialog`, which owns only draft name/color/error state. Cancel discards creation drafts. `WorkspaceModel.createProject` trims names, requires 1–80 characters, rejects case/diacritic-insensitive duplicate names and invalid colors, assigns a UUID, and saves the catalog without inventing time entries. Focus selects the created project without automatically opening or selecting task text; Timesheet adds it to the displayed week without changing the active timer project. `Sources/Keep/UI/DesignSystem/FocusProjectStyle.swift` maps Codable project accents to named color assets; the neutral accent is reserved for unassigned time. `TimesheetPreviewData` supplies numeric sample data exclusively for previews.
 
 `TaskActivity` lives alongside its saved ledger metadata, with a stable UUID, trimmed title, project snapshot, last-used date, and pin state. `WorkspaceModel.taskSuggestions` filters to current catalog projects plus No project, sorts pinned first and then most recent, and owns selection/pin actions. Work remembers a task/project pair when starting a recording timer, committing a title during recording, or changing project/task while recording; blank tasks and standalone breaks add no activity. Case/diacritic-insensitive reuse within a project preserves identity/pins, while the same name in different projects remains separate. Selection settles prior recording before changing both task/project; it preserves running/paused timer phases. Pinning also settles recording, so delayed focus completion cannot lose elapsed time. Suggestions/pins share the workspace archive independently of daily task lists. Legacy archives without activities derive them from real recorded sessions; corrupt/duplicate identities or invalid metadata preserve the archive and block mutations. Deleted projects are excluded without losing their time or saved metadata. Current task text/selection still starts fresh after relaunch.
 
@@ -179,7 +198,7 @@ Focus analytics sum actual sessions, exclude future timestamps and never add dai
 
 Ordinary task summaries reflect current saved rows on assigned civil days, excluding future days, projected habits and deleted rows; completion timestamps are not available. Habit rates use scheduled opportunities through the effective end, exclude rest days/range exclusions, and require full targets. Current streaks are always shown as of effective range end and may begin before the range; best streaks are clipped to the range. Only actual today may remain pending; habits skip rest days and ended habits retain zero current streaks.
 
-Optional `weeklyFocusGoalMinutes` (1–10,080) persists in AppPreferences with a nil legacy default. Streaks are always visible; older archives containing the retired `showStatsStreaks` field remain readable, and that field no longer controls presentation. Goal progress always uses recorded focus for the current Monday–Sunday week across all projects, explicitly labelled independently of browsing filters. Stats failures show per-store Retry rather than false zeroes. Native Swift Charts provides bars/selection, hover callouts (including zero buckets), keyboard arrow inspection and accessible mark values. `StatsDistributionChart` presents project totals as rounded ring sectors and switches to task sectors when one project is selected. Hover/arrow inspection exposes a section's time and percentage in the center; ring selection and labelled legend buttons use the existing filters. Its legend stacks below the ring in narrow layouts. Numeric UI fixtures stay under Timesheet/PreviewData. Export is not implemented.
+Optional `weeklyFocusGoalMinutes` (1–10,080) persists in AppPreferences with a nil legacy default. Streaks are always visible; older archives containing the retired `showStatsStreaks` field remain readable, and that field no longer controls presentation. Goal progress always uses recorded focus for the current Monday–Sunday week across all projects, explicitly labelled independently of browsing filters. Stats failures show per-store Retry rather than false zeroes. Native Swift Charts provides bars/selection, hover callouts (including zero buckets), keyboard arrow inspection and accessible mark values. `StatsDistributionChart` presents project totals as rounded ring sectors and switches to task sectors when one project is selected. Hover/arrow inspection exposes a section's time and percentage in the center; ring selection and labelled legend buttons use the existing filters. Its legend stacks below the ring in narrow layouts. Numeric UI fixtures stay under `Sources/Keep/Support/PreviewData/`. Export is not implemented.
 
 ## 6. Artwork, appearance and layout
 
@@ -200,7 +219,7 @@ Layout constraints:
 
 ### Software updates
 
-`KeepApp` owns one `AppUpdater` (`Features/Updates`) for all windows and starts it through the same runtime connection used by the menu scene. It validates the merged HTTPS feed/public key/version, disables itself in Debug builds, and wraps `SPUStandardUpdaterController` with Sparkle's standard UI. Sparkle owns the schedule (six-hour default), update-check preferences and last-check date; KVO publishes these into Observation for Settings and the application-menu command. These settings are not copied into AppPreferences. Automatic installation and profiling are disabled. Checks/downloads do not change workspace or music state.
+`KeepApp` owns one `AppUpdater` (`Sources/Keep/Services/Updates`) for all windows and starts it through the same runtime connection used by the menu scene. It validates the merged HTTPS feed/public key/version, disables itself in Debug builds, and wraps `SPUStandardUpdaterController` with Sparkle's standard UI. Sparkle owns the schedule (six-hour default), update-check preferences and last-check date; KVO publishes these into Observation for Settings and the application-menu command. These settings are not copied into AppPreferences. Automatic installation and profiling are disabled. Checks/downloads do not change workspace or music state.
 
 `UpdateRestartGate` retains Sparkle's postponed-install continuation. Running/paused timers require explicit confirmation; Later keeps the update pending, and Settings can resume it. Preparation calls WorkspaceModel.stopBothTimers and checks saving succeeded before invoking the continuation once. The normal application termination delegate then releases owned music playback and flushes shutdown. Keep's explicit appearance is used for its restart/save-error alerts; Sparkle owns its standard native windows. Previews use unstarted models. Failed startup/checks expose actionable status and Retry/manual checks.
 
@@ -221,10 +240,10 @@ The checked-in project currently declares:
 | Build configurations | Debug and Release |
 | App Sandbox | Enabled |
 | User-selected file access | Read-only |
-| Folder bookmarks | `com.apple.security.files.bookmarks.app-scope` via `keep/keep.entitlements` in Debug/Release |
+| Folder bookmarks | `com.apple.security.files.bookmarks.app-scope` via `Resources/keep.entitlements` in Debug/Release |
 | Outgoing network connections | Enabled in Debug and Release for Audius API/audio hosts and update HTTPS requests |
 | Music automation | `com.apple.Music.playback` and `com.apple.Music.library.read` scripting targets, Apple-events automation entitlement, and usage description in Debug/Release |
-| Info.plist | Xcode generated values merged with `Configuration/Info.plist`; both target configurations use `Configuration/Updates.xcconfig` |
+| Info.plist | Xcode generated values merged with `Resources/Info.plist`; both target configurations use `Configuration/Updates.xcconfig` |
 | Third-party package products | Sparkle (SPM), resolved to 2.10.0; package minimum 2.10.0 up to next major |
 
 The language-mode setting does not identify the installed Swift compiler. Project metadata does not prove SDK availability or that a build succeeds on a given machine. Check the installed toolchain when compatibility matters.
@@ -247,29 +266,30 @@ Run the daily-task checks:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  keep/Features/Tasks/Models/*.swift keep/Features/Habits/Models/*.swift \
-  tests/DailyTaskChecks.swift \
+  Sources/Keep/Core/Tasks/*.swift Sources/Keep/Core/Habits/*.swift \
+  Sources/Keep/Services/Tasks/*.swift Sources/Keep/Services/Habits/*.swift \
+  Tests/DailyTaskChecks.swift \
   -o /tmp/keep-daily-task-checks
 /tmp/keep-daily-task-checks
 ```
 
-Run the integration checks using the daily-task source list above, replacing `tests/DailyTaskChecks.swift` with `tests/HabitTaskChecks.swift` and the executable with `/tmp/keep-habit-task-checks`.
+Run the integration checks using the daily-task source list above, replacing `Tests/DailyTaskChecks.swift` with `Tests/HabitTaskChecks.swift` and the executable with `/tmp/keep-habit-task-checks`.
 
 Run the habit checks:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  keep/Features/Tasks/Models/TaskDay.swift \
-  keep/Features/Habits/Models/*.swift tests/HabitChecks.swift \
+  Sources/Keep/Core/Tasks/TaskDay.swift \
+  Sources/Keep/Core/Habits/*.swift Sources/Keep/Services/Habits/*.swift Tests/HabitChecks.swift \
   -o /tmp/keep-habit-checks
 /tmp/keep-habit-checks
 ```
 
-Run habit identity/persistence checks with the daily-task source list, replacing `tests/DailyTaskChecks.swift` with `tests/HabitIdentityChecks.swift` and choosing a separate executable. Login registration checks use a fake service and never change macOS login items:
+Run habit identity/persistence checks with the daily-task source list, replacing `Tests/DailyTaskChecks.swift` with `Tests/HabitIdentityChecks.swift` and choosing a separate executable. Login registration checks use a fake service and never change macOS login items:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  keep/Features/Settings/Models/LoginItemModel.swift tests/LoginItemChecks.swift \
+  Sources/Keep/Services/Settings/LoginItemModel.swift Tests/LoginItemChecks.swift \
   -o /tmp/keep-login-item-checks
 /tmp/keep-login-item-checks
 ```
@@ -278,13 +298,13 @@ Run the session-recording checks:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  keep/Models/FocusProject.swift keep/Models/WorkspaceModel.swift \
-  keep/Features/FocusSession/Models/FocusTimer.swift \
-  keep/Features/FocusSession/Models/PomodoroSettings.swift \
-  keep/Features/Timesheet/Models/TimesheetLedger.swift \
-  keep/Features/Timesheet/Models/TimesheetPersistence.swift \
-  keep/Features/Dashboard/Models/RecordedSession.swift \
-  tests/SessionRecordingChecks.swift -o /tmp/keep-session-checks
+  Sources/Keep/Core/Workspace/FocusProject.swift Sources/Keep/Services/Workspace/WorkspaceModel.swift \
+  Sources/Keep/Core/FocusSession/FocusTimer.swift \
+  Sources/Keep/Core/FocusSession/PomodoroSettings.swift \
+  Sources/Keep/Core/Timesheet/TimesheetLedger.swift \
+  Sources/Keep/Services/Timesheet/TimesheetPersistence.swift \
+  Sources/Keep/Core/Dashboard/RecordedSession.swift \
+  Tests/SessionRecordingChecks.swift -o /tmp/keep-session-checks
 /tmp/keep-session-checks
 ```
 
@@ -292,25 +312,25 @@ Run Stats aggregation checks:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  keep/Features/Stats/Models/StatsSnapshot.swift tests/StatsChecks.swift \
+  Sources/Keep/Core/Stats/StatsSnapshot.swift Tests/StatsChecks.swift \
   -o /tmp/keep-stats-checks
 /tmp/keep-stats-checks
 ```
 
-Run completion-event checks with the session domain-source list above, replacing the test with `tests/PomodoroCompletionChecks.swift`. Run `tests/StatsPresentationChecks.swift` with the all-source list used for native appearance checks below; it checks preference reloads and model cancellation, and writes native fixture captures to `/tmp/keep-stats-renders`. For palette-correct standalone captures, package the executable in a temporary app bundle with the unsigned build's Assets.car in Contents/Resources. This does not modify user archives.
+Run completion-event checks with the session domain-source list above, replacing the test with `Tests/PomodoroCompletionChecks.swift`. Run `Tests/StatsPresentationChecks.swift` with the all-source list used for native appearance checks below; it checks preference reloads and model cancellation, and writes native fixture captures to `/tmp/keep-stats-renders`. For palette-correct standalone captures, package the executable in a temporary app bundle with the unsigned build's Assets.car in Contents/Resources. This does not modify user archives.
 
-Run the project-catalog checks using the same domain-source list as the session checks above, replacing `tests/SessionRecordingChecks.swift` with `tests/ProjectCatalogChecks.swift` and the output with `/tmp/keep-project-checks`.
+Run the project-catalog checks using the same domain-source list as the session checks above, replacing `Tests/SessionRecordingChecks.swift` with `Tests/ProjectCatalogChecks.swift` and the output with `/tmp/keep-project-checks`.
 
-Run task-activity checks with the session domain-source command above, replacing `tests/SessionRecordingChecks.swift` with `tests/TaskActivityChecks.swift` and the output with `/tmp/keep-task-activity-checks`.
+Run task-activity checks with the session domain-source command above, replacing `Tests/SessionRecordingChecks.swift` with `Tests/TaskActivityChecks.swift` and the output with `/tmp/keep-task-activity-checks`.
 
 Run native offscreen appearance checks (changes affect only the test process):
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  $(rg --files keep -g '*.swift' | rg -v 'KeepApp.swift') \
+  $(rg --files Sources/Keep -g '*.swift' | rg -v 'KeepApp.swift') \
   -F /tmp/keep-derived-data/Build/Products/Debug -framework Sparkle \
   -Xlinker -rpath -Xlinker /tmp/keep-derived-data/Build/Products/Debug \
-  tests/AppearanceChecks.swift -o /tmp/keep-appearance-checks
+  Tests/AppearanceChecks.swift -o /tmp/keep-appearance-checks
 /tmp/keep-appearance-checks
 ```
 
@@ -318,8 +338,8 @@ Run Zen transition and native attachment/notification checks in hidden windows w
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  keep/Features/Zen/Models/ZenModeModel.swift \
-  keep/Features/Zen/Views/ZenWindowBridge.swift tests/ZenModeChecks.swift \
+  Sources/Keep/UI/Zen/ZenModeModel.swift \
+  Sources/Keep/UI/Zen/ZenWindowBridge.swift Tests/ZenModeChecks.swift \
   -o /tmp/keep-zen-checks
 /tmp/keep-zen-checks
 ```
@@ -328,18 +348,18 @@ Run the silent music/preferences checks:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
-  $(rg --files keep -g '*.swift' | rg -v 'KeepApp.swift') \
+  $(rg --files Sources/Keep -g '*.swift' | rg -v 'KeepApp.swift') \
   -F /tmp/keep-derived-data/Build/Products/Debug -framework Sparkle \
   -Xlinker -rpath -Xlinker /tmp/keep-derived-data/Build/Products/Debug \
-  tests/MusicPreferencesChecks.swift -o /tmp/keep-music-preferences-checks
+  Tests/MusicPreferencesChecks.swift -o /tmp/keep-music-preferences-checks
 /tmp/keep-music-preferences-checks
 ```
 
-Run the menu-bar preference/display checks with the same source list, replacing `tests/MusicPreferencesChecks.swift` with `tests/MenuBarChecks.swift` and the executable with `/tmp/keep-menu-bar-checks`. These cover legacy/protected preference loading, cross-process restoration, display-clock refresh, timer independence and native minimum-size measurement with empty/populated panels in Light/Dark; native interaction checks use isolated silent fixtures.
+Run the menu-bar preference/display checks with the same source list, replacing `Tests/MusicPreferencesChecks.swift` with `Tests/MenuBarChecks.swift` and the executable with `/tmp/keep-menu-bar-checks`. These cover legacy/protected preference loading, cross-process restoration, display-clock refresh, timer independence and native minimum-size measurement with empty/populated panels in Light/Dark; native interaction checks use isolated silent fixtures.
 
-After building Debug, `python3 scripts/run-app-checks.py UpdaterChecks` runs the native updater checks in a temporary app bundle with a separate identity, copied resources/framework, and scheduling disabled. The same runner supports the other checked-in harness names, compiling current sources so test actors retain their source-level isolation. Updater checks never fetch a feed or install an update. Signing/feed preparation and public delivery checks are described in `docs/updates.md`.
+After building Debug, `python3 Tools/run-app-checks.py UpdaterChecks` runs the native updater checks in a temporary app bundle with a separate identity, copied resources/framework, and scheduling disabled. The same runner supports the other checked-in harness names, compiling current sources so test actors retain their source-level isolation. Updater checks never fetch a feed or install an update. Signing/feed preparation and public delivery checks are described in `docs/updates.md`.
 
-All checked-in check sources live in `tests/`; choose the matching command above. Older temporary harnesses have been removed, so historical receipts do not imply their source/commands are available today.
+All checked-in check sources live in `Tests/`; choose the matching command above. Older temporary harnesses have been removed, so historical receipts do not imply their source/commands are available today.
 
 Verification history belongs in `docs/decisions.md` under RECEIPTS. The latest work has unsigned builds, focused standalone checks, and native offscreen screenshots; this does not establish release signing, actual Automation consent/subscribed playback, live full-screen animation, native slider dragging, complete keyboard/VoiceOver operation, or onscreen Liquid Glass compositing. Use isolated fixtures for UI checks and silent playback adapters for music. Never treat a historical command outcome as a current run.
 
