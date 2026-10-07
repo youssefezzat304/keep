@@ -59,10 +59,12 @@ struct KeepSelectionMenu<Value: Hashable>: View {
             .font(.system(size: 13, weight: .medium))
             .foregroundStyle(KeepTheme.ink)
             .padding(.horizontal, 12).frame(height: 36)
+            .contentShape(Rectangle())
             .background(hovered ? KeepTheme.mutedWarm : KeepTheme.paper, in: RoundedRectangle(cornerRadius: 10))
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(focused ? KeepTheme.focusRing : KeepTheme.border, lineWidth: focused ? 2 : 1)
+                    .allowsHitTesting(false)
             }
         }
         .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain)

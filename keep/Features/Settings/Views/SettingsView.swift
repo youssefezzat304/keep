@@ -246,6 +246,10 @@ struct SettingsView: View {
 
     private var glassSettings: some View {
         VStack(alignment: .leading, spacing: 18) {
+            MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Music card preview")
             settingRow("Card material") {
                 KeepSelectionMenu(label: "Music card material", selection: $preferences.glassStyle,
                                   options: MusicGlassStyle.allCases, title: { $0.title }).frame(width: 190)
@@ -253,23 +257,19 @@ struct SettingsView: View {
             HStack {
                 Text("Glassiness").font(.system(size: 13, weight: .medium))
                 Spacer()
-                Text("\(Int(preferences.glassiness * 100))%")
+                Text("\(Int((preferences.glassiness * 100).rounded()))%")
                     .font(.system(size: 12)).monospacedDigit().foregroundStyle(KeepTheme.mutedInk)
             }
             Slider(value: $preferences.glassiness, in: 0...1)
                 .tint(KeepTheme.accentStrong)
                 .frame(height: 44)
                 .accessibilityLabel("Glassiness")
-                .accessibilityValue("\(Int(preferences.glassiness * 100)) percent")
+                .accessibilityValue("\(Int((preferences.glassiness * 100).rounded())) percent")
             HStack {
                 Text("Solid paper")
                 Spacer()
                 Text("Clear glass")
             }.font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
-            MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Music card preview")
         }
     }
 
