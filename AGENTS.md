@@ -245,6 +245,8 @@ Preserve the native macOS focus-workspace structure. Follow `docs/style.md` for 
 
 Do not replace established technologies or introduce speculative features as part of unrelated work.
 
+Software updates use one app-owned Sparkle 2 controller in `Features/Updates`. Keep Sparkle's preferences/scheduler separate from AppPreferences and timer ticking. Debug/previews must not perform real update checks or install releases. Preserve signed-feed/archive verification, App Sandbox and the documented installer-service exceptions. Restart preparation must settle/save through WorkspaceModel and respect running/paused timers before invoking Sparkle's continuation. Keep the private EdDSA key in Keychain/protected release secrets; only its public key belongs in configuration. Consult `docs/updates.md` for release preparation; local integration does not authorize publishing a GitHub release or changing remote infrastructure.
+
 ## 20. Commit messages
 
 After a completed code or documentation task, suggest one concise Conventional Commits message:

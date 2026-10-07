@@ -111,7 +111,7 @@ Escape or double-clicking uncovered artwork exits Zen regardless of control focu
 
 ## 10. Appearance and motion
 
-Settings offers Light (default), Dark, and System. Named assets supply dark variants, and sheets/popovers inherit the shell selection. System follows macOS independently of explicit window overrides; keep source implementation details in architecture.md.
+Settings offers Light (default), Dark, and System. Its Updates section uses the same paper card, rounded heading, native switch and themed buttons, with a compact version/last-check display and wrapping status text. Update downloads/install prompts use Sparkle’s standard native UI; Keep’s restart confirmation follows the chosen appearance. Named assets supply dark variants, and sheets/popovers inherit the shell selection. System follows macOS independently of explicit window overrides; keep source implementation details in architecture.md.
 
 | Semantic asset | Dark value |
 | --- | --- |

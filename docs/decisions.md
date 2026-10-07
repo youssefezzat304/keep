@@ -2,6 +2,8 @@
 
 ## [SNAPSHOT]
 
+- 2026-10-07 [CODE] Sparkle 2.10 is integrated for Release update checks with Settings/application-menu controls, a six-hour schedule, signed feeds/archives, sandbox installer support and timer-aware restart settlement. Debug updates stay disabled. Public feed targets GitHub releases; no release/feed has been published. See D049 and `docs/updates.md`.
+
 - 2026-10-07 [CODE] Stats is active with recorded focus charts, project/task filters, custom dates, completion history, date-scoped task/habit summaries, always-visible streaks and optional all-project weekly goals. Completed Pomodoros use the finishing target; old history is never estimated.
 
 - 2026-10-05 [CODE] Goal: native macOS focus workspace; existing UI includes an active target, Pomodoro and flow panels, and task/music areas.
@@ -9,7 +11,7 @@
 - 2026-10-06 [CODE] Current state: Dashboard contains the saved editable Timesheet, a weekly Calendar with session time editing/deletion, and a Projects catalog with add/delete; mock sessions are removed. Focus records project time into an editable seven-day Timesheet with locally saved totals and weekly row removal/Undo. Flow takes recording priority; Pomodoro has saved duration/iteration settings and manual uncounted short/long breaks. Support cards fill taller windows; tasks have saved per-day lists with date navigation and completion/add/delete controls. Music streams public Audius lofi/saved sources through AVPlayer and controls Apple Music via the Mac’s Music app with an in-Keep library browser/search, current artwork, seeking/shuffle/repeat; provider and volume persist. Today’s task rows launch Focus, Flow, or both with a shared active title; the task selector remembers project-linked activity and pins. Zen fills native full screen with the selected wallpaper, minimal timer readouts and a small music bar, preserving their runtime state. Settings manages Music Automation access and saves Light/Dark/System appearance, folder/track wallpapers, rotation, glassiness, and artist/playlist channels. The outer background is a blurred wash of the player’s artwork; the panel/timers take contrast-limited artwork tints. Music has a heart toggle and an animated saved-source drawer; project names/icons share readable project hues. Appearance includes the glass subsection and a native glassiness slider below its live preview and material picker; music volume retains its slider. Compact navigation uses icons, scrollbars share thin transparent tracks, and Habit tracker saves goals/progress with weekday frequency, a centered full-year monthly/weekly activity grid, compact weekly check-ins, and selected-habit stats on one surface; due habits also appear in daily Tasks with shared completion.
 - 2026-10-05 [USER] Documentation lives in `docs/architecture.md`, `docs/decisions.md`, and `docs/style.md`; root `AGENTS.md` defines working rules.
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
-- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Music supports public Audius streaming and scoped playback control of the Mac’s Music app; no third-party packages or Xcode test target. Daily-task and session-recording standalone checks are checked in; earlier timer/workspace check sources have been removed; new silent music/preferences checks are checked in.
+- 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Music supports public Audius streaming and scoped playback control of the Mac’s Music app; Sparkle is now the first third-party package, and there is no Xcode test target. Daily-task and session-recording standalone checks are checked in; earlier timer/workspace check sources have been removed; new silent music/preferences checks are checked in.
 - 2026-10-06 [USER] Visual direction: cozy palette and quiet layouts, with lighter, friendly rounded headings replacing the earlier formal serif direction (D040).
 - 2026-10-05 [CODE] Timers/project selection/ledger, music, saved daily tasks, and habits are app-shared; appearance/music preferences and channel selection persist; provider/volume restore without autoplay; timer/music runtime, committed task text, task-day selection, and window-local editor/input drafts are not restored on relaunch. Recorded session metadata persists with daily totals. Stats is implemented under D044; export remains excluded.
 
@@ -301,6 +303,12 @@ Fix the full clickable area of selection menus and restore the Glassiness slider
 
 Replace the custom GlassinessSlider with the native SwiftUI Slider already used for music volume and delete unused code. [CODE] Settings binds Slider directly to AppPreferences glassiness, preserving live preview, theme tint, percentage accessibility and the requested preview-before-controls layout. The custom NSSlider bridge and its dedicated event checks are removed. This supersedes D047’s slider implementation; the menu hit-area fix and Appearance order remain.
 
+### D049 ACTIVE — 2026-10-07 [USER]
+
+Use free Sparkle 2 for application updates and the existing `youssefezzat304/keep` GitHub repository for releases.
+
+2026-10-07 [CODE] One app-owned updater uses Sparkle's scheduler and persisted update preferences, with automatic checking on by default every six hours and installation chosen by the user. Settings and the application menu expose manual checks; active/paused timers require a restart confirmation, settle/save through WorkspaceModel, and restart idle. Debug builds cannot update. Shared configuration contains only the public verification key and a stable public GitHub latest-release appcast URL. A dedicated private EdDSA key is held in local Keychain account `com.youssef.keep`; feeds/archives require signatures. App Sandbox stays enabled with Sparkle's documented installer exceptions. Release signing/notarization, first public appcast/archive publishing, secure key backup and actual upgrade verification remain release work; no remote mutation or CI publishing was performed.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -344,19 +352,21 @@ These questions are not blockers for unrelated work; resolve them when the relev
 ## [WORKING SET]
 
 - 2026-10-05 [CODE] `AGENTS.md`
-- 2026-10-05 [CODE] `docs/architecture.md`
+- 2026-10-07 [CODE] `docs/architecture.md`, `docs/updates.md`
 - 2026-10-05 [CODE] `docs/decisions.md`
 - 2026-10-05 [CODE] `docs/style.md`
 - 2026-10-05 [CODE] `keep/App/`
 - 2026-10-05 [CODE] `keep/Models/`
 - 2026-10-05 [CODE] `keep/Features/FocusSession/`
-- 2026-10-05 [CODE] `keep/Features/Dashboard/`, `keep/Features/Habits/`, `keep/Features/Timesheet/`, `keep/Features/Music/`, `keep/Features/Tasks/`, and `keep/Features/Settings/`
+- 2026-10-05 [CODE] `keep/Features/Dashboard/`, `keep/Features/Habits/`, `keep/Features/Timesheet/`, `keep/Features/Music/`, `keep/Features/Tasks/`, `keep/Features/Settings/`, and `keep/Features/Updates/`
 - 2026-10-05 [CODE] `tests/`
 - 2026-10-05 [CODE] `keep/Assets.xcassets/`
 - 2026-10-05 [CODE] `keep/DesignSystem/`
 - 2026-10-05 [CODE] `keep.xcodeproj/project.pbxproj`
 
 ## [RECEIPTS]
+
+- 2026-10-07 [TOOL] Sparkle: resolved SPM 2.10.0; unsigned Debug and Release builds passed (existing App Intents metadata warning only). Passed 38 updater checks, 100 session-recording checks, 18 completion checks, 73 silent music/preferences checks, 17 menu checks and 13 native appearance checks. Updater checks include startup/KVO, separate-process preferences, Debug/configuration gates, Later/paused behavior, exactly-once continuation, save-failure blocking and final Flow-priority settlement. A locally ad hoc signed fixture generated a signed appcast/archive; five CryptoKit checks verified both signatures against the shipped public key, GitHub enclosure URL and tamper rejection. Original unsigned packaging was correctly rejected by Sparkle's code-signature validation. Inspected native Light/Dark Settings at 1000×900, 680×650 and 1710×1080, including scrolled narrow/pending-restart states. Git diff --check and runner syntax check passed. Unsigned fixtures report Sparkle sandbox-extension probe diagnostics; actual signed sandbox installation, public feed delivery, restart/relaunch, physical keyboard/VoiceOver and Developer ID/notarization remain unverified. No remote release, live archives, real music playback or private-key export was used.
 
 - 2026-10-07 [TOOL] Fixed menu/combined stop: unsigned Debug build, 100 session-recording checks (17 new combined-stop checks), 17 menu preference/native-sizing checks and git diff --check passed. Native Light/Dark screenshots inspected long task lists, idle/loading music with track details, breaks and combined Stop, plus main Focus at 1000 × 900 and 680 × 650. Isolated live hosts verified Start → Stop from the same control in the menu and main header, retained elapsed values, shared task completion, fixed main-page accessibility structure and padded recent rows. A later native capture error prevented further live resume/keyboard checks; deterministic resume checks passed. Actual status-item click, full VoiceOver and release signing remain unverified. No live archives, real audio or networking were used.
 

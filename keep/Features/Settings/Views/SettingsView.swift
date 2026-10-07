@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Bindable var player: MusicPlayerModel
     var wallpapers: WallpaperLibrary
     var loginItem = LoginItemModel()
+    var updater = AppUpdater()
     var isVisible = true
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFolder = false
@@ -53,6 +54,8 @@ struct SettingsView: View {
                     Button("Open Login Items…") { loginItem.openSettings() }
                 }
             }
+
+            updates
 
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {
@@ -205,6 +208,32 @@ struct SettingsView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if isVisible, phase == .active { loginItem.refresh(); Task { await player.checkAppleMusicAccess() } }
+        }
+    }
+
+    private var updates: some View {
+        section("Updates", symbol: "arrow.triangle.2.circlepath") {
+            settingRow("Keep \(updater.configuration.version) (\(updater.configuration.build))") {
+                if updater.restartGate.isPending {
+                    Button("Restart to update…") { updater.requestRestart() }
+                        .buttonStyle(KeepButtonStyle(emphasis: .primary))
+                } else if !updater.isStarted, updater.status == .failed {
+                    Button("Retry") { updater.start() }
+                } else {
+                    Button("Check for Updates…") { updater.checkForUpdates() }
+                        .disabled(!updater.isStarted || !updater.canCheckForUpdates)
+                }
+            }
+            Toggle("Check for updates automatically", isOn: Binding(
+                get: { updater.automaticallyChecksForUpdates },
+                set: { updater.setAutomaticallyChecksForUpdates($0) }
+            ))
+            .toggleStyle(.switch).controlSize(.small).font(.system(size: 13))
+            .disabled(!updater.isStarted)
+            helper(updater.statusText)
+            if let date = updater.lastChecked {
+                helper("Last checked \(date.formatted(date: .abbreviated, time: .shortened))")
+            }
         }
     }
 

@@ -4,7 +4,7 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-Keep is one native macOS SwiftUI application. Focus, Dashboard, Habit tracker, Stats, and Settings work. The implementation uses Apple frameworks and local UserDefaults archives, with no third-party packages, backend, accounts, or sync.
+Keep is one native macOS SwiftUI application. Focus, Dashboard, Habit tracker, Stats, and Settings work. The implementation uses Apple frameworks, local UserDefaults archives, and Sparkle 2 for software updates. There is no backend, account system, or sync.
 
 - Focus has independent Pomodoro and Flow timers, project/task selection, daily tasks, and music. Flow takes recording priority, so concurrent timers count time once. Breaks never add Pomodoro time.
 - Dashboard contains an editable Timesheet, a weekly Calendar of actual recorded sessions, and a saved project catalog with add/delete. Manual totals cannot supply invented Calendar timestamps.
@@ -12,7 +12,7 @@ Keep is one native macOS SwiftUI application. Focus, Dashboard, Habit tracker, S
 - Tasks persist by civil day and include scheduled habits with shared completion. Only Today’s rows can start Focus, Flow, or both. Project-linked suggestions and pins belong to the workspace, separately from daily lists.
 - Habits save weekday schedules, inclusive date ranges, check-ins or minutes/times targets, manual progress, full-year activity, and derived stats. Existing names/icons can be edited.
 - Stats derives focus trends/distribution/patterns, completion counts, task/habit summaries, always-visible streaks and optional goals from local history, with custom inclusive dates and project/task filters.
-- Settings saves Light/Dark/System, wallpaper/material preferences, and Audius sources. It exposes Music Automation permission status/recovery and native Start on login registration. Zen is a window-local full-screen wallpaper with minimal timer and music controls.
+- Settings saves Light/Dark/System, wallpaper/material preferences, and Audius sources. Release builds expose Sparkle update checks/preferences; GitHub release publishing is separate (see `docs/updates.md`). It exposes Music Automation permission status/recovery and native Start on login registration. Zen is a window-local full-screen wallpaper with minimal timer and music controls.
 
 Projects, recorded sessions, daily totals/edits, tasks, habits, and preferences survive relaunch. Timers restart idle; active selection, committed task text, input drafts, and other window-local state are not restored. Live stores have no sample history; previews use isolated fixtures. Calendar drag-and-drop, project renaming, habit goal/schedule editing and deletion, notifications, MusicKit catalog integration, and sync remain unimplemented.
 
@@ -32,18 +32,22 @@ All Swift files share the application module. `keep/` is a filesystem-synchroniz
 | `keep/Features/Tasks/` | DailyTaskStore/Persistence, FocusTask, day navigation and calendar picker; due-habit projection |
 | `keep/Features/Habits/` | HabitStore/Persistence, definitions/logs, cached activity and derived stats; tracker and creation/progress sheets |
 | `keep/Features/Music/` | MusicPlayerModel; AudiusClient, AVMusicPlayback, serial AppleMusicController; library browser, artwork/wallpaper loading and rotation |
+| `keep/Features/Updates/` | App-owned Sparkle controller, validated configuration and restart/save continuation gate |
+| `Configuration/` | Shared update feed/public key xcconfig and Sparkle plist options |
+| `scripts/run-app-checks.py` | Isolated native app-bundle check runner with Sparkle/resources |
+| `keep/Resources/ThirdPartyNotices/` | Bundled Sparkle license and notices |
 | `keep/Features/Settings/` | AppPreferences/SettingsPersistence and validated archive; LoginItemModel/SMAppService adapter; settings UI/importer |
 | `keep/Features/Zen/` | ZenModeModel, native-window bridge, compact timer readouts and music controls |
 | `keep/DesignSystem/` | KeepTheme and named semantic assets, project/decoded-artwork palette helpers, reusable controls, scrolling and card styles |
 | `keep/Assets.xcassets/` | Semantic Light/Dark colors, bundled artwork and app icon |
-| `keep/keep.entitlements` | Read-only folder bookmarks, network and scoped Music automation |
+| `keep/keep.entitlements` | Read-only folder bookmarks, scoped Music automation and bundle-scoped Sparkle installer Mach lookup; sandbox/network enabled by build settings |
 | `tests/` | Standalone domain, appearance, music and native Zen checks; no Xcode test target |
 
 Canonical context: `AGENTS.md` owns working agreements, `docs/decisions.md` owns decisions/history, and `docs/style.md` owns visual intent. Consult affected source before changing behavior.
 
 ## 3. Composition and lifetime
 
-`KeepApp` assembles shared workspace, music, tasks, habits, preferences, wallpapers, and login-item state and passes them to each AppShellView. Shells own tab and Zen presentation; Dashboard owns its page/week and Stats owns its query/scroll state. Navigation stays outside the scrolling viewport. All tabs remain mounted; inactive content is invisible and excluded from input/accessibility, preserving drafts and scroll positions.
+`KeepApp` assembles shared workspace, music, tasks, habits, preferences, wallpapers, login-item state, and one updater and passes them to each AppShellView. Shells own tab and Zen presentation; Dashboard owns its page/week and Stats owns its query/scroll state. Navigation stays outside the scrolling viewport. All tabs remain mounted; inactive content is invisible and excluded from input/accessibility, preserving drafts and scroll positions.
 
 KeepApp also provides a window-style SwiftUI `MenuBarExtra`. Its monochrome leaf label displays the selected Pomodoro/Flow timer or just the icon. `MenuBarLabel` reads `WorkspaceModel.displayInstant`, refreshed by the existing workspace loop and actions, rather than owning a timeline or ticker. Runtime/delegate connections are installed from both scenes so closing workspace windows preserves recording, playback and termination cleanup. Open Keep restores an existing titled Keep window or opens the workspace scene.
 
@@ -194,6 +198,14 @@ Layout constraints:
 - Inputs/actions expose labels, visible focus and native shortcuts. Reflow completed-focus controls instead of clipping them. Decorative overlays never intercept input.
 - MusicGlassPanel aligns a crop of the artwork beneath its controls; Zen supplies the inline card’s position in the full-screen artwork coordinate space. Glassiness reduces blur/paper opacity, retains a readability wash, and uses solid paper at zero or under Reduce Transparency. Liquid Glass adds the native treatment; Settings places the live preview before Card material and the Glassiness slider. Glassiness uses the same native SwiftUI Slider as music volume, bound to the normalized AppPreferences value with theme tint, a 44-point control area and a percentage accessibility value. It saves/previews continuously through AppPreferences. KeepSelectionMenu gives its entire padded label a rectangular content shape and disables hit testing on its decorative border. Music volume remains a SwiftUI Slider.
 
+### Software updates
+
+`KeepApp` owns one `AppUpdater` (`Features/Updates`) for all windows and starts it through the same runtime connection used by the menu scene. It validates the merged HTTPS feed/public key/version, disables itself in Debug builds, and wraps `SPUStandardUpdaterController` with Sparkle's standard UI. Sparkle owns the schedule (six-hour default), update-check preferences and last-check date; KVO publishes these into Observation for Settings and the application-menu command. These settings are not copied into AppPreferences. Automatic installation and profiling are disabled. Checks/downloads do not change workspace or music state.
+
+`UpdateRestartGate` retains Sparkle's postponed-install continuation. Running/paused timers require explicit confirmation; Later keeps the update pending, and Settings can resume it. Preparation calls WorkspaceModel.stopBothTimers and checks saving succeeded before invoking the continuation once. The normal application termination delegate then releases owned music playback and flushes shutdown. Keep's explicit appearance is used for its restart/save-error alerts; Sparkle owns its standard native windows. Previews use unstarted models. Failed startup/checks expose actionable status and Retry/manual checks.
+
+The app retains its sandbox and outgoing-network access. Sparkle's installer-launcher service is enabled with bundle-scoped `-spks`/`-spki` Mach lookup exceptions; its optional downloader service is not enabled. Updates require EdDSA-signed archives and signed feeds. The public key and GitHub latest-release feed are in shared build configuration; the private key stays in the local Keychain, account `com.youssef.keep`. No release/feed is published by app integration. See `docs/updates.md` for keys, packaging, GitHub asset naming and end-to-end release verification.
+
 ## 7. Build configuration and capabilities
 
 The checked-in project currently declares:
@@ -210,10 +222,10 @@ The checked-in project currently declares:
 | App Sandbox | Enabled |
 | User-selected file access | Read-only |
 | Folder bookmarks | `com.apple.security.files.bookmarks.app-scope` via `keep/keep.entitlements` in Debug/Release |
-| Outgoing network connections | Enabled in Debug and Release for Audius API/audio hosts |
+| Outgoing network connections | Enabled in Debug and Release for Audius API/audio hosts and update HTTPS requests |
 | Music automation | `com.apple.Music.playback` and `com.apple.Music.library.read` scripting targets, Apple-events automation entitlement, and usage description in Debug/Release |
-| Info.plist | Generated by Xcode |
-| Third-party package products | None |
+| Info.plist | Xcode generated values merged with `Configuration/Info.plist`; both target configurations use `Configuration/Updates.xcconfig` |
+| Third-party package products | Sparkle (SPM), resolved to 2.10.0; package minimum 2.10.0 up to next major |
 
 The language-mode setting does not identify the installed Swift compiler. Project metadata does not prove SDK availability or that a build succeeds on a given machine. Check the installed toolchain when compatibility matters.
 
@@ -296,6 +308,8 @@ Run native offscreen appearance checks (changes affect only the test process):
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
   $(rg --files keep -g '*.swift' | rg -v 'KeepApp.swift') \
+  -F /tmp/keep-derived-data/Build/Products/Debug -framework Sparkle \
+  -Xlinker -rpath -Xlinker /tmp/keep-derived-data/Build/Products/Debug \
   tests/AppearanceChecks.swift -o /tmp/keep-appearance-checks
 /tmp/keep-appearance-checks
 ```
@@ -315,11 +329,15 @@ Run the silent music/preferences checks:
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
   $(rg --files keep -g '*.swift' | rg -v 'KeepApp.swift') \
+  -F /tmp/keep-derived-data/Build/Products/Debug -framework Sparkle \
+  -Xlinker -rpath -Xlinker /tmp/keep-derived-data/Build/Products/Debug \
   tests/MusicPreferencesChecks.swift -o /tmp/keep-music-preferences-checks
 /tmp/keep-music-preferences-checks
 ```
 
 Run the menu-bar preference/display checks with the same source list, replacing `tests/MusicPreferencesChecks.swift` with `tests/MenuBarChecks.swift` and the executable with `/tmp/keep-menu-bar-checks`. These cover legacy/protected preference loading, cross-process restoration, display-clock refresh, timer independence and native minimum-size measurement with empty/populated panels in Light/Dark; native interaction checks use isolated silent fixtures.
+
+After building Debug, `python3 scripts/run-app-checks.py UpdaterChecks` runs the native updater checks in a temporary app bundle with a separate identity, copied resources/framework, and scheduling disabled. The same runner supports the other checked-in harness names, compiling current sources so test actors retain their source-level isolation. Updater checks never fetch a feed or install an update. Signing/feed preparation and public delivery checks are described in `docs/updates.md`.
 
 All checked-in check sources live in `tests/`; choose the matching command above. Older temporary harnesses have been removed, so historical receipts do not imply their source/commands are available today.
 

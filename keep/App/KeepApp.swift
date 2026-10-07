@@ -3,7 +3,8 @@ import SwiftUI
 @main
 struct keepApp: App {
     @NSApplicationDelegateAdaptor(WorkspaceApplicationDelegate.self) private var appDelegate
-    @State private var workspace = WorkspaceModel(persistence: TimesheetPersistence())
+    @State private var workspace: WorkspaceModel
+    @State private var updater: AppUpdater
     @State private var music: MusicPlayerModel
     @State private var preferences: AppPreferences
     @State private var wallpapers = WallpaperLibrary()
@@ -11,6 +12,8 @@ struct keepApp: App {
     @State private var habits: HabitStore
     @State private var loginItem = LoginItemModel()
     init() {
+        let workspace = WorkspaceModel(persistence: TimesheetPersistence())
+        _workspace = State(initialValue: workspace)
         let habits = HabitStore(persistence: HabitPersistence())
         _habits = State(initialValue: habits)
         _tasks = State(initialValue: DailyTaskStore(persistence: TaskPersistence(), habits: habits))
@@ -19,16 +22,23 @@ struct keepApp: App {
         music.selectChannel(preferences.selectedChannel)
         _preferences = State(initialValue: preferences)
         _music = State(initialValue: music)
+        _updater = State(initialValue: AppUpdater(workspace: workspace, preferences: preferences))
     }
 
     var body: some Scene {
         WindowGroup("Keep", id: "workspace") {
-            AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers, loginItem: loginItem)
+            AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers, loginItem: loginItem, updater: updater)
                 .onAppear {
                     connectRuntime()
                 }
         }
         .defaultSize(width: 1000, height: 900)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.isStarted || !updater.canCheckForUpdates)
+            }
+        }
 
         MenuBarExtra(isInserted: Binding(get: { preferences.menuBarEnabled }, set: { preferences.menuBarEnabled = $0 })) {
             MenuBarWorkspaceView(workspace: workspace, music: music, tasks: tasks, preferences: preferences)
@@ -45,5 +55,6 @@ struct keepApp: App {
         appDelegate.music = music
         appDelegate.wallpapers = wallpapers
         workspace.startUpdating()
+        updater.start()
     }
 }
