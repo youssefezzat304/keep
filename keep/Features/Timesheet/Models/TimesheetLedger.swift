@@ -1,5 +1,16 @@
 import Foundation
 
+/// A real focus completion, independent of recording segments and subsequent time edits.
+struct CompletedPomodoro: Identifiable, Codable {
+    let id: UUID
+    let project: FocusProject
+    let task: String
+    let completedAt: Date
+    let dayID: String
+    let timeZoneID: String
+    let focusDuration: TimeInterval
+}
+
 struct TaskActivity: Identifiable, Codable {
     let id: UUID
     var title: String
@@ -29,10 +40,12 @@ struct TimesheetLedger: Codable {
     private(set) var pomodoroSettings: PomodoroSettings?
     private(set) var sessions: [RecordedSession] = []
     private(set) var taskActivities: [TaskActivity] = []
+    private(set) var completedPomodoros: [CompletedPomodoro] = []
+    private(set) var pomodoroHistoryStartedAt: Date?
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case entries, customProjects, deletedProjectIDs, pomodoroSettings, sessions, taskActivities }
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, deletedProjectIDs, pomodoroSettings, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -42,6 +55,8 @@ struct TimesheetLedger: Codable {
         deletedProjectIDs = try container.decodeIfPresent(Set<String>.self, forKey: .deletedProjectIDs) ?? []
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
         sessions = try container.decodeIfPresent([RecordedSession].self, forKey: .sessions) ?? []
+        completedPomodoros = try container.decodeIfPresent([CompletedPomodoro].self, forKey: .completedPomodoros) ?? []
+        pomodoroHistoryStartedAt = try container.decodeIfPresent(Date.self, forKey: .pomodoroHistoryStartedAt)
         if let saved = try container.decodeIfPresent([TaskActivity].self, forKey: .taskActivities) {
             taskActivities = saved
         } else {
@@ -49,6 +64,15 @@ struct TimesheetLedger: Codable {
                 rememberTask(session.task, project: session.project, date: session.end)
             }
         }
+    }
+
+    mutating func beginPomodoroHistory(at date: Date) {
+        if pomodoroHistoryStartedAt == nil { pomodoroHistoryStartedAt = date }
+    }
+
+    mutating func recordCompletion(_ completion: CompletedPomodoro) {
+        guard !completedPomodoros.contains(where: { $0.id == completion.id }) else { return }
+        completedPomodoros.append(completion)
     }
 
     mutating func rememberTask(_ name: String, project: FocusProject, date: Date) {

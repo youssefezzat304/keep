@@ -19,7 +19,14 @@ struct FocusTimer {
         case rest
     }
 
+    struct Completion {
+        let id: UUID
+        let interval: Interval
+        let duration: TimeInterval
+    }
+
     let mode: Mode
+    private(set) var intervalID = UUID()
     private(set) var focusDuration: TimeInterval
     private(set) var breakDuration: TimeInterval
     private(set) var shortBreakDuration: TimeInterval
@@ -120,6 +127,7 @@ struct FocusTimer {
     }
 
     private mutating func prepareFocus() {
+        intervalID = UUID()
         interval = .focus
         isLongBreak = false
         focusDuration = nextFocusDuration
@@ -142,12 +150,14 @@ struct FocusTimer {
     }
 
     /// Count each completed focus interval once, even if refreshes arrive late.
-    mutating func settleCompletion(at instant: ContinuousClock.Instant = .now) {
-        guard mode == .pomodoro, storedPhase != .completed, phase(at: instant) == .completed else { return }
+    @discardableResult
+    mutating func settleCompletion(at instant: ContinuousClock.Instant = .now) -> Completion? {
+        guard mode == .pomodoro, storedPhase != .completed, phase(at: instant) == .completed else { return nil }
         accumulated = intervalDuration
         startedAt = nil
         storedPhase = .completed
         if interval == .focus { completedFocusIntervals += 1 }
+        return Completion(id: intervalID, interval: interval, duration: intervalDuration)
     }
 
     /// Active/paused intervals keep their original duration; new intervals use these settings.

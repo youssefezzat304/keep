@@ -82,6 +82,11 @@ final class WorkspaceModel {
         }
         if let settings = self.ledger.pomodoroSettings { pomodoro.configure(settings) }
         reconcileProjectSelection()
+        if !loadFailed, self.ledger.pomodoroHistoryStartedAt == nil {
+            self.ledger.beginPomodoroHistory(at: date)
+            ledgerDirty = true
+            save()
+        }
     }
 
     func selectProject(_ project: FocusProject?, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
@@ -292,10 +297,23 @@ final class WorkspaceModel {
                 ledgerDirty = true
             }
         }
-        pomodoro.settleCompletion(at: instant)
+        // Resolve the boundary before a caller can change the active target. A delayed
+        // refresh uses the previous checkpoint's civil clock, as the recorder does.
+        let completionDate = checkpoint.flatMap { previous in
+            checkpointDate.map { $0.addingTimeInterval(max(0, pomodoro.intervalDuration - pomodoro.elapsed(at: previous))) }
+        } ?? date
+        let completion = pomodoro.settleCompletion(at: instant)
+        if let completion, completion.interval == .focus {
+            ledger.recordCompletion(CompletedPomodoro(id: completion.id, project: selectedProject ?? .unassigned,
+                task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), completedAt: completionDate,
+                dayID: TimesheetWeek.dayID(for: completionDate, calendar: calendar),
+                timeZoneID: calendar.timeZone.identifier, focusDuration: completion.duration))
+            ledgerDirty = true
+        }
         checkpoint = instant
         checkpointDate = date
         updateRecordingContext(at: instant)
+        if completion?.interval == .focus { save(at: instant); return }
         if let lastSave, instant - lastSave < .seconds(5) { return }
         save(at: instant)
     }
@@ -330,8 +348,13 @@ final class WorkspaceModel {
                 ledger = try persistence.load()
                 reconcileProjectSelection()
                 if let settings = ledger.pomodoroSettings { pomodoro.configure(settings) }
+                if ledger.pomodoroHistoryStartedAt == nil {
+                    ledger.beginPomodoroHistory(at: .now)
+                    ledgerDirty = true
+                }
                 loadFailed = false
                 persistenceError = nil
+                save()
             } catch { return }
         } else { save() }
     }

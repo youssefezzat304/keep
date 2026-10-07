@@ -58,6 +58,8 @@ struct SettingsArchive: Codable, Equatable {
     // Missing menu-bar fields in older archives use the current defaults.
     var menuBarEnabled: Bool?
     var menuBarTimer: MenuBarTimer?
+    var weeklyFocusGoalMinutes: Int?
+    var showStatsStreaks: Bool?
 
     static let rotationIntervals = [30, 60, 300, 900]
 
@@ -69,6 +71,7 @@ struct SettingsArchive: Codable, Equatable {
         && Set(channels.map(\.id)).count == channels.count
         && (selectedChannelID == nil || channels.contains { $0.id == selectedChannelID })
         && (musicVolume == nil || musicVolume.map { $0.isFinite && (0...1).contains($0) } == true)
+        && (weeklyFocusGoalMinutes == nil || weeklyFocusGoalMinutes.map { (1...10080).contains($0) } == true)
     }
 }
 
@@ -153,6 +156,14 @@ final class AppPreferences {
     var menuBarTimer: MenuBarTimer {
         get { snapshot.menuBarTimer ?? .pomodoro }
         set { update { $0.menuBarTimer = newValue } }
+    }
+    var weeklyFocusGoalMinutes: Int? {
+        get { snapshot.weeklyFocusGoalMinutes }
+        set { update { $0.weeklyFocusGoalMinutes = newValue } }
+    }
+    var showStatsStreaks: Bool {
+        get { snapshot.showStatsStreaks ?? false }
+        set { update { $0.showStatsStreaks = newValue } }
     }
 
     func saveChannel(_ channel: MusicChannel) {

@@ -59,17 +59,13 @@ struct HabitActivityGrid: View {
                 Text("\(snapshot.total) daily goals met in \(String(year))")
                     .font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
                 Spacer()
-                if mode == .monthly {
-                    HStack(spacing: 4) {
-                        Text("Less").font(.system(size: 10))
-                        ForEach(0..<5) { level in RoundedRectangle(cornerRadius: 2).fill(fill(level, ink: ink)).frame(width: 9, height: 9) }
-                        Text("More").font(.system(size: 10))
-                    }.foregroundStyle(KeepTheme.mutedInk)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Intensity: zero, one, two, three, or four or more habits completed per day")
-                } else {
-                    Text("1 square = 1 goal · 7+ per week").font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)
-                }
+                HStack(spacing: 4) {
+                    Text("Less").font(.system(size: 10))
+                    ForEach(0..<5) { level in RoundedRectangle(cornerRadius: 2).fill(fill(level, ink: ink)).frame(width: 9, height: 9) }
+                    Text("More").font(.system(size: 10))
+                }.foregroundStyle(KeepTheme.mutedInk)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(mode == .monthly ? "Intensity: zero, one, two, three, or four or more habits completed per day" : "Less to more goals completed per week")
             }
         }
     }

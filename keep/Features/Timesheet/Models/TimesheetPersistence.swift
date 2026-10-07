@@ -43,6 +43,21 @@ struct TimesheetPersistence {
                 TimesheetWeek.dayID(for: session.start, calendar: calendar) == session.dayID
         }) else { throw CocoaError(.coderReadCorrupt) }
         var activityIDs: Set<UUID> = []
+        if let start = ledger.pomodoroHistoryStartedAt {
+            guard start.timeIntervalSince1970.isFinite, start >= .distantPast, start <= .distantFuture else { throw CocoaError(.coderReadCorrupt) }
+        }
+        var completionIDs: Set<UUID> = []
+        guard ledger.completedPomodoros.allSatisfy({ event in
+            guard event.completedAt.timeIntervalSince1970.isFinite, event.completedAt >= .distantPast,
+                  event.completedAt <= .distantFuture, event.focusDuration.isFinite, event.focusDuration > 0,
+                  !event.project.id.isEmpty, !event.project.name.isEmpty, event.task.count <= 200,
+                  completionIDs.insert(event.id).inserted,
+                  let zone = TimeZone(identifier: event.timeZoneID),
+                  ledger.pomodoroHistoryStartedAt != nil else { return false }
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = zone
+            return TimesheetWeek.dayID(for: event.completedAt, calendar: calendar) == event.dayID
+        }) else { throw CocoaError(.coderReadCorrupt) }
         var activityKeys: [String: Set<String>] = [:]
         guard ledger.taskActivities.allSatisfy({ activity in
             let title = activity.title.trimmingCharacters(in: .whitespacesAndNewlines)

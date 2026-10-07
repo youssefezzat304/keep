@@ -97,6 +97,10 @@ Weekly progress fits its seven day controls, leaving room for stats alongside; s
 
 Creation uses seven selectable weekday dots with letters/selected states, a theme-consistent goal selector, checkbox and shared calendar. Put Edit at the right of the habit information header; reuse the creation dialog with saved values and only name/icon enabled, visibly disabling the remaining controls. Check-in goals toggle; amount goals expose numeric progress. Use the same grouped activity-mode switch treatment as Dashboard.
 
+Stats keeps its heading, Week/Month/Year/Custom controls and project/task filters fixed above its scrollable content. Use four summary cards across roomy windows and two columns when narrow, with quiet sage/blue/butter/neutral surfaces. Follow them with focus bars, project/task distribution, weekday/hour patterns and compact goal/habit/task sections. Keep all-project goals and date-only task/habit scope explicitly labelled. Native Charts use categorical period bands, semantic ink, hover value callouts and keyboard inspection. Optional streaks stay secondary; do not use a productivity score. Date/task/goal pickers inherit Keep appearance.
+
+Where your time went uses a segmented ring with rounded ends, project accents and a center total. Hovering a section displays its name, time and percentage; selecting a project switches the ring to its tasks with distinct existing palette colors. Keep a labelled time/percentage legend with keyboard-accessible filter actions, and stack it below the ring at narrow widths.
+
 Charts use simple bars, lines, dots or rings with directly labeled values/states. Reserve strong emphasis for the main metric and use supporting tokens elsewhere. Add symbols or labels when series colors are ambiguous. Avoid pseudo-3D charts and speculative analytics widgets.
 
 ## 9. Zen

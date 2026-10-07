@@ -4,16 +4,17 @@ Keep is a native macOS focus workspace built with SwiftUI. This document describ
 
 ## 1. Current implementation
 
-Keep is one native macOS SwiftUI application. Focus, Dashboard, Habit tracker, and Settings work; the separate Stats destination is disabled. The implementation uses Apple frameworks and local UserDefaults archives, with no third-party packages, backend, accounts, or sync.
+Keep is one native macOS SwiftUI application. Focus, Dashboard, Habit tracker, Stats, and Settings work. The implementation uses Apple frameworks and local UserDefaults archives, with no third-party packages, backend, accounts, or sync.
 
 - Focus has independent Pomodoro and Flow timers, project/task selection, daily tasks, and music. Flow takes recording priority, so concurrent timers count time once. Breaks never add Pomodoro time.
 - Dashboard contains an editable Timesheet, a weekly Calendar of actual recorded sessions, and a saved project catalog with add/delete. Manual totals cannot supply invented Calendar timestamps.
 - Music streams public Audius tracks and controls the Mac’s Music app, including an in-Keep library browser/search, available artwork, transport, seeking, shuffle, and repeat. Provider/volume persist; playback and queues do not restore.
 - Tasks persist by civil day and include scheduled habits with shared completion. Only Today’s rows can start Focus, Flow, or both. Project-linked suggestions and pins belong to the workspace, separately from daily lists.
 - Habits save weekday schedules, inclusive date ranges, check-ins or minutes/times targets, manual progress, full-year activity, and derived stats. Existing names/icons can be edited.
+- Stats derives focus trends/distribution/patterns, completion counts, task/habit summaries and optional goals/streaks from local history, with custom inclusive dates and project/task filters.
 - Settings saves Light/Dark/System, wallpaper/material preferences, and Audius sources. It exposes Music Automation permission status/recovery and native Start on login registration. Zen is a window-local full-screen wallpaper with minimal timer and music controls.
 
-Projects, recorded sessions, daily totals/edits, tasks, habits, and preferences survive relaunch. Timers restart idle; active selection, committed task text, input drafts, and other window-local state are not restored. Live stores have no sample history; previews use isolated fixtures. Calendar drag-and-drop, project renaming, habit goal/schedule editing and deletion, statistics, notifications, MusicKit catalog integration, and sync remain unimplemented.
+Projects, recorded sessions, daily totals/edits, tasks, habits, and preferences survive relaunch. Timers restart idle; active selection, committed task text, input drafts, and other window-local state are not restored. Live stores have no sample history; previews use isolated fixtures. Calendar drag-and-drop, project renaming, habit goal/schedule editing and deletion, notifications, MusicKit catalog integration, and sync remain unimplemented.
 
 ## 2. Source map
 
@@ -27,6 +28,7 @@ All Swift files share the application module. `keep/` is a filesystem-synchroniz
 | `keep/Features/MenuBar/` | Native leaf status label, timer/task/music panel and sliding project/recent-task picker; uses app-owned models |
 | `keep/Features/Timesheet/` | TimesheetLedger/Persistence, civil-day/duration helpers, editable weekly table; PreviewData fixtures only |
 | `keep/Features/Dashboard/` | Shared browsed week/page, Calendar and Projects UI; RecordedSession value type |
+| `keep/Features/Stats/` | Window-local StatsQuery/StatsModel, cancellable Sendable StatsSnapshot aggregation, native Charts, date/task/goal pickers |
 | `keep/Features/Tasks/` | DailyTaskStore/Persistence, FocusTask, day navigation and calendar picker; due-habit projection |
 | `keep/Features/Habits/` | HabitStore/Persistence, definitions/logs, cached activity and derived stats; tracker and creation/progress sheets |
 | `keep/Features/Music/` | MusicPlayerModel; AudiusClient, AVMusicPlayback, serial AppleMusicController; library browser, artwork/wallpaper loading and rotation |
@@ -41,7 +43,7 @@ Canonical context: `AGENTS.md` owns working agreements, `docs/decisions.md` owns
 
 ## 3. Composition and lifetime
 
-`KeepApp` assembles shared workspace, music, tasks, habits, preferences, wallpapers, and login-item state and passes them to each AppShellView. Shells own tab and Zen presentation; Dashboard owns its page/week. Navigation stays outside the scrolling viewport. All tabs remain mounted; inactive content is invisible and excluded from input/accessibility, preserving drafts and scroll positions.
+`KeepApp` assembles shared workspace, music, tasks, habits, preferences, wallpapers, and login-item state and passes them to each AppShellView. Shells own tab and Zen presentation; Dashboard owns its page/week and Stats owns its query/scroll state. Navigation stays outside the scrolling viewport. All tabs remain mounted; inactive content is invisible and excluded from input/accessibility, preserving drafts and scroll positions.
 
 KeepApp also provides a window-style SwiftUI `MenuBarExtra`. Its monochrome leaf label displays the selected Pomodoro/Flow timer or just the icon. `MenuBarLabel` reads `WorkspaceModel.displayInstant`, refreshed by the existing workspace loop and actions, rather than owning a timeline or ticker. Runtime/delegate connections are installed from both scenes so closing workspace windows preserves recording, playback and termination cleanup. Open Keep restores an existing titled Keep window or opens the workspace scene.
 
@@ -49,7 +51,7 @@ KeepApp also provides a window-style SwiftUI `MenuBarExtra`. Its monochrome leaf
 
 Clicking the current task opens `MenuBarTargetPicker`: the whole control page slides left to reveal Back, a name/search field, project-linked recent tasks (pins first), then the project catalog. The panel owns its own FocusTaskEditor draft; Return commits through WorkspaceModel under the current project, while Back/Escape/dismissal discards the draft. Project selection preserves the committed task; recent-task selection restores task/project together. Both settle existing recording and preserve timer phases without autoplay. Inactive pages are disabled and excluded from accessibility; Reduce Motion disables the slide. The concrete 380 × 680 clipped viewport prevents MenuBarExtra's minimum-size proposal from collapsing the panel. Its main control page never scrolls: Today's task list takes the remaining bounded space and scrolls internally, while music transport/mute/volume stays visible in one row. The target picker list can scroll and recent-task rows have vertical padding. Idle music has no filler text. Loading remains visible; save/task/playback failures use a top-row issues popover with actionable messages and Retry, avoiding layout growth. Both pages follow Keep appearance. Main-window drafts remain local. Optional `menuBarEnabled` and `menuBarTimer` preference fields preserve older archives, defaulting to visible Pomodoro; choices are Pomodoro, Flow and icon only. Hiding the status item never stops timers or music.
 
-Focus composes ActiveTargetHeader, TimerWorkspaceCard and music/tasks. Its window-local task editor commits through WorkspaceModel before timer actions or leaving Focus. Dashboard supplies one week to Timesheet and Calendar; Projects has its own catalog viewport. Habits and Settings scroll within the same fixed shell.
+Focus composes ActiveTargetHeader, TimerWorkspaceCard and music/tasks. Its window-local task editor commits through WorkspaceModel before timer actions or leaving Focus. Dashboard supplies one week to Timesheet and Calendar; Projects has its own catalog viewport. Habits, Stats and Settings scroll within the same fixed shell; Stats keeps its heading/filters outside its content scroll.
 
 The 450-point Working on card includes a neutral Start both action. It commits the editor and calls `WorkspaceModel.startBothTimers`, including for unnamed targets. The workspace settles recording once, starts/resumes focus and Flow without resetting running timers, and leaves breaks for focus while preserving cycle progress. Both the main card and menu button say Stop both with a stop icon when both timers are running, including a concurrent break and Flow. `WorkspaceModel.stopBothTimers` settles once, stops both, preserves elapsed time/break cycle and saves; the next Start both resumes focus/Flow without resetting time (or exits a break into focus). When only one timer runs, the action starts/resumes both. `bothTimersRunning(at:)` supplies shared label semantics. Individual timer controls remain independent.
 
@@ -161,6 +163,20 @@ Stats derive from the saved logs, with no stored totals. A runtime habit/day que
 `HabitActivitySnapshot` prepares annual civil dates, labels and exact daily/weekly counts from validated logs. HabitStore caches it by civil day/timezone/locale and invalidates it on definition/log changes or Retry. Monthly/Weekly selection reuses the snapshot instead of recalculating and formatting a year in the view body; accent contrast and tile size resolve once per body. The grouped mode switch follows Dashboard styling. HabitDateField reuses the styled TaskDatePicker calendar (with a Choose date confirmation), and KeepCheckboxStyle supplies the theme-consistent end-date/task checkbox. Empty habit circles retain visible outlines even when future/rest days are disabled.
 
 
+### Statistics
+
+`StatsView` reads the app-owned workspace, DailyTaskStore, HabitStore and AppPreferences. Its window-local `StatsModel` prepares immutable Sendable inputs and aggregates off the main actor. A newer query cancels/fences prior work; same-query recording updates coalesce into one pending input so long calculations cannot starve. Hidden views cancel work. The existing workspace display checkpoint supplies refreshes; there is no second recorder/ticker or persisted analysis cache.
+
+Week is Monday-first; Month/Year/Custom use Gregorian civil dates, inclusive custom ends and no future custom end. Filters retain recorded civil day keys through timezone changes. Projects include No project and deleted historical metadata without restoring the catalog. Task multi-selection is scoped to one project, uses trimmed case/diacritic-insensitive names, includes unnamed tasks, resets on project changes and survives date changes. Focus charts/counts obey both filters; task and habit summaries obey dates only and say All tasks/All habits.
+
+Focus analytics sum actual sessions, exclude future timestamps and never add daily aggregates to them. Headline total, active days, average per active day, period comparisons, chart buckets and distributions reconcile. Current-period comparisons use matching elapsed civil days/time, clamped to shorter preceding periods; custom compares the preceding equal-length interval. Week/Month use daily bars; Year monthly; Custom daily up to 31 days, weekly through 180, then monthly. Local-hour buckets split actual intervals at hour boundaries, counting repeated DST hours correctly. A secondary Timesheet total includes manual adjustments, and is unavailable by task. Legacy totals cannot invent timestamped history.
+
+`FocusTimer.settleCompletion` emits a once-only transition carrying its runtime interval UUID. `WorkspaceModel.synchronize` resolves the boundary from its monotonic checkpoint before any target-changing action, captures the finishing project/task, and immediately saves a `CompletedPomodoro` event. Pause/resume preserves interval identity; a new focus interval gets a new UUID. Flow priority only affects recorded minutes, not Pomodoro completion counts. Breaks and abandoned partial focus do not count. Calendar time edits/deletion and weekly removal/Undo do not rewrite actual completion events. The ledger adds optional `completedPomodoros` and `pomodoroHistoryStartedAt` fields; older archives start coverage without backfilling counts, and corrupt completion data preserves bytes/blocks workspace mutation.
+
+Ordinary task summaries reflect current saved rows on assigned civil days, excluding future days, projected habits and deleted rows; completion timestamps are not available. Habit rates use scheduled opportunities through the effective end, exclude rest days/range exclusions, and require full targets. Optional current streaks are as of effective range end and may begin before the range; best streaks are clipped to the range. Only actual today may remain pending; habits skip rest days and ended habits retain zero current streaks.
+
+Optional `weeklyFocusGoalMinutes` (1–10,080) and `showStatsStreaks` persist in AppPreferences with nil/off legacy defaults. Goal progress always uses recorded focus for the current Monday–Sunday week across all projects, explicitly labelled independently of browsing filters. Stats failures show per-store Retry rather than false zeroes. Native Swift Charts provides bars/selection, hover callouts (including zero buckets), keyboard arrow inspection and accessible mark values. `StatsDistributionChart` presents project totals as rounded ring sectors and switches to task sectors when one project is selected. Hover/arrow inspection exposes a section's time and percentage in the center; ring selection and labelled legend buttons use the existing filters. Its legend stacks below the ring in narrow layouts. Numeric UI fixtures stay under Timesheet/PreviewData. Export is not implemented.
+
 ## 6. Artwork, appearance and layout
 
 Visual intent and tokens live in `docs/style.md`; named color assets are authoritative and KeepTheme references them. System appearance observes the native application's effective appearance, independently of explicit window overrides. Popovers/sheets inherit the shell selection. Artwork changes must preserve mounted content, drafts and geometry.
@@ -259,6 +275,17 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   tests/SessionRecordingChecks.swift -o /tmp/keep-session-checks
 /tmp/keep-session-checks
 ```
+
+Run Stats aggregation checks:
+
+```sh
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  keep/Features/Stats/Models/StatsSnapshot.swift tests/StatsChecks.swift \
+  -o /tmp/keep-stats-checks
+/tmp/keep-stats-checks
+```
+
+Run completion-event checks with the session domain-source list above, replacing the test with `tests/PomodoroCompletionChecks.swift`. Run `tests/StatsPresentationChecks.swift` with the all-source list used for native appearance checks below; it checks preference reloads and model cancellation, and writes native fixture captures to `/tmp/keep-stats-renders`. For palette-correct standalone captures, package the executable in a temporary app bundle with the unsigned build's Assets.car in Contents/Resources. This does not modify user archives.
 
 Run the project-catalog checks using the same domain-source list as the session checks above, replacing `tests/SessionRecordingChecks.swift` with `tests/ProjectCatalogChecks.swift` and the output with `/tmp/keep-project-checks`.
 

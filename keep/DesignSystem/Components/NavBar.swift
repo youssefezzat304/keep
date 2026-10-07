@@ -5,6 +5,7 @@ struct NavBar: View {
     let onSelectFocus: () -> Void
     let onSelectDashboard: () -> Void
     let onSelectHabits: () -> Void
+    let onSelectStats: () -> Void
     var isCompact = false
     let onSelectSettings: () -> Void
     @FocusState private var focusedTab: String?
@@ -25,7 +26,7 @@ struct NavBar: View {
             tab("Focus", symbol: "sun.max", isSelected: selection == .focus, action: onSelectFocus)
             tab("Dashboard", symbol: "square.grid.2x2", isSelected: selection == .dashboard, action: onSelectDashboard)
             tab("Habit tracker", symbol: "repeat", isSelected: selection == .habits, action: onSelectHabits)
-            futureDestination("Stats", symbol: "chart.bar")
+            tab("Stats", symbol: "chart.bar", isSelected: selection == .stats, action: onSelectStats)
             tab("Settings", symbol: "slider.horizontal.3", isSelected: selection == .settings, action: onSelectSettings)
         }
         .foregroundStyle(KeepTheme.ink)
@@ -56,22 +57,9 @@ struct NavBar: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private func futureDestination(_ title: String, symbol: String) -> some View {
-        Button {} label: {
-            navigationLabel(title, symbol: symbol)
-                .font(.system(size: 13))
-                .padding(.horizontal, isCompact ? 12 : 10)
-                .frame(height: 36)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(KeepTheme.mutedInk)
-        .disabled(true)
-        .accessibilityLabel(title)
-        .help("\(title) will be available later")
-    }
 }
 
 #Preview {
-    NavBar(selection: .dashboard, onSelectFocus: {}, onSelectDashboard: {}, onSelectHabits: {}, onSelectSettings: {})
+    NavBar(selection: .dashboard, onSelectFocus: {}, onSelectDashboard: {}, onSelectHabits: {}, onSelectStats: {}, onSelectSettings: {})
         .padding().background(KeepTheme.paper)
 }

@@ -4,6 +4,7 @@ enum WorkspaceTab {
     case focus
     case dashboard
     case habits
+    case stats
     case settings
 }
 
@@ -40,6 +41,7 @@ struct AppShellView: View {
                         onSelectFocus: { selectedTab = .focus },
                         onSelectDashboard: { selectedTab = .dashboard },
                         onSelectHabits: { selectedTab = .habits },
+                        onSelectStats: { selectedTab = .stats },
                         isCompact: geometry.size.width < 900,
                         onSelectSettings: { selectedTab = .settings }
                     )
@@ -76,6 +78,11 @@ struct AppShellView: View {
                             .opacity(selectedTab == .habits ? 1 : 0)
                             .allowsHitTesting(selectedTab == .habits)
                             .accessibilityHidden(selectedTab != .habits)
+
+                        StatsView(workspace: workspace, tasks: tasks, habits: habits, preferences: preferences, isVisible: selectedTab == .stats && !zen.isPresented)
+                            .opacity(selectedTab == .stats ? 1 : 0)
+                            .allowsHitTesting(selectedTab == .stats)
+                            .accessibilityHidden(selectedTab != .stats)
 
                         KeepScrollView {
                             SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, loginItem: loginItem, isVisible: selectedTab == .settings)
