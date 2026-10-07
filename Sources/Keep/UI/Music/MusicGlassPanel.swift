@@ -20,7 +20,7 @@ struct MusicGlassPanel: ViewModifier {
                     GeometryReader { panel in
                         let origin = artworkCoordinateSpace.map { panel.frame(in: .named($0)).origin }
                             ?? CGPoint(x: inset, y: artworkSize.height - panel.size.height - inset)
-                        MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
+                        MusicArtworkView(preferences: preferences, wallpapers: wallpapers, animates: false)
                             .frame(width: artworkSize.width, height: artworkSize.height)
                             .offset(x: -origin.x, y: -origin.y)
                             .blur(radius: 24 * (1 - preferences.glassiness), opaque: true)

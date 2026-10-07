@@ -1,16 +1,26 @@
 import SwiftUI
 
-/// Both presentations consume the same app-owned image and the same bundled fallback.
+/// Shares selected media and its prepared poster/fallback; native video never owns selection.
 struct MusicArtworkView: View {
     var preferences: AppPreferences
     var wallpapers: WallpaperLibrary
+    var animates = true
+    @State private var isOnscreen = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geometry in
-            artwork.resizable().scaledToFill()
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .clipped()
+            ZStack {
+                artwork.resizable().scaledToFill()
+                if animates, isOnscreen, !reduceMotion, preferences.wallpaperSource == .folder, let video = wallpapers.video {
+                    WallpaperVideoView(video: video) { wallpapers.videoFailed($0) }
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
         }
+        .onScrollVisibilityChange(threshold: 0.01) { isOnscreen = $0 }
         .accessibilityHidden(true)
     }
 

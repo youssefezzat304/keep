@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Foundation
 import ImageIO
 import Observation
@@ -20,7 +21,7 @@ extension SettingsArchive {
     }
 }
 
-/// A shuffled cycle visits every image once, then starts a fresh cycle only when looping is enabled.
+/// A shuffled cycle visits every wallpaper once, then starts a fresh cycle only when looping is enabled.
 struct WallpaperCycle {
     private(set) var indices: [Int] = []
     private(set) var position = 0
@@ -29,6 +30,9 @@ struct WallpaperCycle {
         indices = Array(0..<max(0, count))
         if shuffled { indices.shuffle() }
         position = 0
+    }
+    mutating func select(_ index: Int) {
+        if let position = indices.firstIndex(of: index) { self.position = position }
     }
     mutating func advance(loop: Bool, shuffled: Bool) -> Int? {
         guard !indices.isEmpty else { return nil }
@@ -51,6 +55,12 @@ final class WallpaperLibrary {
         let wash: Data
         let palette: ArtworkPalette?
     }
+    private struct PreparedWallpaper: Sendable {
+        let artwork: DecodedArtwork
+        let videoURL: URL?
+        let url: URL
+    }
+    private(set) var video: WallpaperVideo?
     private(set) var image: NSImage?
     private(set) var trackImage: NSImage?
     private var nativeBackdrop: NSImage?
@@ -118,14 +128,14 @@ final class WallpaperLibrary {
         rotationFinished = false
         if newValue.source != .folder {
             loadTask?.cancel(); generation = UUID()
-            image = nil; isLoading = false; error = nil
+            video = nil; image = nil; isLoading = false; error = nil
             if newValue.source == .audius { loadArtwork() }
             return
         }
         if needsReload || files.isEmpty { loadFolder(preferences: preferences) }
         else {
             cycle.reset(count: files.count, shuffled: newValue.order == .shuffle)
-            if let index = cycle.current { showImage(at: index) }
+            if let index = cycle.current { showWallpaper(at: index) }
         }
     }
 
@@ -224,18 +234,19 @@ final class WallpaperLibrary {
         // Manual navigation can begin another cycle even when automatic looping is off.
         if let index = cycle.advance(loop: true, shuffled: configuration.order == .shuffle) {
             rotationFinished = false
-            showImage(at: index)
+            showWallpaper(at: index)
         }
     }
     func shutdown() {
         loadTask?.cancel(); rotationTask?.cancel(); bundledBackdropTask?.cancel(); nativeArtworkTask?.cancel()
         generation = UUID(); nativeGeneration = UUID()
+        video = nil
     }
 
     private func loadFolder(preferences: AppPreferences) {
         loadTask?.cancel(); rotationTask?.cancel(); generation = UUID()
         let token = generation
-        image = nil; files = []; count = 0; error = nil; rotationFinished = false
+        video = nil; image = nil; files = []; count = 0; error = nil; rotationFinished = false
         guard let bookmark = preferences.snapshot.folderBookmark else {
             isLoading = false
             error = "Choose a wallpaper folder in Settings. The cozy corner is shown until then."
@@ -256,7 +267,7 @@ final class WallpaperLibrary {
                     // Retain the refreshed identity so the shell does not restart this load.
                     self?.configuration = preferences.snapshot.wallpaperConfiguration
                 }
-                let operation = Task.detached { try Self.imageFiles(in: folder) }
+                let operation = Task.detached { try Self.wallpaperFiles(in: folder) }
                 let files = try await withTaskCancellationHandler {
                     try await operation.value
                 } onCancel: { operation.cancel() }
@@ -266,10 +277,10 @@ final class WallpaperLibrary {
                 self.cycle.reset(count: files.count, shuffled: self.configuration?.order == .shuffle)
                 guard let index = self.cycle.current else {
                     self.isLoading = false
-                    self.error = "No images found. Choose a folder containing JPEG, PNG, HEIC, or other supported images."
+                    self.error = "No wallpapers found. Choose a folder containing images or MP4 videos."
                     return
                 }
-                self.showImage(at: index)
+                self.showWallpaper(at: index)
             } catch {
                 guard !Task.isCancelled, let self, self.generation == token else { return }
                 self.isLoading = false
@@ -278,27 +289,31 @@ final class WallpaperLibrary {
         }
     }
 
-    private func showImage(at index: Int) {
+    private func showWallpaper(at index: Int) {
         loadTask?.cancel(); rotationTask?.cancel(); generation = UUID()
         let token = generation
         guard let folder, files.indices.contains(index) else { return }
         let candidates = Array(files[index...] + files[..<index])
+        video = nil
         isLoading = true
         loadTask = Task { [weak self] in
-            let operation = Task.detached { try Self.thumbnail(in: folder, candidates: candidates) }
+            let operation = Task.detached { try await Self.wallpaper(in: folder, candidates: candidates) }
             do {
                 let data = try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
                 try Task.checkCancellation()
                 guard let self, self.generation == token else { return }
-                guard let image = NSImage(data: data.image) else { throw CocoaError(.fileReadCorruptFile) }
-                self.image = image; self.decodedBackdrop = NSImage(data: data.wash)
-                self.decodedPalette = data.palette
+                guard let image = NSImage(data: data.artwork.image) else { throw CocoaError(.fileReadCorruptFile) }
+                let video = try data.videoURL.map { try WallpaperVideo(url: $0, folder: folder) }
+                self.video = video
+                if let selected = self.files.firstIndex(of: data.url) { self.cycle.select(selected) }
+                self.image = image; self.decodedBackdrop = NSImage(data: data.artwork.wash)
+                self.decodedPalette = data.artwork.palette
                 self.isLoading = false; self.error = nil
                 self.armRotation()
             } catch {
                 guard !Task.isCancelled, let self, self.generation == token else { return }
-                self.image = nil; self.isLoading = false
-                self.error = "These images couldn’t be opened. Try another wallpaper folder."
+                self.video = nil; self.image = nil; self.isLoading = false
+                self.error = "These wallpapers couldn’t be opened. Try a folder with readable images or playable MP4 videos."
             }
         }
     }
@@ -310,12 +325,12 @@ final class WallpaperLibrary {
             do { try await Task.sleep(for: .seconds(configuration.seconds)) } catch { return }
             guard let self, !Task.isCancelled else { return }
             if let index = self.cycle.advance(loop: configuration.loop, shuffled: configuration.order == .shuffle) {
-                self.showImage(at: index)
+                self.showWallpaper(at: index)
             } else { self.rotationFinished = true }
         }
     }
 
-    nonisolated private static func imageFiles(in folder: URL) throws -> [URL] {
+    nonisolated static func wallpaperFiles(in folder: URL) throws -> [URL] {
         let scoped = folder.startAccessingSecurityScopedResource()
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
         let children = try FileManager.default.contentsOfDirectory(at: folder,
@@ -323,7 +338,7 @@ final class WallpaperLibrary {
         return try children.filter { url in
             try Task.checkCancellation()
             let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .contentTypeKey])
-            return values.isRegularFile == true && values.isSymbolicLink != true && values.contentType?.conforms(to: .image) == true
+            return values.isRegularFile == true && values.isSymbolicLink != true && (values.contentType?.conforms(to: .image) == true || url.pathExtension.lowercased() == "mp4")
         }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
     }
 
@@ -343,17 +358,46 @@ final class WallpaperLibrary {
                                   palette: ArtworkPaletteSampler.sample(thumbnail))
     }
 
-    nonisolated private static func thumbnail(in folder: URL, candidates: [URL]) throws -> DecodedArtwork {
+    /// Skip unreadable files without replacing a newer selection or loading whole videos into memory.
+    nonisolated private static func wallpaper(in folder: URL, candidates: [URL]) async throws -> PreparedWallpaper {
         let scoped = folder.startAccessingSecurityScopedResource()
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
         for url in candidates {
             try Task.checkCancellation()
-            // Recheck file types after scanning; ignore files changed into symlinks.
             guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
-                  values.isRegularFile == true, values.isSymbolicLink != true,
-                  let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { continue }
-            if let decoded = try? decode(source) { return decoded }
+                  values.isRegularFile == true, values.isSymbolicLink != true else { continue }
+            do {
+                if url.pathExtension.lowercased() == "mp4" {
+                    let asset = WallpaperVideo.makeAsset(for: url)
+                    guard try await asset.load(.isPlayable),
+                          !(try await asset.loadTracks(withMediaType: .video)).isEmpty else { continue }
+                    let duration = try await asset.load(.duration)
+                    guard duration.seconds.isFinite, duration.seconds > 0 else { continue }
+                    let generator = AVAssetImageGenerator(asset: asset)
+                    generator.appliesPreferredTrackTransform = true
+                    generator.maximumSize = CGSize(width: 2048, height: 2048)
+                    let frame = try await withTaskCancellationHandler {
+                        try await generator.image(at: .zero).image
+                    } onCancel: { generator.cancelAllCGImageGeneration(); asset.cancelLoading() }
+                    try Task.checkCancellation()
+                    let artwork = try DecodedArtwork(image: ArtworkWash.png(frame), wash: ArtworkWash.render(frame),
+                                                     palette: ArtworkPaletteSampler.sample(frame))
+                    return PreparedWallpaper(artwork: artwork, videoURL: url, url: url)
+                }
+                if let source = CGImageSourceCreateWithURL(url as CFURL, nil) {
+                    return try PreparedWallpaper(artwork: decode(source), videoURL: nil, url: url)
+                }
+            } catch {
+                try Task.checkCancellation()
+                // Try the next supported file; a corrupt video must not hide valid images.
+            }
         }
         throw CocoaError(.fileReadCorruptFile)
+    }
+
+    func videoFailed(_ failed: WallpaperVideo) {
+        guard video === failed else { return }
+        video = nil
+        error = "This wallpaper video couldn’t be played. Try another MP4 or choose a different wallpaper folder."
     }
 }

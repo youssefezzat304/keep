@@ -96,7 +96,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(preferences.snapshot.folderName ?? "No wallpaper folder selected")
                                 .font(.system(size: 13, weight: .medium)).lineLimit(1)
-                            Text("Images directly inside the folder · read-only access")
+                            Text("Images and MP4 videos directly inside the folder · read-only access")
                                 .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
                         }
                         Spacer(minLength: 8)
@@ -116,7 +116,7 @@ struct SettingsView: View {
                             }
                         }
                     } else if preferences.wallpaperSource == .folder {
-                        Text(wallpapers.isLoading ? "Opening your wallpapers…" : "\(wallpapers.count) images\(wallpapers.rotationFinished ? " · Rotation finished" : "")")
+                        Text(wallpapers.isLoading ? "Opening your wallpapers…" : "\(wallpapers.count) wallpapers\(wallpapers.rotationFinished ? " · Rotation finished" : "")")
                             .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
                     }
 
@@ -143,7 +143,7 @@ struct SettingsView: View {
                     if preferences.wallpaperSource == .audius {
                         helper("Displays the current track’s artwork. It changes with each track; missing or unavailable artwork falls back to the cozy corner.")
                     } else if preferences.wallpaperSource == .folder {
-                        helper("Shuffle visits each image once per cycle. Turn looping off to stop on the last image, or change images manually from the player.")
+                        helper("MP4 videos loop silently. Shuffle visits each wallpaper once per cycle; folder rotation can stop on the last wallpaper or repeat.")
                     }
                 }
 
@@ -275,7 +275,7 @@ struct SettingsView: View {
 
     private var glassSettings: some View {
         VStack(alignment: .leading, spacing: 18) {
-            MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers)
+            MusicPlayerCard(player: player, preferences: preferences, wallpapers: wallpapers, wallpaperIsActive: isVisible)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Music card preview")

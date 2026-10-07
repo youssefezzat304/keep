@@ -2,6 +2,8 @@
 
 ## [SNAPSHOT]
 
+- 2026-10-07 [CODE] Wallpaper folders accept still images and MP4 videos; native video loops silently in the music card, Settings preview and Zen, with hidden-view/Reduce Motion still handling and shared poster-derived glass/backdrop/tints. See D053.
+
 - 2026-10-07 [CODE] Projects supports persistent name/color editing for built-in and custom projects, a standalone Add project action beside the Dashboard switch, selectable used-color rings and a Keep-styled deletion sheet. Stats no longer displays the two helper text blocks shown in the request. See D052.
 
 - 2026-10-07 [CODE] Disposable history/Music caches now reuse incremental recorded-session contributions, four Stats queries and eight weekly projections per window; Music metadata expires after 60 seconds with explicit Refresh invalidation. Live totals still refresh every second; archive formats are unchanged. See D051.
@@ -332,6 +334,12 @@ Move Projects’ Add project action beside the Timesheet / Calendar / Projects s
 
 2026-10-07 [CODE] Edits preserve project identity/category and time/task attribution. Settle the single recorder before editing, update entry/session/activity display metadata and journal cache invalidations, and save immediately. Built-in edits use a backward-compatible optional `projectOverrides` array; custom metadata stays in its catalog. Completed Pomodoro event snapshots remain unchanged; current/deleted catalog names/colors drive Stats presentation by ID. Undo and stale callbacks resolve current metadata. The shared editor marks used colors without disabling them; the deletion sheet uses Keep styles and Escape cancellation. This supersedes the earlier project-renaming open question and the Stats explanatory-row presentation, without changing adjusted-total calculations.
 
+### D053 ACTIVE — 2026-10-07 [USER]
+
+Allow music-player wallpapers to accept images and MP4 live wallpapers, repeating videos.
+
+2026-10-07 [CODE] Extend the existing read-only folder source to mixed images/MP4; preserve rotation/order controls and layout. Validate playable video tracks/duration and extract oriented bounded posters off-main; cancel/fence obsolete results and skip unreadable media. Hold scoped access for the selected resource/renderer lifetime and forbid external media references. Each visible native player/layer pair uses a muted AVQueuePlayer/AVPlayerLooper, independent of the music transport and recorder. Hidden/scrolled-out/occluded/minimized presentations release playback; Reduce Motion shows the poster. Zen shares the selected media. Prepared still posters feed glass crops, the outer wash and palette to avoid duplicate decoding and per-frame processing. Video looping is independent of folder-cycle looping. Failures show actionable Settings copy and retain visual fallback. Existing bookmarks/archives and sandbox permissions remain unchanged.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -387,6 +395,8 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-07 [CODE] `keep.xcodeproj/`
 
 ## [RECEIPTS]
+
+- 2026-10-07 [TOOL] MP4 wallpapers: unsigned Debug build, 20 generated-media/native-renderer checks, 73 silent music/preferences/library/artwork checks, 42 Zen checks, 13 appearance checks and git diff --check passed. Verified repeated native loops, independent muted players, mixed-folder rotation/corrupt-file fallback, stale-load/failure fencing, shutdown, simulated native window occlusion/resume, and removing animation while retaining the poster. Inspected six Light/Dark music-card renders at 1000 × 900, 680 × 650 and 1710 × 1080. No user archives, real audio or network playback were used. Physical UI/VoiceOver, actual Reduce Motion switching and broader user-video codec compatibility remain unverified.
 
 - 2026-10-07 [TOOL] Project editing/control polish: final unsigned Debug build passed; 40 new editing, 28 catalog, 100 session-recording, 18 completion, 24 task-activity, 214 cache and 13 Stats preference/model checks passed (437 assertions). Native fixtures rendered 12 project and 16 Stats layouts; inspected Light/Dark Projects at 1000×900, 680×650 and 1710×1080, long names, create/edit used-color rings, themed deletion and Stats copy removal. Edits persist immediately for custom/built-in projects, preserve finishing completion snapshots, refresh warm caches and resolve current metadata on Undo/stale callbacks; legacy and corrupt archives are covered. Whitespace checks passed. Only the existing App Intents build warning and unsigned Sparkle fixture diagnostic appeared. Native computer-use startup failed, so live pointer/keyboard/VoiceOver and actual sheet presentation remain unverified. No live archives, audio, permissions or remote services were changed.
 

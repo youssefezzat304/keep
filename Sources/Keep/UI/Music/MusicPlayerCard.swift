@@ -5,6 +5,7 @@ struct MusicPlayerCard: View {
     var preferences = AppPreferences()
     var wallpapers = WallpaperLibrary()
     var onEnterZen: (() -> Void)? = nil
+    var wallpaperIsActive = true
     @State private var showsSavedChannels = false
     @State private var showsAppleLibrary = false
     @State private var providerMenuHovered = false
@@ -20,7 +21,7 @@ struct MusicPlayerCard: View {
             // The drawer only consumes the space already allocated to this card.
             let panelHeight = max(0, geometry.size.height - 90)
             ZStack(alignment: .bottom) {
-                MusicArtworkView(preferences: preferences, wallpapers: wallpapers)
+                MusicArtworkView(preferences: preferences, wallpapers: wallpapers, animates: wallpaperIsActive)
                     .frame(width: geometry.size.width, height: geometry.size.height)
 
                 VStack(alignment: .leading, spacing: 12) {

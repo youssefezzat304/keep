@@ -69,7 +69,9 @@ Most cards need no shadow. Separate regions with surface colors, spacing and bor
 
 ## 6. Artwork and music
 
-The normal window backdrop shares the player's selected image/fallback, heavily blurred until objects disappear. Clamp image edges before preparing a small off-main texture; scale it smoothly to fill the window. Light adds a paper wash and Dark an espresso tint. Artwork changes preserve panel geometry and mounted content.
+The player accepts still images and silently looping MP4 wallpapers through its existing folder source. Pause decorative video when hidden and use the poster under Reduce Motion; Zen uses the same selected media. Keep the layout and music controls unchanged. Glass crops, the window wash and palette use the prepared poster rather than decoding video again or changing tints every frame.
+
+The normal window backdrop shares the player's selected image/poster/fallback, heavily blurred until objects disappear. Clamp image edges before preparing a small off-main texture; scale it smoothly to fill the window. Light adds a paper wash and Dark an espresso tint. Artwork changes preserve panel geometry and mounted content.
 
 Blend quiet ambient artwork color into the opaque panel and distinct supporting hues into the timer fills. Pomodoro focus retains a terracotta base, Flow sage, and breaks butter. Use appearance-aware bases and limit tint before text contrast weakens. Project labels retain their own identity rather than taking arbitrary artwork colors.
 
