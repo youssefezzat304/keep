@@ -144,3 +144,9 @@ Keep controls keyboard-operable with meaningful labels/state descriptions, nativ
 Use shared SwiftUI components, flexible layouts and realistic long-name/state previews. Keep global styling in DesignSystem; avoid fixed heights that crop content or a parallel styling framework.
 
 Avoid neon, cold decorative gradients, gradient text, excessive badges/pills/icons, literal paper textures, ornate scripts, low-contrast reference text and unrelated page structures. Glass and readability fades are limited to the explicitly described music, backdrop and Zen uses. Before finishing, inspect relevant window sizes/appearances and confirm the active target/timers are clear while supporting areas stay comfortable and quiet.
+
+## 12. Product website
+
+The independent `website/` introduction uses Keep’s light cream and terracotta palette throughout, with self-hosted rounded Outfit typography and generous spacing. Actual native captures carry the product story; do not redraw app screens as HTML mockups or describe placeholders as shipped functionality. Keep the website and its app screenshots light regardless of system preference, with at least 7:1 contrast for body copy. Native theme assets remain the app’s source of truth; web CSS tokens do not replace them.
+
+Introduce features progressively through the sticky desktop screenshot tour, quiet entry reveals and small preview transforms. Preserve normal scrolling and anchor navigation. Mobile, Reduce Motion and disabled JavaScript show each feature screenshot inline. Use light native screenshots, reserve image dimensions, and supply responsive sizes. The page should feel alive while keeping the app itself central. Show Dashboard Timesheet/Calendar, goals and CSV/ZIP exports alongside Focus, habits, Stats, Zen and the menu bar. State that every Keep feature is free; download copy must reflect actual release availability.

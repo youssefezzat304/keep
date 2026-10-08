@@ -16,6 +16,7 @@ Configuration/ Public update configuration
 Tests/          Standalone checks
 Tools/          Development tools
 docs/           Architecture, decisions, style and release instructions
+website/        Independent Next.js product website and captured app screenshots
 keep.xcodeproj/ Xcode project and keep scheme
 ```
 
@@ -35,3 +36,15 @@ python3 Tools/run-app-checks.py UpdaterChecks
 The project targets macOS 15 and newer. The unsigned build checks compilation; release signing, notarization and real update installation require separate verification.
 
 See [architecture and check commands](docs/architecture.md), [decisions](docs/decisions.md), [visual style](docs/style.md), and [Sparkle release setup](docs/updates.md).
+
+## Website
+
+The one-page product website lives in `website/`, separate from the native app’s bundled Resources. Use Node.js 22.12 or newer:
+
+```sh
+cd website
+npm ci
+npm run dev
+```
+
+Open <http://127.0.0.1:3000>. See [website setup, screenshot capture and static hosting](website/README.md).

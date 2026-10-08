@@ -34,6 +34,7 @@ Tests/                     # Standalone verification harnesses
 Tools/                     # Local development tools
 docs/                      # Canonical documentation, always lowercase
 keep.xcodeproj/            # Native macOS target and keep scheme
+website/                   # Independent Next.js marketing site, not an app resource
 ```
 
 | Location | Responsibility / main entry points |
@@ -404,6 +405,18 @@ All checked-in check sources live in `Tests/`; choose the matching command above
 
 Verification history belongs in `docs/decisions.md` under RECEIPTS. The latest work has unsigned builds, focused standalone checks, and native offscreen screenshots; this does not establish release signing, actual Automation consent/subscribed playback, live full-screen animation, native slider dragging, complete keyboard/VoiceOver operation, or actual macOS 15 runtime behavior. The scroll-visibility API remains unchanged and requires macOS 15; the installed SDK compiles the app with that minimum. Use isolated fixtures for UI checks and silent playback adapters for music. Never treat a historical command outcome as a current run.
 
-## 9. Maintaining this document
+## 9. Product website
+
+`website/` is an independent Next.js 16 App Router project explicitly requested for the product introduction/download page. It is outside Resources and the native Xcode target. Next/React provide static rendering, Motion supplies isolated client scroll transforms, Tailwind 4 supplies the CSS pipeline, Phosphor supplies icons, and Outfit is self-hosted. `package-lock.json` pins the web dependency graph. No backend or account system is introduced.
+
+The server-rendered page presents Focus, Dashboard Timesheet/Calendar, habits, Stats, goals, CSV/ZIP exports, Zen/music and the menu bar, with explicit free pricing. Small client components handle reveal observation, scroll transforms, the sticky desktop screenshot tour and a bounded public GitHub release lookup. The website and its responsive `picture` screenshots stay light regardless of system preference; Reduced Motion and disabled JavaScript expose every tour screenshot inline. The release action validates repository-scoped HTTPS DMG assets from the newest stable release among ten recent public releases; unavailable/no-asset/no-JavaScript paths retain a normal GitHub Releases link. App updates still belong to Sparkle and its separate appcast, not this website lookup.
+
+The dedicated music section describes public Audius selections/channels and the Mac Music library; no genre-specific catalog count is verified. Zen describes selecting personal images or MP4 wallpapers and displays the original native Zen screenshot at responsive sizes. The live wallpaper chooser, video derivatives and preparation tooling were removed at the user's request. Supplied original MP4 files remain in `public/live wallpapers/` and are not referenced by the page.
+
+`Tests/WebsitePresentationChecks.swift`, invoked through the native check runner, renders eight light screenshots of actual SwiftUI views in `/tmp/keep-website-captures` using isolated example history and silent music adapters. `website/scripts/prepare-screenshots.mjs` produces responsive WebP sizes and converts the existing catalog icon for the web. These screenshots are checked-in website assets; original capture PNGs and generated build/test output are not committed. Native behavior and live archives are unchanged.
+
+Use Node.js 22.12+ and run `npm ci`, `npm run dev`, `npm run typecheck`, `npm run lint`, `npm run build` and `npm run test:e2e` from `website/`. Browser installation is `npx playwright install chromium webkit`. The configured checks confirm light-only presentation under both Light/Dark system preferences on desktop/mobile in both engines, axe accessibility, keyboard entry, scroll progression, reduced motion, no JavaScript, narrow overflow, and download-state validation. `npm start` is a local static-export preview with compression and caching; the build output is `website/out/`. See `website/README.md` for screenshot refresh and deployment configuration. The default public URL is localhost until `KEEP_SITE_URL` is supplied at build time. Asset paths currently assume a domain-root deployment. No website or app release has been published.
+
+## 10. Maintaining this document
 
 Update responsibilities, ownership, dependencies, build workflow and verified constraints when source changes. Keep current behavior distinct from future scope. Agent rules belong in AGENTS.md, visual intent in style.md, and decisions/history/verification receipts in decisions.md. Avoid duplicate histories, icon inventories, or incidental styling details here.

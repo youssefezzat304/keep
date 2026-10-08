@@ -2,6 +2,8 @@
 
 ## [SNAPSHOT]
 
+- 2026-10-08 [USER][CODE] The light Next.js website in `website/` introduces Focus, Dashboard Timesheet/Calendar, habits, Stats, goals, exports, music, Zen and the menu bar with native example-data screenshots. Zen uses its original screenshot; live wallpaper previews are removed. Every Keep feature is free. Hosting and DMG publication remain separate. See D068–D072.
+
 - 2026-10-08 [USER][CODE] Minimum macOS is 15.0 in both configurations. Music/Zen use frosted controls only; legacy Liquid Glass preferences/backups migrate to frosted. Scroll visibility remains unchanged. See D066.
 
 - 2026-10-08 [CODE] Settings has independent Calendar/Timesheet CSV and full Stats CSV ZIP exports, shared backup/report capture, restore fencing and native save staging. See D063 and `docs/exports.md`.
@@ -441,6 +443,36 @@ Move Never to the third Change wallpaper segment beside On a timer and With each
 
 2026-10-08 [TOOL] The running Xcode Debug app contained AppIcon.icns and the expected bundle icon metadata. Native reads initially returned the placeholder for NSRunningApplication.icon but the leaf for NSWorkspace.icon(forFile:) on that same bundle. Force-registering only that app with Launch Services refreshed both native lookups to the leaf without restarting Keep. A direct Dock screenshot remains unverified because native computer-use startup timed out.
 
+### D068 — Product website and native screenshots (2026-10-08; presentation expanded by D069)
+
+- [USER] Install `leonxlnx/taste-skill` and use it to create a modern, animated one-page Next.js website in `website/`, introducing features as people scroll and displaying app screenshots.
+- [TOOL] Installed the upstream `skills/taste-skill` package as `~/.codex/skills/design-taste-frontend`; read/applied it for this task. It becomes automatically discoverable on the next turn.
+- [CODE] The static-export site follows Keep’s warm palette and rounded typography. Desktop uses a sticky Focus/Habits/Stats screenshot tour; mobile, Reduce Motion and no JavaScript show inline captures. Zen/music and menu-bar sections complete the introduction. Nine native captures use isolated example history and silent playback, with responsive Light/Dark WebP assets. The Xcode app target and bundled Resources are unchanged.
+- [CODE] A bounded public GitHub lookup accepts only repository-hosted HTTPS DMG assets from the newest stable release among ten recent public releases. Empty/unavailable/no-JavaScript paths retain a Releases link. No release is currently published. No hosting, remote mutation, release upload or native updater change is part of this work.
+
+### D069 — Light website, complete feature tour and free pricing (2026-10-08)
+
+- [USER] Prefer light website styles over dark mode; add Dashboard Timesheet/Calendar, goals, exports and the fact that everything is free.
+- [CODE] The website forces light colors, browser chrome and app screenshots under either system preference. The sticky tour adds separate Timesheet and Calendar chapters; dedicated sections explain global weekly focus goals, project Goal/At least targets, habit goals and weekly targets, and Calendar/Timesheet CSV plus Stats CSV ZIP exports. Hero and download copy state that every Keep feature is free, with no subscriptions or paid upgrades.
+- [CODE] The isolated native screenshot harness now renders eight light captures, including Dashboard and Export; responsive dark website assets are removed. This supersedes D068’s system-adaptive website presentation. Native app appearance, release availability, pricing infrastructure and export behavior are unchanged.
+
+### D070 — Music player and personal Zen wallpapers (2026-10-08)
+
+- [USER] Highlight the music player and personal Zen wallpapers using images the user will provide. The initial 500,000+ lo-fi/ambient claim is superseded by the user's follow-up: use music copy without a count for now.
+- [CODE] A dedicated music section describes Audius discovery/saved public artists and playlists, the Mac Music library and shared playback controls. Zen explicitly describes selecting a personal folder of images or MP4 videos. Wallpaper files were initially pending; supplied assets are integrated under D071.
+- [CODE][TOOL] The genre-specific catalog count remains UNCONFIRMED and is omitted. `AudiusClient.lofiTracks()` requests 30 results; public artist/playlist channels extend that selection. Audius’s overall catalog size does not establish a lo-fi/ambient count or Keep’s playable selection. No music or wallpaper runtime behavior changed.
+
+### D071 — Supplied live wallpaper previews (2026-10-08; superseded by D072)
+
+- [USER] Use the four MP4 wallpapers supplied in `website/public/live wallpapers/` for the website.
+- [CODE] Zen has a four-choice live wallpaper preview, with explicit play/pause, muted inline looping and viewport-based playback. Reduced Motion, data saving and disabled JavaScript retain still posters; explicit Play can opt into motion. The existing actual native Zen capture remains available in an expandable preview. No web imitation of native app controls is introduced.
+- [CODE] `npm run wallpapers` uses installed FFmpeg and existing Sharp to create silent 720p fast-start H.264 derivatives, WebP posters and thumbnails in `public/media/wallpapers/`. Original files are unchanged. Only the selected video loads when its preview enters view. The local static-preview server supports MP4 byte ranges for WebKit playback. No native runtime, release or hosting behavior changes.
+
+### D072 — Restore the original Zen screenshot (2026-10-08)
+
+- [USER] Remove the live wallpapers from the website and return to the original screenshot.
+- [CODE] Zen again displays the original responsive native capture directly. Removed the chooser/disclosure, preview component, styles, manifest, generation command/script, generated derivatives, video-specific preview-server handling and retired interaction checks. Personal-wallpaper feature copy and supplied original MP4 files remain. This supersedes D071’s website presentation; native app behavior is unchanged.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -494,8 +526,15 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-07 [CODE] `Resources/Info.plist`, `Resources/keep.entitlements`, `Configuration/Updates.xcconfig`
 - 2026-10-07 [CODE] `Tests/`, `Tools/`
 - 2026-10-07 [CODE] `keep.xcodeproj/`
+- 2026-10-08 [CODE] `website/`
 
 ## [RECEIPTS]
+
+- 2026-10-08 [TOOL] Zen screenshot restoration: type checking, ESLint, static build, whitespace check and 32 focused Chromium/WebKit cases passed across desktop/mobile and both system preferences. Inspected the restored native capture and confirmed responsive screenshot URLs, with no video, chooser or disclosure in Zen. Local Lighthouse performance is 96 mobile / 100 desktop; accessibility/best-practices/SEO are 100, LCP 2.8 s / 0.6 s, CLS 0. Review artifacts are in `/tmp/keep-website-review-zen-restored/`. Supplied original videos remain unchanged; no native code or remote publication changed.
+
+- 2026-10-08 [TOOL] Supplied live wallpapers: generated and verified four silent 1280×720 H.264 previews plus WebP stills/thumbnails. Type checking, ESLint, static build and whitespace checks passed. Passed 100 Chromium/WebKit desktop/mobile cases (four mobile sticky-tour skips), then 40 focused cases after deferring still-image loading. Verified MP4 byte ranges/invalid ranges, deferred initial requests, and keyboard selection/play/pause in both engines; inspected desktop/mobile/narrow still and playing views. Final local Lighthouse performance is 97 mobile / 100 desktop; accessibility/best-practices/SEO are 100, LCP 2.7 s / 0.6 s, CLS 0. An earlier desktop run had a trace-collection error; a fresh-browser run completed. Reports are in `/tmp/keep-website-review-wallpapers/`. Originals and native app behavior are unchanged; deployed/field performance remains UNCONFIRMED.
+
+- 2026-10-08 [TOOL] Website music/Zen copy: type checking, ESLint, static build and whitespace check passed. Passed 40 focused Chromium/WebKit desktop/mobile checks across both system preferences, covering accessibility, light styling, downloads, Reduce Motion, no JavaScript and narrow layout. Inspected desktop/mobile music and Zen captures. Local Lighthouse performance is 98 mobile / 100 desktop; accessibility/best-practices/SEO are 100, LCP 2.3 s / 0.6 s, CLS 0. Reports are in `/tmp/keep-website-review-music/`. User wallpaper files remain pending; no native code or remote publication changed.
 
 - 2026-10-07 [TOOL] MP4 wallpapers: unsigned Debug build, 20 generated-media/native-renderer checks, 73 silent music/preferences/library/artwork checks, 42 Zen checks, 13 appearance checks and git diff --check passed. Verified repeated native loops, independent muted players, mixed-folder rotation/corrupt-file fallback, stale-load/failure fencing, shutdown, simulated native window occlusion/resume, and removing animation while retaining the poster. Inspected six Light/Dark music-card renders at 1000 × 900, 680 × 650 and 1710 × 1080. No user archives, real audio or network playback were used. Physical UI/VoiceOver, actual Reduce Motion switching and broader user-video codec compatibility remain unverified.
 
@@ -627,3 +666,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-08 [TOOL] Frosted/macOS 15 compatibility: unsigned Debug and Release builds passed using Xcode 27.0; both bundle minimums and the Release binary declare 15.0. Passed 80 silent music/preferences, 121 backup and 13 native appearance checks (214 assertions), including legacy Liquid Glass decoding, normalized re-encoding and protected unknown values. Rendered 32 isolated native layouts; inspected Settings at default 1000×900, narrow 680×650 and wide 1710×1080 in Light/Dark for the frosted preview, removed material picker, labels and contrast. Whitespace check passed. MusicArtworkView and its macOS 15 scroll-visibility API are unchanged. Checks ran on macOS 27.0.1; actual macOS 15 execution and physical keyboard/VoiceOver operation remain UNCONFIRMED. No live archives, playback or remote services were changed.
 
 - 2026-10-08 [TOOL] Icon source cleanup/cache diagnosis: verified all ten AppIcon catalog slots against their PNG dimensions and inspected native 128-pixel running-app/bundle icons after app-specific Launch Services registration. Both show the leaf. Whitespace check passed; app source and bundled resources were unchanged, so no new build was required. Keep was not restarted, and its live stores/playback were untouched. Website placement was discussed only; no Next.js scaffold or release was created.
+
+- 2026-10-08 [TOOL] Product website: `WebsitePresentationChecks` compiled current native sources and rendered nine real SwiftUI captures with isolated example data and silent playback. Type generation/type checking, ESLint, static production build, full npm audit (zero vulnerabilities) and whitespace check passed. Chromium/WebKit Light/Dark desktop/mobile checks passed 76 cases; four desktop-only sticky-tour cases were intentionally skipped on mobile. Rechecked all eight page/accessibility cases after final body-contrast polish. Inspected desktop/mobile Light/Dark, desktop Stats/menu sections and WebKit at 320 pixels; no horizontal overflow. Local production-preview Lighthouse scored performance 99 mobile / 100 desktop, accessibility/best-practices/SEO 100 in both, LCP 2.3 s / 0.5 s and CLS 0. Reports and review captures are in `/tmp/keep-website-review/`. These are local lab results; deployed/field performance, physical Safari/iPhone and VoiceOver remain UNCONFIRMED. The native capture runner emitted its existing unsigned Sparkle sandbox-extension diagnostic. No live app archives, playback, permissions, app release or website publication changed.
+
+- 2026-10-08 [TOOL] Light website expansion: compiled/rendered eight isolated light native captures, including Timesheet, Calendar and Export. Type generation/type checking, ESLint, static build and whitespace check passed. Passed 76 Chromium/WebKit browser cases under both system preferences, then 12 focused light/accessibility/tour checks after final screenshot sizing; four desktop-only tour cases are intentionally skipped on mobile. Inspected new native captures and desktop/mobile/narrow website views, including free pricing and goals. Local Lighthouse performance is 98 mobile / 100 desktop; accessibility/best-practices/SEO are 100 in both, LCP 2.3 s / 0.6 s and CLS 0. Reports/review images are in `/tmp/keep-website-review-light/`. Existing unsigned Sparkle sandbox-extension diagnostic remains in the capture runner. No live app state or remote publication changed; deployed/field performance and physical assistive-technology operation remain UNCONFIRMED.
