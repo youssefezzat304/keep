@@ -485,6 +485,8 @@ Move Never to the third Change wallpaper segment beside On a timer and With each
 
 ## [PROGRESS]
 
+- 2026-10-08 [USER][CODE] Added `Tools/build.sh` and `Tools/package-release.sh`: Xcode-owned builds with explicit ad-hoc/unsigned modes, isolated optional Debug checks, Release metadata/receipt validation, APFS/LZFSE DMG, matching-Keychain Sparkle appcast and checksums. Build products stay in ignored `build/` and `dist/`; existing release folders are refused. No publication, installation, new keys, version changes or Developer ID/notarization automation is included. `Tests/ReleaseToolsChecks.py` covers distribution rejection paths; usage lives in `docs/updates.md`.
+
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
 
 - 2026-10-05 [CODE] Added semantic color assets, generated/bundled music artwork, adaptive card composition, independent timer state, and window-local task add/completion behavior.
@@ -539,6 +541,8 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-08 [CODE] `website/`
 
 ## [RECEIPTS]
+
+- 2026-10-08 [TOOL] Build/release scripts: ad-hoc Debug and universal arm64/x86_64 Release builds passed on Xcode 27.0; unsigned Debug mode also passed. All 38 native updater checks and 15 release-tool rejection/cleanup checks passed, as did shell syntax, Python compilation and whitespace checks. Created and verified an APFS/LZFSE DMG, signed feed/archive, embedded UTF-8 notes and SHA-256 checksums using paths with spaces. Mounted the final DMG and verified the matching universal executable, sandbox without `get-task-allow`, framework symlinks, Applications shortcut and MIT license. Xcode's default base-entitlement injection was disabled for Release after initial inspection found the debugging entitlement. Final test-only artifacts are in `/tmp/keep release tools verified/` (sample notes, not a published release); build logs are `/tmp/keep-build-script-*.log`. No app was launched, installed, notarized or published; macOS 15 runtime launch, iCloud/profile distribution and real cross-installation Sparkle upgrade remain UNCONFIRMED.
 
 - 2026-10-08 [TOOL] Product README: GitHub’s Markdown API rendered successfully; 30 local links/anchors/image references passed validation. Chromium previews at 1060 px and 390 px loaded all 12 images (nine local PNGs and three badges) without horizontal overflow; inspected desktop/mobile presentation. Whitespace checks passed. Review artifacts are in `/tmp/keep-readme-review/`. Native code was unchanged, so no Xcode build was run; `LICENSE.md` and the user’s Xcode project edits were preserved.
 

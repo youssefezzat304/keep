@@ -298,6 +298,31 @@ There is no Xcode test target, configured lint/format tool, third-party persiste
 
 ## 8. Development and verification
 
+`Tools/build.sh` wraps the existing Xcode project/scheme with Debug/Release,
+explicit ad-hoc or unsigned signing, an optional Debug launch, and repeatable
+isolated `--check NAME` runs. It defaults to ignored `build/DerivedData`, reads
+the resulting app path from Xcode settings, and writes adjacent `keep-build.json`
+metadata after successful verification. Release builds include all project
+architectures. `Tools/package-release.sh` validates that Release receipt and
+signed bundle, requires App Sandbox without a debugging entitlement, creates
+an APFS/LZFSE DMG with the MIT license, generates/verifies its signed Sparkle
+appcast using the matching existing Keychain key, and writes SHA-256 checksums
+under ignored `dist/`. Existing output is never overwritten. Both scripts accept
+`--help`; neither installs, publishes, changes versions, creates keys, nor
+implements Developer ID signing/notarization. See `docs/updates.md` for usage.
+
+```sh
+Tools/build.sh --check UpdaterChecks
+Tools/build.sh --configuration Release --ad-hoc
+Tools/package-release.sh --tag v1.0.0
+python3 Tests/ReleaseToolsChecks.py
+```
+
+The Python release-tool checks require prior Debug and Release builds (pass the
+same `--derived-data` override if needed). They exercise rejection of Debug,
+unsigned and modified bundles, mismatched tags, invalid CLI arguments and
+overwriting existing output, without launching Keep or accessing Keychain.
+
 Run commands from the repository root:
 
 ```sh

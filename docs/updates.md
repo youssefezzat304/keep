@@ -26,6 +26,63 @@ Sparkle's EdDSA key verifies updates; it does not replace Apple's Developer ID s
 
 ## Publish a release
 
+### Prepare local ad-hoc release artifacts
+
+Until Developer ID signing is available, the checked-in tools prepare a signed
+local build and distribution files without publishing anything:
+
+```sh
+Tools/build.sh --check UpdaterChecks
+Tools/build.sh --configuration Release --ad-hoc
+Tools/package-release.sh --tag v1.0.0
+```
+
+Use the version actually set in Xcode: `--tag` must be `v` followed by
+`MARKETING_VERSION`. Increase `CURRENT_PROJECT_VERSION` for every update. Neither
+script changes these settings. Debug builds use the host architecture; Release
+builds disable `ONLY_ACTIVE_ARCH` and include the project's configured architectures.
+Release also disables Xcode's base debugging-entitlement injection while
+retaining the configured sandbox and other capabilities; packaging rejects
+`get-task-allow` or a missing sandbox entitlement.
+
+Both scripts default to `build/DerivedData`. Pass the same `--derived-data PATH`
+to both when using another cache. `Tools/build.sh --unsigned` is a compilation
+check; packaging requires the ad-hoc-signed Release build and its adjacent
+`keep-build.json` receipt. The receipt records configuration, versions,
+architectures and binary/plist hashes. Packaging verifies those hashes, the app's
+resource signature, embedded Sparkle, and its configured update feed/key.
+
+The packager creates `dist/vVERSION-build-BUILD/` containing:
+
+- `Keep-VERSION-build-BUILD.dmg`, an APFS/LZFSE image with `keep.app`, an
+  Applications shortcut, and Keep's MIT license.
+- `appcast.xml`, with the archive's EdDSA signature and an embedded feed signature.
+- `SHA256SUMS`, covering the DMG and appcast.
+
+Existing output folders are refused. Staging and incomplete new output are
+cleaned on failure. Optional `--notes /path/to/notes.md` (also `.txt`/`.html`)
+embeds release notes. The existing Keychain key under `com.youssef.keep` must
+match the app's public key; `--account` selects another existing account.
+The tools never generate/export signing keys. `--skip-appcast` prepares a DMG
+and checksums without Keychain access; it does not prepare a Sparkle update.
+
+Ad-hoc signatures do not provide Developer ID trust or notarization. Downloaded
+apps can require an explicit macOS Privacy & Security launch exception. iCloud
+backup entitlements/profile setup and cross-Mac behavior remain unverified;
+do not advertise iCloud backup as a validated feature of this distribution.
+Neither tool installs the app, changes signing configuration, or notarizes it.
+The build tool's optional `--run` is Debug-only and opens the normal Keep identity
+with its usual local data; it is not an isolated developer variant. Its repeatable
+`--check NAME` option instead uses the existing isolated native check runner.
+
+After local verification, upload the three prepared files to the matching stable
+GitHub release. Test the downloaded app on another Mac and exercise an actual
+Sparkle upgrade before treating distribution as verified. The generated feed
+contains only this release; preserve older compatible feed entries and their
+immutable URLs if requirements change, as described below.
+
+### Developer ID distribution and publishing
+
 No release, appcast, GitHub workflow, or remote infrastructure is published by this integration. The feed will become available when a stable GitHub release contains the generated `appcast.xml` asset.
 
 1. Increase `CURRENT_PROJECT_VERSION` for every update; use a monotonically increasing build number. Set `MARKETING_VERSION` for the user-visible version. Keep `com.youssef.keep`, the public key, and the feed URL stable.
@@ -50,7 +107,7 @@ sparkle_tools=/tmp/keep-derived-data/SourcePackages/artifacts/sparkle/Sparkle/bi
 5. Prepare a stable GitHub release with the exact tag used in the download prefix. Upload the final archive and `appcast.xml` as assets before publishing; verify the enclosure filename/URL and build number. Keep this repository and release assets publicly readable. Every future stable release marked latest must include `appcast.xml`, since the installed app follows GitHub's latest-release redirect. Do not publish an unrelated latest release without that asset. Drafts and prereleases do not serve the stable latest endpoint.
 6. Verify the public feed and enclosure URLs without authentication, including redirects. Test a real upgrade from the previously distributed app on a separate installation/account: discover → download → verify → install → relaunch. Check active and paused timers, Later/retry, final saved time, music shutdown, offline errors, and tampered-signature rejection. A local unsigned build or generated feed does not establish this end-to-end result.
 
-This simple feed contains the latest compatible release and no deltas. If a later release raises the minimum macOS version or changes supported architectures, preserve older compatible feed entries and their immutable per-tag download URLs before publishing; use Sparkle's multi-version publishing workflow instead of regenerating a one-item feed. Generated outputs and archives belong outside the source checkout.
+This simple feed contains the latest compatible release and no deltas. If a later release raises the minimum macOS version or changes supported architectures, preserve older compatible feed entries and their immutable per-tag download URLs before publishing; use Sparkle's multi-version publishing workflow instead of regenerating a one-item feed. Generated outputs must remain untracked: the scripts use ignored `build/` and `dist/` directories, or you can select paths outside the checkout.
 
 ## Local verification
 

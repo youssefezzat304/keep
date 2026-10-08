@@ -131,6 +131,18 @@ xcodebuild -project keep.xcodeproj -scheme keep -configuration Debug \
 python3 Tools/run-app-checks.py UpdaterChecks
 ```
 
+For a repeatable ad-hoc-signed build without an Apple certificate:
+
+```sh
+Tools/build.sh --check UpdaterChecks
+Tools/build.sh --configuration Release --ad-hoc
+Tools/package-release.sh --tag v1.0.0
+```
+
+Use the version configured in Xcode for the tag. The scripts prepare a DMG,
+signed Sparkle appcast, and checksums under `dist/`; they do not publish a release.
+Run either with `--help` for options, including custom build/output paths.
+
 An unsigned local build checks compilation. Release signing, notarization, and real update installation require separate verification; see the [Sparkle release guide](docs/updates.md).
 
 <details>

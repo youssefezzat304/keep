@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Run native standalone checks against an existing unsigned Debug build.
+"""Run native standalone checks against an existing Debug build.
 
 Uses an isolated temporary app identity/resources, never the installed Keep app.
-Build first with the command in docs/architecture.md.
+Build first with Tools/build.sh or the command in docs/architecture.md.
 """
 import argparse
 from pathlib import Path
@@ -23,7 +23,7 @@ original = products / "keep.app/Contents"
 architecture = platform.machine()
 sources = sorted(str(p) for p in (repo / "Sources/Keep").rglob("*.swift") if p.name != "KeepApp.swift")
 if not (original / "Info.plist").exists() or not (products / "Sparkle.framework").exists():
-    parser.error("Build the unsigned Debug keep scheme first.")
+    parser.error("Build the Debug keep scheme with Tools/build.sh first.")
 for name in args.checks:
     if not name.isidentifier() or not (repo / f"Tests/{name}.swift").is_file():
         parser.error(f"Unknown check source: {name}")
