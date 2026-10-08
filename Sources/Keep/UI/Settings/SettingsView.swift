@@ -35,30 +35,6 @@ struct SettingsView: View {
                 .background(KeepTheme.highlight, in: RoundedRectangle(cornerRadius: 12))
             }
 
-            musicPermissions
-
-            section("Startup", symbol: "power") {
-                Toggle("Start on login", isOn: Binding(get: { loginItem.isEnabled }, set: { enabled in
-                    Task { await loginItem.setEnabled(enabled) }
-                }))
-                .toggleStyle(.switch).controlSize(.small).font(.system(size: 13))
-                .disabled(loginItem.isChanging)
-                if loginItem.status == .requiresApproval {
-                    helper("Allow Keep in System Settings → General → Login Items to finish enabling this.")
-                } else if loginItem.status == .notFound {
-                    helper("Keep couldn’t be found. Move the app to Applications and try again.")
-                }
-                if let error = loginItem.errorMessage { helper(error) }
-                if loginItem.status == .requiresApproval || loginItem.errorMessage != nil {
-                    Button("Open Login Items…") { loginItem.openSettings() }
-                }
-            }
-
-            updates
-
-            if let backup { BackupSettingsView(backup: backup) }
-            if let exportCapture { ExportSettingsView(capture: exportCapture) }
-
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {
                     settingRow("Dark mode") {
@@ -68,24 +44,6 @@ struct SettingsView: View {
                     Label("A little glass", systemImage: "rectangle.on.rectangle")
                         .font(KeepTheme.headingFont(size: 18))
                     glassSettings
-                }
-
-                section("Menu bar", symbol: "menubar.rectangle") {
-                    Toggle("Show Keep in the menu bar", isOn: $preferences.menuBarEnabled)
-                        .toggleStyle(.switch).controlSize(.small)
-                        .font(.system(size: 13))
-                    settingRow("Timer beside the leaf") {
-                        KeepSelectionMenu(label: "Menu bar timer", selection: $preferences.menuBarTimer,
-                                          options: MenuBarTimer.allCases, title: { $0.title })
-                            .frame(width: 160)
-                    }
-                    .disabled(!preferences.menuBarEnabled)
-                    if preferences.menuBarTimer == .flow {
-                        Toggle("Show seconds", isOn: $preferences.menuBarShowSeconds)
-                            .toggleStyle(.switch).controlSize(.small)
-                            .font(.system(size: 13))
-                            .disabled(!preferences.menuBarEnabled)
-                    }
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
@@ -198,6 +156,49 @@ struct SettingsView: View {
                 }
             }
             .disabled(!preferences.canEdit)
+
+            musicPermissions
+
+            section("Menu bar", symbol: "menubar.rectangle") {
+                Toggle("Show Keep in the menu bar", isOn: $preferences.menuBarEnabled)
+                    .toggleStyle(.switch).controlSize(.small)
+                    .font(.system(size: 13))
+                settingRow("Timer beside the leaf") {
+                    KeepSelectionMenu(label: "Menu bar timer", selection: $preferences.menuBarTimer,
+                                      options: MenuBarTimer.allCases, title: { $0.title })
+                        .frame(width: 160)
+                }
+                .disabled(!preferences.menuBarEnabled)
+                if preferences.menuBarTimer == .flow {
+                    Toggle("Show seconds", isOn: $preferences.menuBarShowSeconds)
+                        .toggleStyle(.switch).controlSize(.small)
+                        .font(.system(size: 13))
+                        .disabled(!preferences.menuBarEnabled)
+                }
+            }
+            .disabled(!preferences.canEdit)
+
+            section("Startup", symbol: "power") {
+                Toggle("Start on login", isOn: Binding(get: { loginItem.isEnabled }, set: { enabled in
+                    Task { await loginItem.setEnabled(enabled) }
+                }))
+                .toggleStyle(.switch).controlSize(.small).font(.system(size: 13))
+                .disabled(loginItem.isChanging)
+                if loginItem.status == .requiresApproval {
+                    helper("Allow Keep in System Settings → General → Login Items to finish enabling this.")
+                } else if loginItem.status == .notFound {
+                    helper("Keep couldn’t be found. Move the app to Applications and try again.")
+                }
+                if let error = loginItem.errorMessage { helper(error) }
+                if loginItem.status == .requiresApproval || loginItem.errorMessage != nil {
+                    Button("Open Login Items…") { loginItem.openSettings() }
+                }
+            }
+
+            if let exportCapture { ExportSettingsView(capture: exportCapture) }
+            if let backup { BackupSettingsView(backup: backup) }
+
+            updates
         }
         .frame(maxWidth: 900, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .center)
