@@ -42,5 +42,4 @@ enum HabitDates {
     }
 
     /// A square means one completed goal, with seven or more filling the column.
-    static func weeklyHeight(completions: Int) -> Int { min(7, max(0, completions)) }
 }

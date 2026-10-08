@@ -200,6 +200,8 @@ actor StatsCache {
         let hasWallCutoff: Bool
         var now: Date
         // Positive-session counts avoid rounding residuals changing active days or streaks.
+        let activityLayout: FocusActivitySnapshot
+        var activityDaily: [String: Double] = [:]
         var daily: [String: Double] = [:]
         var groups: [String: Group] = [:]
         var total = 0.0, previousTotal = 0.0, weeklyGoal = 0.0, adjusted = 0.0
@@ -212,6 +214,7 @@ actor StatsCache {
         var streak = (current: 0, best: 0)
 
         init(query: StatsQuery, range: StatsRange, now: Date, calendar: Calendar, projects: [StatsInput.Project]) throws {
+            activityLayout = FocusActivitySnapshot(range: range, now: now, calendar: calendar)
             self.query = query; self.range = range; self.now = now; self.calendar = calendar
             today = StatsSnapshot.dayID(now, calendar: calendar)
             startID = StatsSnapshot.dayID(range.start, calendar: calendar)
@@ -287,6 +290,7 @@ actor StatsCache {
                 }
             }
             guard selected(record.dayID), seconds > 0 else { return }
+            activityDaily[record.dayID, default: 0] += seconds * factor
             total += seconds * factor
             if let index = bucketByDay[record.dayID] { buckets[index].seconds += seconds * factor }
             let key = query.projectID == nil ? record.project.id : StatsQuery.taskKey(record.task)
@@ -347,7 +351,7 @@ actor StatsCache {
             }.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds }
             return StatsSnapshot(range: range, total: max(0, total), previousTotal: max(0, previousTotal), activeDays: activeDays,
                 pomodoros: pomodoros, pomodorosAvailable: historyStartedAt.map { StatsSnapshot.dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
-                adjustedTotal: max(0, adjusted), buckets: buckets, distribution: distribution, weekdays: weekdays, hours: hours,
+                adjustedTotal: max(0, adjusted), focusActivity: activityLayout.filling(activityDaily), buckets: buckets, distribution: distribution, weekdays: weekdays, hours: hours,
                 tasksCompleted: summary.tasksCompleted, tasksTotal: summary.tasksTotal, habits: summary.habits, weeklyGoalSeconds: max(0, weeklyGoal),
                 currentStreak: streak.current, bestStreak: streak.best)
         }

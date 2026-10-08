@@ -37,6 +37,7 @@ struct TimesheetPersistence {
         guard ledger.deletedProjectIDs.isSubset(of: projectIDs), !ledger.deletedProjectIDs.contains(FocusProject.unassigned.id) else {
             throw CocoaError(.coderReadCorrupt)
         }
+        guard ledger.projectTargets.allSatisfy({ projectIDs.contains($0.key) && $0.key != FocusProject.unassigned.id && $0.value.isValid(maximum: WeeklyTargets.maximumMinutes) }) else { throw CocoaError(.coderReadCorrupt) }
         var seen: Set<String> = []
         guard ledger.entries.allSatisfy({ entry in
             entry.seconds.isFinite && entry.seconds >= 0 && !entry.project.id.isEmpty &&

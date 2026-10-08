@@ -1,30 +1,22 @@
 import SwiftUI
 
-enum HabitActivityMode: String, CaseIterable, Identifiable {
-    case monthly, weekly
-    var id: String { rawValue }
-    var title: String { rawValue.capitalized }
-}
-
-/// Both modes show January through December, in Monday-first week columns.
+/// Shows January through December, in Monday-first week columns.
 struct HabitActivityGrid: View {
     let store: HabitStore
     let today: Date
     let onSelectDay: (Date) -> Void
-    @Binding private var mode: HabitActivityMode
     let availableWidth: CGFloat
     @Environment(\.self) private var environment
 
-    init(store: HabitStore, today: Date, mode: Binding<HabitActivityMode> = .constant(.monthly), availableWidth: CGFloat = 740, onSelectDay: @escaping (Date) -> Void) {
+    init(store: HabitStore, today: Date, availableWidth: CGFloat = 740, onSelectDay: @escaping (Date) -> Void) {
         self.store = store
         self.today = today
         self.onSelectDay = onSelectDay
         self.availableWidth = availableWidth
-        _mode = mode
     }
     private var calendar: Calendar { store.calendar }
     private var year: Int { calendar.component(.year, from: today) }
-    private var color: Color { HabitVisualStyle.ink(mode == .monthly ? .fern : .periwinkle, in: environment) }
+    private var color: Color { HabitVisualStyle.ink(.fern, in: environment) }
     private func tileSize(columns: Int) -> CGFloat { max(6, min(11, (availableWidth - CGFloat(columns - 1) * 3) / CGFloat(max(1, columns)))) }
 
     var body: some View {
@@ -37,17 +29,12 @@ struct HabitActivityGrid: View {
                 Text("Habit activity").font(KeepTheme.headingFont(size: 24))
                 Text(String(year)).font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 Spacer(minLength: 12)
-                controls
             }
             HStack(alignment: .top, spacing: 3) {
                 ForEach(columns.indices, id: \.self) { index in
                     VStack(spacing: 7) {
-                        if mode == .monthly {
-                            VStack(spacing: 3) {
-                                ForEach(0..<7) { row in dailyTile(columns[index].days[row], size: size, ink: ink) }
-                            }
-                        } else {
-                            weeklyColumn(columns[index], size: size, ink: ink)
+                        VStack(spacing: 3) {
+                            ForEach(0..<7) { row in dailyTile(columns[index].days[row], size: size, ink: ink) }
                         }
                         Text(columns[index].month)
                             .font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)
@@ -65,7 +52,7 @@ struct HabitActivityGrid: View {
                     Text("More").font(.system(size: 10))
                 }.foregroundStyle(KeepTheme.mutedInk)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(mode == .monthly ? "Intensity: zero, one, two, three, or four or more habits completed per day" : "Less to more goals completed per week")
+                    .accessibilityLabel("Intensity: zero, one, two, three, or four or more habits completed per day")
             }
         }
     }
@@ -79,33 +66,6 @@ struct HabitActivityGrid: View {
         .buttonStyle(HabitSquareButtonStyle()).disabled(!day.inYear || day.future)
         .opacity(!day.inYear ? 0 : day.future ? 0.3 : 1)
         .help(day.label).accessibilityLabel(day.label).accessibilityHidden(!day.inYear)
-    }
-    private func weeklyColumn(_ week: HabitActivitySnapshot.Week, size: CGFloat, ink: Color) -> some View {
-        let height = HabitDates.weeklyHeight(completions: week.total)
-        return Button {
-            if let day = week.days.first(where: { $0.inYear }) { onSelectDay(day.date) }
-        } label: {
-            VStack(spacing: 3) {
-                ForEach(0..<7) { row in
-                    RoundedRectangle(cornerRadius: 2).fill(row >= 7 - height ? ink : KeepTheme.mutedWarm.opacity(0.25))
-                        .frame(width: size, height: size)
-                }
-            }
-        }
-        .buttonStyle(HabitSquareButtonStyle())
-        .disabled(week.days.allSatisfy { $0.future }).help(week.label).accessibilityLabel(week.label)
-    }
-    private var controls: some View {
-        HStack(spacing: 4) {
-            ForEach(HabitActivityMode.allCases) { option in
-                Button(option.title) { mode = option }
-                    .buttonStyle(KeepButtonStyle(emphasis: option == mode ? .primary : .quiet))
-                    .accessibilityAddTraits(mode == option ? .isSelected : [])
-            }
-        }
-        .padding(4).background(KeepTheme.surface, in: RoundedRectangle(cornerRadius: 14))
-        .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(KeepTheme.border, lineWidth: 1).allowsHitTesting(false) }
-        .accessibilityElement(children: .contain).accessibilityLabel("Activity grouping")
     }
 }
 

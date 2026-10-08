@@ -69,6 +69,22 @@ nonisolated struct Habit: Identifiable, Codable, Equatable {
     let endDay: String?
     let goal: HabitGoal
     var weekdays: [HabitWeekday] = HabitWeekday.allCases
+    var weeklyTargets: WeeklyTargets?
+
+    var maximumWeeklyAmount: Int {
+        switch goal {
+        case .checkIn: 7
+        case .amount(_, .minutes): WeeklyTargets.maximumMinutes
+        case .amount(_, .times): 70000
+        }
+    }
+    var weeklyUnit: String {
+        switch goal {
+        case .checkIn: "check-ins"
+        case .amount(_, .minutes): "minutes"
+        case .amount(_, .times): "times"
+        }
+    }
 
     func isWithinRange(_ day: String) -> Bool { day >= startDay && endDay.map { day <= $0 } != false }
     func isScheduled(on day: String) -> Bool {
@@ -81,13 +97,13 @@ nonisolated struct Habit: Identifiable, Codable, Equatable {
     var isValid: Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && name == trimmed && name.count <= 80 && TaskDay.isValid(startDay) &&
-            (endDay == nil || endDay.map { TaskDay.isValid($0) && $0 >= startDay } == true) && goal.isValid && !weekdays.isEmpty && Set(weekdays).count == weekdays.count
+            (endDay == nil || endDay.map { TaskDay.isValid($0) && $0 >= startDay } == true) && goal.isValid && !weekdays.isEmpty && Set(weekdays).count == weekdays.count && weeklyTargets?.isValid(maximum: maximumWeeklyAmount) != false
     }
 }
 
 // Older archives were daily habits. Missing frequency retains all seven days.
 extension Habit {
-    nonisolated private enum CodingKeys: String, CodingKey { case id, name, icon, startDay, endDay, goal, weekdays }
+    nonisolated private enum CodingKeys: String, CodingKey { case id, name, icon, startDay, endDay, goal, weekdays, weeklyTargets }
     nonisolated init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(UUID.self, forKey: .id)
@@ -97,6 +113,7 @@ extension Habit {
         endDay = try values.decodeIfPresent(String.self, forKey: .endDay)
         goal = try values.decode(HabitGoal.self, forKey: .goal)
         weekdays = try values.decodeIfPresent([HabitWeekday].self, forKey: .weekdays) ?? HabitWeekday.allCases
+        weeklyTargets = try values.decodeIfPresent(WeeklyTargets.self, forKey: .weeklyTargets)
     }
 }
 
@@ -116,7 +133,7 @@ nonisolated struct HabitArchive: Codable, Equatable {
         var days: [UUID: Set<String>] = [:]
         return logs.allSatisfy { log in
             guard let habit = catalog[log.habitID] else { return false }
-            return TaskDay.isValid(log.dayID) && habit.isScheduled(on: log.dayID) &&
+            return TaskDay.isValid(log.dayID) && habit.isWithinRange(log.dayID) &&
                 (1...1_000_000).contains(log.amount) && (habit.goal != .checkIn || log.amount == 1) &&
                 days[log.habitID, default: []].insert(log.dayID).inserted
         }

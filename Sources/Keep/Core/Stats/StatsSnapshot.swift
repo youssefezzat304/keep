@@ -145,6 +145,7 @@ nonisolated struct StatsSnapshot: Sendable {
     let pomodoros: Int
     let pomodorosAvailable: Bool
     let adjustedTotal: Double
+    let focusActivity: FocusActivitySnapshot
     let buckets: [Bucket]
     let distribution: [Distribution]
     let weekdays: [Double]
@@ -295,7 +296,7 @@ nonisolated struct StatsSnapshot: Sendable {
         return StatsSnapshot(range: range, total: total, previousTotal: previousTotal, activeDays: selectedDaily.count,
             pomodoros: completed,
             pomodorosAvailable: input.historyStartedAt.map { dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
-            adjustedTotal: adjusted, buckets: buckets,
+            adjustedTotal: adjusted, focusActivity: FocusActivitySnapshot(range: range, now: now, calendar: calendar).filling(selectedDaily), buckets: buckets,
             distribution: distribution.values.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds },
             weekdays: weekdays, hours: hours, tasksCompleted: taskDays.reduce(0) { $0 + $1.completed }, tasksTotal: taskDays.reduce(0) { $0 + $1.total },
             habits: habitRows, weeklyGoalSeconds: weeklyGoalSeconds, currentStreak: streak.current, bestStreak: streak.best)

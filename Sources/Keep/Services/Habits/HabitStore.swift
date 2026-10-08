@@ -85,7 +85,7 @@ struct HabitStatistics {
     }
 
     @discardableResult
-    func add(name: String, icon: HabitIcon, startDay: String, endDay: String?, goal: HabitGoal, weekdays: [HabitWeekday] = HabitWeekday.allCases) throws -> Habit {
+    func add(name: String, icon: HabitIcon, startDay: String, endDay: String?, goal: HabitGoal, weekdays: [HabitWeekday] = HabitWeekday.allCases, weeklyTargets: WeeklyTargets? = nil) throws -> Habit {
         guard canEdit else { throw HabitError.unavailable }
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 80 else { throw HabitError.invalidName }
@@ -93,7 +93,8 @@ struct HabitStatistics {
         guard TaskDay.isValid(startDay), endDay.map({ TaskDay.isValid($0) && $0 >= startDay }) != false else { throw HabitError.invalidDates }
         guard goal.isValid else { throw HabitError.invalidGoal }
         guard !weekdays.isEmpty, Set(weekdays).count == weekdays.count else { throw HabitError.invalidFrequency }
-        let habit = Habit(id: UUID(), name: name, icon: icon, startDay: startDay, endDay: endDay, goal: goal, weekdays: HabitWeekday.allCases.filter { weekdays.contains($0) })
+        let habit = Habit(id: UUID(), name: name, icon: icon, startDay: startDay, endDay: endDay, goal: goal, weekdays: HabitWeekday.allCases.filter { weekdays.contains($0) }, weeklyTargets: weeklyTargets)
+        guard habit.isValid else { throw WeeklyTargetsError.invalidAmount }
         activityCache = nil
         archive.habits.append(habit)
         save()
@@ -109,9 +110,32 @@ struct HabitStatistics {
         guard !habits.contains(where: { $0.id != habitID && $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) else { throw HabitError.duplicateName }
         let saved = archive.habits[index]
         archive.habits[index] = Habit(id: saved.id, name: name, icon: icon, startDay: saved.startDay,
-                                     endDay: saved.endDay, goal: saved.goal, weekdays: saved.weekdays)
+                                     endDay: saved.endDay, goal: saved.goal, weekdays: saved.weekdays, weeklyTargets: saved.weeklyTargets)
         activityCache = nil
         save()
+    }
+
+    /// Preserve all recorded amounts when changing due days; rest days reject new progress.
+    func update(habitID: UUID, name: String, icon: HabitIcon, weekdays: [HabitWeekday], weeklyTargets: WeeklyTargets?) throws {
+        guard canEdit else { throw HabitError.unavailable }
+        guard let saved = habits.first(where: { $0.id == habitID }) else { throw HabitError.missingHabit }
+        guard !weekdays.isEmpty, Set(weekdays).count == weekdays.count else { throw HabitError.invalidFrequency }
+        guard weeklyTargets?.isValid(maximum: saved.maximumWeeklyAmount) != false else { throw WeeklyTargetsError.invalidAmount }
+        // Validate identity before making any mutation, then save the combined change once.
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 80 else { throw HabitError.invalidName }
+        guard !habits.contains(where: { $0.id != habitID && $0.name.compare(trimmed, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) else { throw HabitError.duplicateName }
+        guard let index = archive.habits.firstIndex(where: { $0.id == habitID }) else { throw HabitError.missingHabit }
+        archive.habits[index] = Habit(id: saved.id, name: trimmed, icon: icon, startDay: saved.startDay,
+            endDay: saved.endDay, goal: saved.goal, weekdays: HabitWeekday.allCases.filter { weekdays.contains($0) }, weeklyTargets: weeklyTargets)
+        activityCache = nil
+        save()
+    }
+
+    func weeklyAmount(for habit: Habit, today: Date = .now) -> Int {
+        TimesheetWeek(containing: today, calendar: calendar).days.filter { $0.date <= today }.reduce(0) {
+            $0 + amount(for: habit, on: $1.id)
+        }
     }
 
     func amount(for habit: Habit, on dayID: String) -> Int { progressByHabit[habit.id]?[dayID] ?? 0 }
@@ -148,7 +172,7 @@ struct HabitStatistics {
 
     func statistics(for habit: Habit, month: Date, today: Date) -> HabitStatistics {
         let todayID = TaskDay.id(for: today, calendar: calendar)
-        let completedDays = progressByHabit[habit.id, default: [:]].filter { $0.value >= habit.goal.target && $0.key <= todayID }.map(\.key).sorted()
+        let completedDays = progressByHabit[habit.id, default: [:]].filter { $0.value >= habit.goal.target && $0.key <= todayID && habit.isScheduled(on: $0.key) }.map(\.key).sorted()
         let monthDays = HabitDates.monthDays(containing: month, calendar: calendar).map { TaskDay.id(for: $0, calendar: calendar) }
         let eligible = Set(monthDays.filter { $0 <= todayID && habit.isScheduled(on: $0) })
         let done = Set(completedDays)

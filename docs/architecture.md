@@ -10,11 +10,11 @@ Keep is one native macOS SwiftUI application. Focus, Dashboard, Habit tracker, S
 - Dashboard contains an editable Timesheet, a weekly Calendar of actual recorded sessions, and a saved project catalog with add/edit/delete. Manual totals cannot supply invented Calendar timestamps.
 - Music streams public Audius tracks and controls the Mac’s Music app, including an in-Keep library browser/search, available artwork, transport, seeking, shuffle, and repeat. Provider/volume persist; playback and queues do not restore.
 - Tasks persist by civil day and include scheduled habits with shared completion. Only Today’s rows can start Focus, Flow, or both. Project-linked suggestions and pins belong to the workspace, separately from daily lists.
-- Habits save weekday schedules, inclusive date ranges, check-ins or minutes/times targets, manual progress, full-year activity, and derived stats. Existing names/icons can be edited.
+- Habits save weekday schedules, inclusive date ranges, check-ins or minutes/times targets, manual progress, full-year activity, and derived stats. Names/icons, weekday schedules and optional weekly targets can be edited.
 - Stats derives focus trends/distribution/patterns, completion counts, task/habit summaries, always-visible streaks and optional goals from local history, with custom inclusive dates and project/task filters.
 - Settings saves Light/Dark/System, wallpaper/material preferences, and Audius sources. Release builds expose Sparkle update checks/preferences; GitHub release publishing is separate (see `docs/updates.md`). It exposes Music Automation permission status/recovery and native Start on login registration. Zen is a window-local full-screen wallpaper with minimal timer and music controls.
 
-Projects, recorded sessions, daily totals/edits, tasks, habits, and preferences survive relaunch. Timers restart idle; active selection, committed task text, input drafts, and other window-local state are not restored. Live stores have no sample history; previews use isolated fixtures. Calendar drag-and-drop, habit goal/schedule editing and deletion, notifications, MusicKit catalog integration, and sync remain unimplemented.
+Projects, recorded sessions, daily totals/edits, tasks, habits, and preferences survive relaunch. Timers restart idle; active selection, committed task text, input drafts, and other window-local state are not restored. Live stores have no sample history; previews use isolated fixtures. Calendar drag-and-drop, existing daily habit goal/date editing and habit deletion, notifications, MusicKit catalog integration, and sync remain unimplemented.
 
 ## 2. Source map
 
@@ -122,6 +122,8 @@ The trailing × removes a project's entries and recorded sessions for the displa
 
 `TimesheetPersistence` JSON-encodes the ledger, custom catalog, optional `PomodoroSettings`, actual sessions, and `taskActivities` into the app’s standard `UserDefaults` under `keep.timesheet.v1`. Older records without the added fields load with an empty custom catalog/session array and default timer settings, retaining their entries. Session validation checks IDs, finite ordered dates, civil-day boundaries, timezone, and task length; malformed records preserve the archive and block edits. It loads on app model creation, saves about every five seconds during recording, and saves immediately after actions/edits/creation/settings changes. `WorkspaceApplicationDelegate` flushes the last partial interval on normal app termination, including when no windows remain. Abrupt termination can lose time since the last checkpoint save. Corrupt saved data, including invalid settings, blocks mutations and shows Retry rather than overwriting unreadable records. Timer runtime, current task text, inline/input drafts, and project selection are not restored. Daily task lists use their own persistence below.
 
+Projects have optional weekly Goal/At least targets stored separately from historical project metadata in `TimesheetLedger.projectTargets`, keyed by catalog ID. The validated map defaults empty for legacy archives and is included in backups. Dashboard Projects and Stats expose the same editor through `WorkspaceModel.updateProjectTargets`, which settles recording before saving and emits a catalog mutation. Targets cap at 10,080 minutes per week. Progress uses recorded sessions for the current Monday–Sunday week and all tasks of that project, independently of the browsed Stats dates/task filter; manual Timesheet totals remain separate. A disposable per-project/day recorded-seconds index is patched by session upserts/removals and rebuilt on reload/restore, so weekly progress queries touch seven civil days rather than scanning history.
+
 `WorkspaceModel.readIndex` is an app-owned, disposable read model of individual sessions, completions, entries and task/project metadata. Ledger mutators journal typed `WorkspaceChange` upserts/removals; the workspace drains them after settlement and before saving or returning from an ordinary recording checkpoint. Runtime revisions identify changed civil days/catalog/task metadata without comparing entire archives. Successful reload replaces the index epoch. A mutation feed retains at most 128 batches and 4,096 changes; consumers with an older cursor receive a complete reset. Prepared project/task lists and per-day ID indexes avoid repeated whole-history filtering. Neither this index nor Stats retains the ledger's complete arrays across recording mutations, preventing query caching from forcing full-history array copies every second. Cache fields/revisions are excluded from Codable archives; persistence remains authoritative and still encodes the existing archive on save. DailyTaskStore and HabitStore expose separate runtime revisions for successful edits and reloads.
 
 `DashboardProjectsView` presents an alphabetically sorted, scrollable catalog with project-colored folders/names and row edit/delete controls. It owns edit/deletion sheet presentation; `DashboardView` owns creation presentation and the standalone Add project action beside its view switch. Adding uses the shared dialog without changing selection or inventing time. Deletion routes through `WorkspaceModel.deleteProject`: settle elapsed recording, persist the removed ID, and switch a deleted active selection to No project. Timer phases and committed task text are preserved; future running time is unassigned. Deleting an inactive project leaves the current session context intact. Timesheet/Calendar retain historical metadata and time, and Timesheet removal/Undo does not restore a deleted catalog project. Projects hides week controls and shows a project count; switching Dashboard pages retains the browsed week.
@@ -187,24 +189,26 @@ Further providers and notifications remain separately scoped work. See `docs/dec
 
 ### Habits
 
-`KeepApp` owns one main-actor observable `HabitStore` shared across windows, independently of workspace recording, daily tasks, and music. `HabitPersistence` validates and saves the complete `HabitArchive` in UserDefaults under `keep.habits.v1` after each mutation. Definitions persist before their first log. Stable UUIDs identify habits; logs are unique by habit/day. The archive rejects invalid goals/date ranges/frequencies, duplicate identities/logs, orphan or rest-day logs, and invalid amounts. A failed load preserves the saved bytes and blocks changes until Retry succeeds; failed saves retain in-memory changes and offer Retry. Live storage starts empty; verification fixtures are in-memory only.
+`KeepApp` owns one main-actor observable `HabitStore` shared across windows, independently of workspace recording, daily tasks, and music. `HabitPersistence` validates and saves the complete `HabitArchive` in UserDefaults under `keep.habits.v1` after each mutation. Definitions persist before their first log. Stable UUIDs identify habits; logs are unique by habit/day. The archive rejects invalid goals/date ranges/frequencies, duplicate identities/logs, orphan/out-of-range logs and invalid amounts. Existing logs on newly configured rest days remain valid history; live rest-day progress writes are rejected. A failed load preserves the saved bytes and blocks changes until Retry succeeds; failed saves retain in-memory changes and offer Retry. Live storage starts empty; verification fixtures are in-memory only.
 
 A habit has a trimmed 1–80-character name, a selected habit icon, a start date, optional inclusive end date, and a goal: **Daily check-in** (0/1) or **Daily target** (positive minutes/times per day). Seven selectable weekday circles set the frequency; all days are selected initially, at least one is required, and older archives without weekdays remain daily. Targets allow 1–1,440 minutes or 1–10,000 times. An amount log stores a nonnegative integer up to 1,000,000; zero removes the log, a partial amount does not count complete, and meeting/exceeding the goal counts the habit once on that day. Editing progress is manual and allowed only on scheduled dates through today. Nothing automatically completes a habit from elapsed timer time. Explicitly checking its projected daily task updates the same habit log.
 
-The information header has a right-aligned Edit action. It reuses HabitCreationDialog with saved values; only name and icon remain enabled, while frequency, goal, target/unit and date controls are locked. `HabitStore.updateIdentity` validates names (including case/diacritic-insensitive uniqueness excluding the current habit), updates the latest saved definition and preserves UUID, schedule, goal and all progress logs. Projected daily tasks immediately inherit the new name without changing row identity. Cancel discards the sheet draft; existing creation behavior is unchanged.
+The information header has a right-aligned Edit action. It reuses HabitCreationDialog with saved values; name/icon, weekday frequency and optional weekly targets are editable. Daily goal/unit and date controls remain locked. `HabitStore.update` validates the complete edit before changing anything, preserves UUID, daily goal, dates and all logs, and saves once. Schedule edits recalculate due opportunities/rates/streaks using the new weekdays; prior recorded amounts remain in activity history and weekly target progress. Newly configured rest days reject new logs. Projected daily tasks immediately inherit identity and schedule changes without changing row identity. `updateIdentity` remains available for identity-only callers and preserves the latest saved targets/schedule. Cancel discards sheet drafts; the form scrolls while its action buttons remain visible.
 
 Habit dates reuse `TaskDay`'s Gregorian civil keys, with the local calendar/timezone and Monday-first weeks. Calendar arithmetic handles DST, leap days, and month/year boundaries. Saved keys stay on their original civil day after a timezone change. Formatting uses the same calendar/timezone as the keys. Browsed week/day, activity mode, selected habit, stats month, and sheet drafts are window-local; following Today updates across midnight through the existing workspace display refresh. No second ticker or recorder is introduced.
 
-Activity shows the full current year in Monday-first week columns. Monthly daily intensity counts completed habits (0/1/2/3/4+); Weekly fills one square per completed goal, capped at seven with exact total labels. Adjacent-year dates are hidden and future dates disabled. Choosing a past/current tile navigates weekly progress. Activity, progress and selected-habit stats share one surface; progress fits seven days and stats stack below on narrow windows. Check-ins toggle directly; amount goals open a numeric sheet with a target shortcut and zero-to-clear. The fixed shell viewport scrolls vertically.
+Activity shows the full current year in Monday-first week columns. Monthly daily intensity counts completed habits (0/1/2/3/4+); there is no activity-mode selector or weekly activity view. Adjacent-year dates are hidden and future dates disabled. Choosing a past/current tile navigates weekly progress. Activity, progress and selected-habit stats share one surface; progress fits seven days and stats stack below on narrow windows. Check-ins toggle directly; amount goals open a numeric sheet with a target shortcut and zero-to-clear. The fixed shell viewport scrolls vertically.
 
-Stats derive from the saved logs, with no stored totals. A runtime habit/day query index is rebuilt on loading and updated with log changes so every visible cell does not rescan the complete history; the index is not persisted. Month completion rate uses scheduled days through today, excluding future days and dates outside the habit range. Lifetime totals count completed days, including previous months. Current/best streaks count consecutive scheduled check-ins, skipping rest days. While today is a rest day or its goal is pending, current streak can end at the latest previous scheduled date; a missed due day breaks it. After the habit end date, current streak is zero while best streak retains history. Weekday matching uses the Gregorian civil key rather than a timezone-dependent instant. The stats calendar can correct prior daily progress; its month totals/rate follow the browsed month while current/best streaks remain as of today. Goal/schedule editing, deletion, reminders, recurrence rules beyond weekday selection, and sync remain outside this implementation.
+Stats derive from the saved logs, with no stored totals. A runtime habit/day query index is rebuilt on loading and updated with log changes so every visible cell does not rescan the complete history; the index is not persisted. Month completion rate uses scheduled days through today, excluding future days and dates outside the habit range. Lifetime totals count completed days, including previous months. Current/best streaks count consecutive scheduled check-ins, skipping rest days. While today is a rest day or its goal is pending, current streak can end at the latest previous scheduled date; a missed due day breaks it. After the habit end date, current streak is zero while best streak retains history. Weekday matching uses the Gregorian civil key rather than a timezone-dependent instant. The stats calendar can correct prior daily progress; its month totals/rate follow the browsed month while current/best streaks remain as of today. Existing daily goal/date editing, deletion, reminders, recurrence rules beyond weekday selection, and sync remain outside this implementation.
 
-`HabitActivitySnapshot` prepares annual civil dates, labels and exact daily/weekly counts from validated logs. HabitStore caches it by civil day/timezone/locale and invalidates it on definition/log changes or Retry. Monthly/Weekly selection reuses the snapshot instead of recalculating and formatting a year in the view body; accent contrast and tile size resolve once per body. The grouped mode switch follows Dashboard styling. HabitDateField reuses the styled TaskDatePicker calendar (with a Choose date confirmation), and KeepCheckboxStyle supplies the theme-consistent end-date/task checkbox. Empty habit circles retain visible outlines even when future/rest days are disabled.
+`WeeklyTargets` models an aspirational Goal and an At least minimum for the same Monday–Sunday week. Minimum must be positive and no greater than Goal. Optional habit targets persist in each definition; minutes cap at 10,080 (168 hours), check-ins at seven and times at 70,000. Time fields use hours rounded to a minute; count fields use whole amounts. Weekly progress sums saved amounts, including partial daily progress, using the habit/day index and calendar day arithmetic. Missing targets in older archives mean no weekly targets.
+
+`HabitActivitySnapshot` prepares annual civil dates, labels and exact daily counts from validated logs. HabitStore caches it by civil day/timezone/locale and invalidates it on definition/log changes or Retry. The monthly grid reuses that snapshot instead of recalculating and formatting a year in the view body; accent contrast and tile size resolve once per body. HabitDateField reuses the styled TaskDatePicker calendar (with a Choose date confirmation), and KeepCheckboxStyle supplies the theme-consistent end-date/task checkbox. Empty habit circles retain visible outlines even when future/rest days are disabled.
 
 
 ### Statistics
 
-`StatsView` reads the app-owned workspace, DailyTaskStore, HabitStore and AppPreferences. Its window-local `StatsModel` passes immutable mutation batches to one background `StatsCache` actor and memoizes task/habit inputs by store revision. The worker retains individual records, lazy recorded-timezone hour contributions, and at most four derived focus queries with least-recently-used eviction. A changed session patches its contributions to totals, active days/streaks, buckets, distributions, weekdays/hours, comparisons and weekly goals; ordinary recording ticks do not rebuild whole-history inputs or aggregate the complete history. Four separate date-only task/habit summaries use their respective store revisions, range/effective end and calendar context, so project/task filtering reuses them.
+`StatsView` reads the app-owned workspace, DailyTaskStore, HabitStore and AppPreferences. Its window-local `StatsModel` passes immutable mutation batches to one background `StatsCache` actor and memoizes task/habit inputs by store revision. The worker retains individual records, lazy recorded-timezone hour contributions, and at most four derived focus queries with least-recently-used eviction. A changed session patches its contributions to totals, active days/streaks, buckets, distributions, weekdays/hours, comparisons, focus-activity daily seconds and weekly goals; ordinary recording ticks do not rebuild whole-history inputs or aggregate the complete history. Four separate date-only task/habit summaries use their respective store revisions, range/effective end and calendar context, so project/task filtering reuses them.
 
 Every second, the worker refreshes only clock-sensitive intervals/completions: future clipping, matching elapsed comparison boundaries, and current all-project weekly-goal progress. Calendar/timezone/locale changes, civil-day changes and clock rollback invalidate the appropriate results; recorded timezone attribution remains intact. A newer query cancels/fences prior work; same-query recording updates coalesce into one pending request. Complete mutation batches are applied atomically with respect to cancellation, and partially refreshed query entries are discarded. Hidden views cancel work; returning immediately requests current indexed data. The existing workspace display checkpoint supplies refreshes; there is no second recorder/ticker or persisted analysis cache.
 
@@ -213,6 +217,10 @@ Week is Monday-first; Month/Year/Custom use Gregorian civil dates, inclusive cus
 Focus analytics sum actual sessions, exclude future timestamps and never add daily aggregates to them. Headline total, active days, average per active day, period comparisons, chart buckets and distributions reconcile. Current-period comparisons use matching elapsed civil days/time, clamped to shorter preceding periods; custom compares the preceding equal-length interval. Week/Month use daily bars; Year monthly; Custom daily up to 31 days, weekly through 180, then monthly. Local-hour buckets split actual intervals at hour boundaries, counting repeated DST hours correctly. Adjusted Timesheet totals remain separate in derived results; the secondary explanatory row and local-hour helper text are no longer displayed in Stats at the user’s request. Legacy totals cannot invent timestamped history.
 
 `FocusTimer.settleCompletion` emits a once-only transition carrying its runtime interval UUID. `WorkspaceModel.synchronize` resolves the boundary from its monotonic checkpoint before any target-changing action, captures the finishing project/task, and immediately saves a `CompletedPomodoro` event. Pause/resume preserves interval identity; a new focus interval gets a new UUID. Flow priority only affects recorded minutes, not Pomodoro completion counts. Breaks and abandoned partial focus do not count. Calendar time edits/deletion and weekly removal/Undo do not rewrite actual completion events. The ledger adds optional `completedPomodoros` and `pomodoroHistoryStartedAt` fields; older archives start coverage without backfilling counts, and corrupt completion data preserves bytes/blocks workspace mutation.
+
+Stats takes responsive widths from a bounded `GeometryReader` viewport, rather than measuring the content that consumes those widths. Measuring that content produced a native scrollbar feedback loop (17-point growth per layout pass) and froze the main thread. Focus activity is the first scrollable section, above summary cards and charts.
+
+At content widths of 1,100 points or more, the main focus bars and distribution share one row in a 2:1 width ratio; the bar plot grows to 390 points tall. Smaller windows stack them with a 250-point trend plot. Habit icons reuse `HabitIcon.ink` from the tracker in both appearances. Stats also shows a Monday-first annual Focus activity grid for the year containing the selected range's start; only selected dates and project/task filters contribute. Adjacent-year, future and unselected days are subdued. The monthly grid shows daily intensity (zero, under 2, 2–4, 4–8, 8+ hours), without a mode selector or introductory caption. Tooltips, keyboard focus and selection expose exact durations. Cross-year custom ranges label the displayed year explicitly. The worker prepares calendar labels once per cached query and patches daily contributions; no session scans or date formatting run in the grid body.
 
 Ordinary task summaries reflect current saved rows on assigned civil days, excluding future days, projected habits and deleted rows; completion timestamps are not available. Habit rates use scheduled opportunities through the effective end, exclude rest days/range exclusions, and require full targets. Current streaks are always shown as of effective range end and may begin before the range; best streaks are clipped to the range. Only actual today may remain pending; habits skip rest days and ended habits retain zero current streaks.
 
@@ -304,30 +312,18 @@ python3 Tools/run-app-checks.py WallpaperPresentationChecks
 python3 Tools/run-app-checks.py SystemMusicChecks MenuBarChecks MusicShortcutChecks
 ```
 
-Run the daily-task checks:
+Run saved-data, scheduling and Stats checks through the same isolated app runner. This includes the shared restore gate and current archive dependencies:
 
 ```sh
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  Sources/Keep/Core/Tasks/*.swift Sources/Keep/Core/Habits/*.swift \
-  Sources/Keep/Services/Tasks/*.swift Sources/Keep/Services/Habits/*.swift \
-  Tests/DailyTaskChecks.swift \
-  -o /tmp/keep-daily-task-checks
-/tmp/keep-daily-task-checks
+python3 Tools/run-app-checks.py DailyTaskChecks HabitTaskChecks HabitChecks HabitIdentityChecks
+python3 Tools/run-app-checks.py SessionRecordingChecks PomodoroCompletionChecks ProjectCatalogChecks TaskActivityChecks
+python3 Tools/run-app-checks.py StatsChecks StatsPresentationChecks CacheChecks
+python3 Tools/run-app-checks.py WeeklyTargetsChecks TargetsPresentationChecks StatsLiveChecks
 ```
 
-Run the integration checks using the daily-task source list above, replacing `Tests/DailyTaskChecks.swift` with `Tests/HabitTaskChecks.swift` and the executable with `/tmp/keep-habit-task-checks`.
+`WeeklyTargetsChecks` covers target bounds/legacy defaults, persistent edits and backup round trips, schedule changes without dropping logs, current-week arithmetic, recorder settlement and focus activity intensity/filtering. `TargetsPresentationChecks` renders Light/Dark default/narrow/wide Stats, target editors, project rows and habit progress to `/tmp/keep-targets-renders`. `StatsLiveChecks` runs a native AppKit event loop with default hosting sizing, checking populated, stable, full-width scroll viewports after default/narrow/wide resizes in both appearances. The runner’s process timeout also catches main-thread layout hangs; pinned screenshot hosts alone cannot verify this. `TargetsPresentationChecks` also offers `KEEP_TARGETS_INTERACTIVE=1`, opening an isolated, in-memory fixture for 90 seconds; it never loads user archives or starts playback. Stats presentation checks cover preference reloads/model cancellation and write captures to `/tmp/keep-stats-renders`.
 
-Run the habit checks:
-
-```sh
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  Sources/Keep/Core/Tasks/TaskDay.swift \
-  Sources/Keep/Core/Habits/*.swift Sources/Keep/Services/Habits/*.swift Tests/HabitChecks.swift \
-  -o /tmp/keep-habit-checks
-/tmp/keep-habit-checks
-```
-
-Run habit identity/persistence checks with the daily-task source list, replacing `Tests/DailyTaskChecks.swift` with `Tests/HabitIdentityChecks.swift` and choosing a separate executable. Login registration checks use a fake service and never change macOS login items:
+Login registration checks use a fake service and never change macOS login items:
 
 ```sh
 xcrun swiftc -parse-as-library -default-isolation MainActor \
@@ -335,37 +331,6 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   -o /tmp/keep-login-item-checks
 /tmp/keep-login-item-checks
 ```
-
-Run the session-recording checks:
-
-```sh
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  Sources/Keep/Core/Workspace/FocusProject.swift Sources/Keep/Services/Workspace/WorkspaceModel.swift \
-  Sources/Keep/Core/FocusSession/FocusTimer.swift \
-  Sources/Keep/Core/FocusSession/PomodoroSettings.swift \
-  Sources/Keep/Core/Timesheet/TimesheetLedger.swift \
-  Sources/Keep/Services/Timesheet/TimesheetPersistence.swift \
-  Sources/Keep/Core/Dashboard/RecordedSession.swift \
-  Sources/Keep/Core/Stats/StatsSnapshot.swift \
-  Sources/Keep/Services/Workspace/WorkspaceReadIndex.swift \
-  Tests/SessionRecordingChecks.swift -o /tmp/keep-session-checks
-/tmp/keep-session-checks
-```
-
-Run Stats aggregation checks:
-
-```sh
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  Sources/Keep/Core/Stats/StatsSnapshot.swift Tests/StatsChecks.swift \
-  -o /tmp/keep-stats-checks
-/tmp/keep-stats-checks
-```
-
-Run completion-event checks with the session domain-source list above, replacing the test with `Tests/PomodoroCompletionChecks.swift`. Run `Tests/StatsPresentationChecks.swift` with the all-source list used for native appearance checks below; it checks preference reloads and model cancellation, and writes native fixture captures to `/tmp/keep-stats-renders`. For palette-correct standalone captures, package the executable in a temporary app bundle with the unsigned build's Assets.car in Contents/Resources. This does not modify user archives.
-
-Run the project-catalog checks using the same domain-source list as the session checks above, replacing `Tests/SessionRecordingChecks.swift` with `Tests/ProjectCatalogChecks.swift` and the output with `/tmp/keep-project-checks`.
-
-Run task-activity checks with the session domain-source command above, replacing `Tests/SessionRecordingChecks.swift` with `Tests/TaskActivityChecks.swift` and the output with `/tmp/keep-task-activity-checks`.
 
 Run native offscreen appearance checks (changes affect only the test process):
 

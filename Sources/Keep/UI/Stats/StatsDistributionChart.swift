@@ -5,6 +5,7 @@ struct StatsDistributionChart: View {
     let rows: [StatsSnapshot.Distribution]
     let showsTasks: Bool
     let onSelect: (StatsSnapshot.Distribution) -> Void
+    var compact = false
     @State private var hoveredID: String?
     @State private var inspectedID: String?
     @FocusState private var focused: Bool
@@ -23,12 +24,16 @@ struct StatsDistributionChart: View {
             if rows.isEmpty {
                 Text("Your recorded projects and tasks will appear here.").foregroundStyle(KeepTheme.mutedInk)
             } else {
+                if compact {
+                    VStack(spacing: 20) { ring(colors: colors); legend(colors: colors) }
+                } else {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 32) {
                         ring(colors: colors)
                         legend(colors: colors).frame(minWidth: 240, maxWidth: .infinity)
                     }
                     VStack(spacing: 24) { ring(colors: colors); legend(colors: colors) }
+                }
                 }
             }
         }
@@ -76,7 +81,7 @@ struct StatsDistributionChart: View {
                 }
             }
         }
-        .frame(width: 270, height: 270)
+        .frame(width: compact ? 230 : 270, height: compact ? 230 : 270)
         .focusable().focused($focused).focusEffectDisabled()
         .overlay {
             RoundedRectangle(cornerRadius: 12)

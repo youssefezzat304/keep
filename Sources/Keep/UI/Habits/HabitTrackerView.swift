@@ -4,7 +4,6 @@ struct HabitTrackerView: View {
     let store: HabitStore
     var today: Date = .now
     @State private var showsCreation = false
-    @State private var activityMode = HabitActivityMode.monthly
     @State private var selectedHabitID: UUID?
     @State private var weekSelection = TaskDaySelection()
     @State private var logSelection: HabitLogSelection?
@@ -29,7 +28,7 @@ struct HabitTrackerView: View {
                         }.padding(12).background(KeepTheme.highlight, in: RoundedRectangle(cornerRadius: 12))
                     }
                     VStack(alignment: .leading, spacing: 26) {
-                        HabitActivityGrid(store: store, today: today, mode: $activityMode, availableWidth: geometry.size.width - 44) { date in
+                        HabitActivityGrid(store: store, today: today, availableWidth: geometry.size.width - 44) { date in
                             weekSelection.select(date, today: today, calendar: store.calendar)
                         }
                         HabitVisualStyle.divider().frame(height: 1)

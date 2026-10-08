@@ -10,6 +10,7 @@ struct StatsBarChart: View {
     let title: String
     let points: [Point]
     var color: Color = KeepTheme.accentStrong
+    var plotHeight: CGFloat = 190
     @State private var selected: String?
     @State private var hovered: String?
     @FocusState private var focused: Bool
@@ -79,7 +80,7 @@ struct StatsBarChart: View {
                 }
             }
             .chartYScale(domain: 0...max(1, (points.map(\.seconds).max() ?? 0) / 3600 * 1.1))
-            .frame(height: 190)
+            .frame(height: plotHeight)
             .focusable().focused($focused).focusEffectDisabled()
             .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(focused ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
             .onMoveCommand { direction in

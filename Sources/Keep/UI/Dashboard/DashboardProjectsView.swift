@@ -4,6 +4,7 @@ struct DashboardProjectsView: View {
     let workspace: WorkspaceModel
     @Environment(\.self) private var environment
     @State private var editing: FocusProject?
+    @State private var goalProject: FocusProject?
     @State private var deletion: FocusProject?
 
     private var projects: [FocusProject] {
@@ -31,6 +32,9 @@ struct DashboardProjectsView: View {
                                 Text(project.name).font(.system(size: 16, weight: .medium))
                                     .lineLimit(1).help(project.name)
                                 Spacer(minLength: 12)
+                                Button { goalProject = project } label: { Label(workspace.projectTargets[project.id] == nil ? "Set goals" : "Goals", systemImage: "target") }
+                                    .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!workspace.canTrack)
+                                    .accessibilityLabel("Weekly targets for \(project.name)")
                                 Button { editing = project } label: { Image(systemName: "pencil") }
                                     .buttonStyle(KeepButtonStyle(emphasis: .quiet))
                                     .accessibilityLabel("Edit project: \(project.name)")
@@ -55,6 +59,9 @@ struct DashboardProjectsView: View {
             ProjectEditorDialog(project: project, usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
                 try workspace.updateProject(project, name: name, accent: accent)
             }
+        }
+        .sheet(item: $goalProject) { project in
+            ProjectGoalsDialog(workspace: workspace, project: project)
         }
         .sheet(item: $deletion) { project in
             ProjectDeletionDialog(project: project, canDelete: workspace.canTrack) { workspace.deleteProject(project) }

@@ -14,6 +14,9 @@ struct HabitCreationDialog: View {
     @State private var startDate: Date
     @State private var endDate: Date
     @State private var hasEndDate = false
+    @State private var weeklyEnabled = false
+    @State private var weeklyGoal = "3"
+    @State private var weeklyMinimum = "1"
     @State private var error: String?
     @FocusState private var nameFocused: Bool
     enum GoalKind: String, CaseIterable { case checkIn, amount
@@ -23,6 +26,12 @@ struct HabitCreationDialog: View {
     init(store: HabitStore, today: Date = .now, goal: HabitGoal = .checkIn, endDate: Date? = nil, weekdays: Set<HabitWeekday> = Set(HabitWeekday.allCases), habit: Habit? = nil) {
         self.store = store
         editingHabit = habit
+        _weeklyEnabled = State(initialValue: habit?.weeklyTargets != nil)
+        if let saved = habit?.weeklyTargets {
+            let hours = habit?.weeklyUnit == "minutes"
+            _weeklyGoal = State(initialValue: hours ? WeeklyTargets.hoursText(saved.goal) : String(saved.goal))
+            _weeklyMinimum = State(initialValue: hours ? WeeklyTargets.hoursText(saved.minimum) : String(saved.minimum))
+        }
         _name = State(initialValue: habit?.name ?? "")
         _icon = State(initialValue: habit?.icon ?? .checkmark)
         _weekdays = State(initialValue: habit.map { Set($0.weekdays) } ?? weekdays)
@@ -41,6 +50,8 @@ struct HabitCreationDialog: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(editingHabit == nil ? "Add habit" : "Edit habit").font(KeepTheme.headingFont(size: 28))
+            KeepScrollView {
+            VStack(alignment: .leading, spacing: 18) {
             TextField("Habit name", text: $name).modifier(KeepInputStyle()).focused($nameFocused)
                 .accessibilityLabel("Habit name")
                 .onSubmit(save)
@@ -61,7 +72,15 @@ struct HabitCreationDialog: View {
             }
             VStack(alignment: .leading, spacing: 18) {
                 frequency
-                labeled("Goal") {
+                if editingHabit != nil {
+                    Text("Saved progress is kept when you change days. Completion rates and streaks use the new schedule.")
+                        .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+                }
+                WeeklyTargetsFields(enabled: $weeklyEnabled, goal: $weeklyGoal, minimum: $weeklyMinimum,
+                    unit: usesHours ? "hours" : goalKind == .checkIn ? "check-ins" : "times",
+                    maximum: usesHours ? "168" : goalKind == .checkIn ? "7" : "70,000")
+                VStack(alignment: .leading, spacing: 18) {
+                labeled("Daily goal") {
                     KeepSegmentedPicker(label: "Habit goal", selection: $goalKind, options: GoalKind.allCases, title: { $0.title })
                 }
                 if goalKind == .amount {
@@ -77,8 +96,10 @@ struct HabitCreationDialog: View {
                 if hasEndDate {
                     labeled("Ends") { HabitDateField(label: "End date", date: $endDate, calendar: store.calendar) }
                 }
+                }.disabled(editingHabit != nil)
             }
-            .disabled(editingHabit != nil)
+            }
+            }.frame(maxHeight: 440)
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong).fixedSize(horizontal: false, vertical: true) }
             HStack {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(KeepButtonStyle(emphasis: .quiet))
@@ -128,10 +149,16 @@ struct HabitCreationDialog: View {
     private func labeled<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         HStack { Text(title).font(.system(size: 13, weight: .medium)).frame(width: 90, alignment: .leading); content(); Spacer(minLength: 0) }
     }
+    private var usesHours: Bool { goalKind == .amount && unit == .minutes }
+    private func targets() throws -> WeeklyTargets? {
+        guard weeklyEnabled else { return nil }
+        return try WeeklyTargets.parse(goal: weeklyGoal, minimum: weeklyMinimum, hours: usesHours,
+            maximum: usesHours ? WeeklyTargets.maximumMinutes : goalKind == .checkIn ? 7 : 70000)
+    }
     private func save() {
         if let editingHabit {
             do {
-                try store.updateIdentity(habitID: editingHabit.id, name: name, icon: icon)
+                try store.update(habitID: editingHabit.id, name: name, icon: icon, weekdays: HabitWeekday.allCases.filter { weekdays.contains($0) }, weeklyTargets: targets())
                 dismiss()
             } catch { self.error = error.localizedDescription }
             return
@@ -142,7 +169,7 @@ struct HabitCreationDialog: View {
             goal = .amount(target: value, unit: unit)
         } else { goal = .checkIn }
         do {
-            try store.add(name: name, icon: icon, startDay: TaskDay.id(for: startDate, calendar: store.calendar), endDay: hasEndDate ? TaskDay.id(for: endDate, calendar: store.calendar) : nil, goal: goal, weekdays: HabitWeekday.allCases.filter { weekdays.contains($0) })
+            try store.add(name: name, icon: icon, startDay: TaskDay.id(for: startDate, calendar: store.calendar), endDay: hasEndDate ? TaskDay.id(for: endDate, calendar: store.calendar) : nil, goal: goal, weekdays: HabitWeekday.allCases.filter { weekdays.contains($0) }, weeklyTargets: targets())
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

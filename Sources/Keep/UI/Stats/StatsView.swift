@@ -11,7 +11,8 @@ struct StatsView: View {
     @State private var showsProjects = false
     @State private var showsTasks = false
     @State private var showsGoal = false
-    @State private var contentWidth: CGFloat = 0
+    @Environment(\.self) private var environment
+    @State private var goalProject: FocusProject?
 
     init(workspace: WorkspaceModel, tasks: DailyTaskStore, habits: HabitStore, preferences: AppPreferences, isVisible: Bool, initialQuery: StatsQuery = StatsQuery()) {
         self.workspace = workspace; self.tasks = tasks; self.habits = habits
@@ -23,34 +24,39 @@ struct StatsView: View {
     private var range: StatsRange { model.query.range(now: .now, calendar: calendar) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
-            KeepScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    if let error = model.calculationError {
-                        issue(error) { refresh() }
-                    }
-                    if let snapshot = model.snapshot {
-                        if workspace.canTrack {
-                            focusContent(snapshot)
-                            goal(snapshot)
-                        } else {
-                            issue("Your focus history couldn’t be loaded.") { workspace.retryPersistence(); refresh() }
+        // Measure the proposed viewport, never the content that uses this width.
+        // Native scrollbar insets otherwise create a self-expanding layout loop.
+        GeometryReader { viewport in
+            VStack(alignment: .leading, spacing: 20) {
+                header
+                KeepScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        if let error = model.calculationError {
+                            issue(error) { refresh() }
                         }
-                        habitsContent(snapshot)
-                        tasksContent(snapshot)
-                        if let error = preferences.persistenceError { issue(error) { preferences.retryPersistence() } }
-                        streaks(snapshot)
-                    } else if model.calculationError == nil {
-                        ProgressView("Preparing your statistics…").padding(32).frame(maxWidth: .infinity)
+                        if let snapshot = model.snapshot {
+                            if workspace.canTrack {
+                                focusContent(snapshot, contentWidth: viewport.size.width)
+                                goal(snapshot)
+                            } else {
+                                issue("Your focus history couldn’t be loaded.") { workspace.retryPersistence(); refresh() }
+                            }
+                            habitsContent(snapshot)
+                            tasksContent(snapshot)
+                            if let error = preferences.persistenceError { issue(error) { preferences.retryPersistence() } }
+                            streaks(snapshot)
+                        } else if model.calculationError == nil {
+                            ProgressView("Preparing your statistics…").padding(32).frame(maxWidth: .infinity)
+                        }
                     }
+                    .padding(.bottom, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.bottom, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(width: viewport.size.width, height: viewport.size.height)
         }
         .foregroundStyle(KeepTheme.ink).tint(KeepTheme.accentStrong)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { contentWidth = $0 }
         .task(id: isVisible) { if isVisible { refresh() } else { model.cancel() } }
         .onChange(of: model.query) { _, _ in refresh() }
         .onChange(of: workspace.displayInstant) { _, _ in refresh() }
@@ -75,6 +81,7 @@ struct StatsView: View {
                 }
             }
         }
+        .sheet(item: $goalProject) { project in ProjectGoalsDialog(workspace: workspace, project: project) }
         .sheet(isPresented: $showsGoal) { StatsGoalEditor(preferences: preferences) }
     }
 
@@ -148,8 +155,9 @@ struct StatsView: View {
         }
     }
 
-    private func focusContent(_ snapshot: StatsSnapshot) -> some View {
+    private func focusContent(_ snapshot: StatsSnapshot, contentWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 24) {
+            card { StatsActivityGrid(snapshot: snapshot.focusActivity, availableWidth: contentWidth) }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: contentWidth >= 820 ? 4 : 2), spacing: 16) {
                 metric("Focus time", value: TimesheetDuration.total(snapshot.total), detail: "Recorded sessions", fill: KeepTheme.sage)
                 metric("Active days", value: "\(snapshot.activeDays)", detail: "Days with recorded focus", fill: KeepTheme.mistBlue)
@@ -161,11 +169,15 @@ struct StatsView: View {
                 Text(difference == 0 ? "The same focus time as the previous equivalent period" : "\(TimesheetDuration.total(abs(difference))) \(difference < 0 ? "less" : "more") than the previous equivalent period")
                     .font(.system(size: 14, weight: .medium))
             }
-            card {
-                StatsBarChart(title: "Your focus over time", points: snapshot.buckets.enumerated().map { .init(id: $0.offset, label: $0.element.label, seconds: $0.element.seconds) })
-                if snapshot.total == 0 { Text("No recorded focus matches these dates and filters.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk) }
+            if contentWidth >= 1100 {
+                HStack(alignment: .top, spacing: 20) {
+                    trend(snapshot, height: 390).frame(width: (contentWidth - 20) * 2 / 3)
+                    card { distribution(snapshot, compact: true) }.frame(width: (contentWidth - 20) / 3)
+                }
+            } else {
+                trend(snapshot, height: 250)
+                card { distribution(snapshot) }
             }
-            card { distribution(snapshot) }
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 20) {
                     weekdayChart(snapshot).frame(minWidth: 330)
@@ -173,6 +185,14 @@ struct StatsView: View {
                 }
                 VStack(spacing: 20) { weekdayChart(snapshot); hourChart(snapshot) }
             }
+        }
+    }
+    private func trend(_ snapshot: StatsSnapshot, height: CGFloat) -> some View {
+        card {
+            StatsBarChart(title: "Your focus over time", points: snapshot.buckets.enumerated().map {
+                .init(id: $0.offset, label: $0.element.label, seconds: $0.element.seconds)
+            }, plotHeight: height)
+            if snapshot.total == 0 { Text("No recorded focus matches these dates and filters.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk) }
         }
     }
     private func weekdayChart(_ snapshot: StatsSnapshot) -> some View {
@@ -187,14 +207,15 @@ struct StatsView: View {
             StatsBarChart(title: "Focus by hour", points: snapshot.hours.enumerated().map { .init(id: $0.offset, label: String(format: "%02d:00", $0.offset), seconds: $0.element) })
         }
     }
-    private func distribution(_ snapshot: StatsSnapshot) -> some View {
-        StatsDistributionChart(rows: snapshot.distribution, showsTasks: model.query.projectID != nil) { row in
+    private func distribution(_ snapshot: StatsSnapshot, compact: Bool = false) -> some View {
+        StatsDistributionChart(rows: snapshot.distribution, showsTasks: model.query.projectID != nil, onSelect: { row in
             if let key = row.taskKey { model.query.taskKeys = [key] }
             else { model.query.projectID = row.projectID; model.query.taskKeys = nil }
-        }
+        }, compact: compact)
     }
 
     private func goal(_ snapshot: StatsSnapshot) -> some View {
+        VStack(spacing: 20) {
         card {
             HStack {
                 Text("A weekly goal").font(KeepTheme.headingFont(size: 23))
@@ -210,6 +231,25 @@ struct StatsView: View {
                     .accessibilityLabel("Weekly focus goal")
             } else { Text("Choose an amount of focus time that works for you.").font(.system(size: 14)).foregroundStyle(KeepTheme.secondaryInk) }
         }
+        card {
+            Text("Project targets").font(KeepTheme.headingFont(size: 23))
+            Text("This week · recorded focus · all tasks · Monday to Sunday").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+            ForEach(workspace.projects.filter { model.query.projectID == nil || $0.id == model.query.projectID }) { project in
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label(project.name, systemImage: "folder.fill").foregroundStyle(project.labelColor(in: environment))
+                        Spacer()
+                        Button(workspace.projectTargets[project.id] == nil ? "Set goals" : "Edit goals") { goalProject = project }
+                            .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!workspace.canTrack)
+                            .accessibilityLabel("Weekly targets for \(project.name)")
+                    }
+                    if let targets = workspace.projectTargets[project.id] {
+                        WeeklyTargetsProgress(targets: targets, amount: workspace.weeklyProjectSeconds(projectID: project.id) / 60) { TimesheetDuration.total($0 * 60) }
+                    }
+                }.padding(.vertical, 6)
+            }
+        }
+        }
     }
     private func habitsContent(_ snapshot: StatsSnapshot) -> some View {
         card {
@@ -223,12 +263,17 @@ struct StatsView: View {
                 } else { Text("No check-ins due").foregroundStyle(KeepTheme.mutedInk) }
                 ForEach(snapshot.habits) { habit in
                     HStack(spacing: 12) {
-                        Image(systemName: habit.icon).foregroundStyle(KeepTheme.accentStrong).frame(width: 24)
+                        Image(systemName: habit.icon).foregroundStyle((HabitIcon(rawValue: habit.icon) ?? .checkmark).ink(in: environment)).frame(width: 24)
                         Text(habit.name).fixedSize(horizontal: false, vertical: true)
                         Spacer()
                         Text(habit.due == 0 ? "Not due" : "\(habit.completed)/\(habit.due) · \(rate(habit.completed, habit.due))")
                             .font(.system(size: 13)).monospacedDigit()
                     }.padding(.vertical, 6).accessibilityElement(children: .combine)
+                    if let saved = habits.habits.first(where: { $0.id == habit.id }), let targets = saved.weeklyTargets {
+                        WeeklyTargetsProgress(targets: targets, amount: Double(habits.weeklyAmount(for: saved))) { amount in
+                            saved.weeklyUnit == "minutes" ? TimesheetDuration.total(amount * 60) : "\(Int(amount)) \(saved.weeklyUnit)"
+                        }.padding(.bottom, 12)
+                    }
                 }
             }
         }

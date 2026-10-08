@@ -46,6 +46,7 @@ nonisolated struct TimesheetLedger: Codable {
     private(set) var customProjects: [FocusProject] = []
     /// Saved edits to built-in projects; absent in older archives.
     private(set) var projectOverrides: [FocusProject] = []
+    private(set) var projectTargets: [String: WeeklyTargets] = [:]
     private(set) var deletedProjectIDs: Set<String> = []
     private(set) var pomodoroSettings: PomodoroSettings?
     private(set) var sessions: [RecordedSession] = []
@@ -62,7 +63,7 @@ nonisolated struct TimesheetLedger: Codable {
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case entries, customProjects, projectOverrides, deletedProjectIDs, pomodoroSettings, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, projectOverrides, projectTargets, deletedProjectIDs, pomodoroSettings, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -70,6 +71,7 @@ nonisolated struct TimesheetLedger: Codable {
         // Existing v1 records predate project creation and contain only entries.
         customProjects = try container.decodeIfPresent([FocusProject].self, forKey: .customProjects) ?? []
         projectOverrides = try container.decodeIfPresent([FocusProject].self, forKey: .projectOverrides) ?? []
+        projectTargets = try container.decodeIfPresent([String: WeeklyTargets].self, forKey: .projectTargets) ?? [:]
         deletedProjectIDs = try container.decodeIfPresent(Set<String>.self, forKey: .deletedProjectIDs) ?? []
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
         sessions = try container.decodeIfPresent([RecordedSession].self, forKey: .sessions) ?? []
@@ -120,6 +122,11 @@ nonisolated struct TimesheetLedger: Codable {
 
     mutating func registerProject(_ project: FocusProject) {
         customProjects.append(project)
+        changes.append(.catalog)
+    }
+
+    mutating func setProjectTargets(_ targets: WeeklyTargets?, projectID: String) {
+        projectTargets[projectID] = targets
         changes.append(.catalog)
     }
 

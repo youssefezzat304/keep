@@ -160,6 +160,24 @@ final class WorkspaceModel {
         save(at: instant)
     }
 
+    var projectTargets: [String: WeeklyTargets] { ledger.projectTargets }
+
+    func updateProjectTargets(projectID: String, targets: WeeklyTargets?, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack else { throw ProjectCreationError.unavailable }
+        guard projects.contains(where: { $0.id == projectID }) else { throw ProjectCreationError.missing }
+        guard targets?.isValid(maximum: WeeklyTargets.maximumMinutes) != false else { throw WeeklyTargetsError.invalidTime }
+        synchronize(at: instant, date: date)
+        ledger.setProjectTargets(targets, projectID: projectID)
+        ledgerDirty = true
+        save(at: instant)
+    }
+
+    func weeklyProjectSeconds(projectID: String, today: Date = .now) -> Double {
+        _ = readIndex.revision
+        let days = TimesheetWeek(containing: today, calendar: calendar).days.filter { $0.date <= today }.map(\.id)
+        return readIndex.recordedSeconds(projectID: projectID, days: days)
+    }
+
     /// Removing a catalog project never erases time. Running timers continue unassigned.
     func deleteProject(_ project: FocusProject, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack, projects.contains(where: { $0.id == project.id }) else { return }

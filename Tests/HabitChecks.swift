@@ -170,7 +170,7 @@ private final class HabitChangeReading { var changed = false }
         expect(!invalid.isValid, "Archive rejects empty frequency")
         invalid.weekdays = [.monday, .monday]
         expect(!invalid.isValid, "Archive rejects duplicate frequency")
-        expect(!HabitArchive(habits: [habit], logs: [HabitLog(habitID: habit.id, dayID: "2026-10-06", amount: 1)]).isValid, "Archive rejects rest-day logs")
+        expect(HabitArchive(habits: [habit], logs: [HabitLog(habitID: habit.id, dayID: "2026-10-06", amount: 1)]).isValid, "Archive retains past logs after schedule edits; live rest-day writes remain rejected")
         let encoded = try JSONEncoder().encode(store.archive)
         expect(tryDecoded(encoded).habits[0].weekdays == habit.weekdays && tryDecoded(encoded).isValid, "Frequency and progress round trip")
         let daily = Habit(id: UUID(), name: "Daily legacy", icon: .book, startDay: "2026-10-01", endDay: nil, goal: .checkIn)
@@ -195,9 +195,6 @@ private final class HabitChangeReading { var changed = false }
             expect(TaskDay.id(for: days[0], calendar: calendar) == "\(year)-01-01" && TaskDay.id(for: days[expectedDays - 1], calendar: calendar) == "\(year)-12-31", "Annual grid covers Jan through Dec")
             expect(Set(days.filter { calendar.component(.day, from: $0) == 1 }.map { calendar.component(.month, from: $0) }).count == 12, "All twelve month labels represented")
         }
-        expect(HabitDates.weeklyHeight(completions: 0) == 0, "Empty year weekly bars empty")
-        expect(HabitDates.weeklyHeight(completions: 1) == 1, "Small positive weekly total remains visible")
-        expect(HabitDates.weeklyHeight(completions: 4) == 4 && HabitDates.weeklyHeight(completions: 100) == 7, "Weekly bars count goals and cap at seven instead of scaling sparse history")
         let suite = "keep.tests.frequency.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { fatalError("Defaults") }
         defer { defaults.removePersistentDomain(forName: suite) }

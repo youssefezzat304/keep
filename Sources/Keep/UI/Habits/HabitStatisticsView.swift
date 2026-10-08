@@ -25,7 +25,12 @@ struct HabitStatisticsView: View {
                         .buttonStyle(KeepButtonStyle(emphasis: .quiet))
                         .disabled(!store.canEdit)
                         .accessibilityLabel("Edit \(habit.name)")
-                        .help("Edit habit name and icon")
+                        .help("Edit habit name, icon, days and weekly targets")
+                }
+                if let targets = habit.weeklyTargets {
+                    WeeklyTargetsProgress(targets: targets, amount: Double(store.weeklyAmount(for: habit, today: today))) { amount in
+                        habit.weeklyUnit == "minutes" ? TimesheetDuration.total(amount * 60) : "\(Int(amount)) \(habit.weeklyUnit)"
+                    }
                 }
                 let stats = store.statistics(for: habit, month: month, today: today)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {

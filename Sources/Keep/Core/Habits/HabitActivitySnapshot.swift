@@ -1,6 +1,6 @@
 import Foundation
 
-/// Prepares dates, counts and labels once per data/day change, independent of the display mode.
+/// Prepares dates, counts and labels once per data/day change, for the monthly activity grid.
 struct HabitActivitySnapshot {
     struct Day {
         let date: Date
@@ -13,7 +13,6 @@ struct HabitActivitySnapshot {
         let days: [Day]
         let total: Int
         let month: String
-        let label: String
     }
     let year: Int
     let weeks: [Week]
@@ -39,8 +38,7 @@ struct HabitActivitySnapshot {
             let total = days.reduce(0) { $0 + $1.count }
             let month = dates.first { calendar.component(.year, from: $0) == currentYear && calendar.component(.day, from: $0) == 1 }
                 .map { HabitDates.label($0, calendar: calendar, style: .dateTime.month(.abbreviated)) } ?? " "
-            let weekName = dates.first.map { HabitDates.label($0, calendar: calendar, style: .dateTime.day().month(.wide)) } ?? ""
-            return Week(days: days, total: total, month: month, label: "Week of \(weekName): \(total) habits completed")
+            return Week(days: days, total: total, month: month)
         }
     }
 }
