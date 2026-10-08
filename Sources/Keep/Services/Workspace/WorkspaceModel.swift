@@ -22,10 +22,10 @@ final class WorkspaceModel {
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
     var taskSuggestions: [TaskActivity] { _ = readIndex.metadataRevision; return readIndex.suggestions }
 
-    func captureBackup() throws -> TimesheetLedger {
+    func capturePersistentData(at instant: ContinuousClock.Instant = .now, date: Date = .now) throws -> TimesheetLedger {
         guard canTrack else { throw BackupFailure.localDataUnavailable }
-        synchronize()
-        save()
+        synchronize(at: instant, date: date)
+        save(at: instant)
         guard persistenceError == nil else { throw BackupFailure.localDataUnavailable }
         return ledger
     }

@@ -90,8 +90,6 @@ struct StatsBarChart: View {
             .accessibilityValue(selectedPoint.map { "\($0.label), \(TimesheetDuration.total($0.seconds))" } ?? "Recorded focus in hours")
             .accessibilityHint("Use left and right arrow keys to inspect values.")
             .accessibilityAdjustableAction { direction in inspect(direction == .increment ? 1 : -1) }
-            Text("Recorded focus · hours")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk).monospacedDigit()
         }
     }
 

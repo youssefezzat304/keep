@@ -351,7 +351,7 @@ actor StatsCache {
             }.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds }
             return StatsSnapshot(range: range, total: max(0, total), previousTotal: max(0, previousTotal), activeDays: activeDays,
                 pomodoros: pomodoros, pomodorosAvailable: historyStartedAt.map { StatsSnapshot.dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
-                adjustedTotal: max(0, adjusted), focusActivity: activityLayout.filling(activityDaily), buckets: buckets, distribution: distribution, weekdays: weekdays, hours: hours,
+                adjustedTotal: max(0, adjusted), dailyFocus: activityDaily, focusActivity: activityLayout.filling(activityDaily), buckets: buckets, distribution: distribution, weekdays: weekdays, hours: hours,
                 tasksCompleted: summary.tasksCompleted, tasksTotal: summary.tasksTotal, habits: summary.habits, weeklyGoalSeconds: max(0, weeklyGoal),
                 currentStreak: streak.current, bestStreak: streak.best)
         }

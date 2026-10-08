@@ -89,7 +89,7 @@ struct AppShellView: View {
                             .accessibilityHidden(selectedTab != .stats)
 
                         KeepScrollView {
-                            SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, loginItem: loginItem, updater: updater, backup: backup, isVisible: selectedTab == .settings && !zen.isPresented)
+                            SettingsView(preferences: preferences, player: music, wallpapers: wallpapers, loginItem: loginItem, updater: updater, backup: backup, exportCapture: SnapshotCapture(workspace: workspace, tasks: tasks, habits: habits, preferences: preferences, gate: backup?.gate), isVisible: selectedTab == .settings && !zen.isPresented)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
                         .opacity(selectedTab == .settings ? 1 : 0)

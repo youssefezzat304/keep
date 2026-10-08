@@ -9,6 +9,7 @@ struct SettingsView: View {
     var loginItem = LoginItemModel()
     var updater = AppUpdater()
     var backup: BackupModel?
+    var exportCapture: SnapshotCapture?
     var isVisible = true
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFolder = false
@@ -56,6 +57,7 @@ struct SettingsView: View {
             updates
 
             if let backup { BackupSettingsView(backup: backup) }
+            if let exportCapture { ExportSettingsView(capture: exportCapture) }
 
             VStack(alignment: .leading, spacing: 18) {
                 section("Appearance", symbol: "circle.lefthalf.filled") {

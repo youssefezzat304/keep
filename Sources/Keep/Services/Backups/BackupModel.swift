@@ -187,11 +187,9 @@ struct BackupLocalState: Codable {
         } catch { status = .error(error.localizedDescription) }
     }
     private func capture() throws -> BackupPayload {
-        guard !tasks.loadFailed, !habits.loadFailed, preferences.canEdit,
-              tasks.persistenceError == nil, habits.persistenceError == nil, preferences.persistenceError == nil else { throw BackupFailure.localDataUnavailable }
-        let ledger = try workspace.captureBackup()
-        // No suspension here: all four value archives represent this same main-actor checkpoint.
-        return BackupPayload(workspace: ledger, tasks: tasks.archive, habits: habits.archive, settings: PortableSettings(preferences.snapshot))
+        let snapshot = try SnapshotCapture(workspace: workspace, tasks: tasks, habits: habits,
+                                           preferences: preferences, gate: gate).capture(.backup, date: now())
+        return try snapshot.backupPayload()
     }
     private func createBackup(force: Bool) async {
         status = .preparing

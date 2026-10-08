@@ -219,21 +219,21 @@ struct StatsView: View {
         card {
             HStack {
                 Text("A weekly goal").font(KeepTheme.headingFont(size: 23))
+                    .accessibilityHint("This week, all projects, Monday to Sunday.")
                 Spacer()
                 Button(preferences.weeklyFocusGoalMinutes == nil ? "Set goal" : "Edit goal") { showsGoal = true }
                     .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!preferences.canEdit)
             }
-            Text("This week · all projects · Monday to Sunday").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
             if let minutes = preferences.weeklyFocusGoalMinutes {
                 Text("\(TimesheetDuration.total(snapshot.weeklyGoalSeconds)) of \(TimesheetDuration.total(Double(minutes * 60)))")
                     .font(KeepTheme.headingFont(size: 24)).monospacedDigit()
                 ProgressView(value: min(1, snapshot.weeklyGoalSeconds / Double(minutes * 60)))
                     .accessibilityLabel("Weekly focus goal")
-            } else { Text("Choose an amount of focus time that works for you.").font(.system(size: 14)).foregroundStyle(KeepTheme.secondaryInk) }
+            }
         }
         card {
             Text("Project targets").font(KeepTheme.headingFont(size: 23))
-            Text("This week · recorded focus · all tasks · Monday to Sunday").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                .accessibilityHint("This week, recorded focus across all tasks, Monday to Sunday.")
             ForEach(workspace.projects.filter { model.query.projectID == nil || $0.id == model.query.projectID }) { project in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -246,7 +246,9 @@ struct StatsView: View {
                     if let targets = workspace.projectTargets[project.id] {
                         WeeklyTargetsProgress(targets: targets, amount: workspace.weeklyProjectSeconds(projectID: project.id) / 60, color: project.labelColor(in: environment)) { TimesheetDuration.total($0 * 60) }
                     }
-                }.padding(.vertical, 6)
+                }
+                .padding(14)
+                .background(project.labelColor(in: environment).opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
             }
         }
         }
@@ -254,7 +256,7 @@ struct StatsView: View {
     private func habitsContent(_ snapshot: StatsSnapshot) -> some View {
         card {
             Text("Habit consistency").font(KeepTheme.headingFont(size: 23))
-            Text("All habits · selected dates").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                .accessibilityHint("All habits, selected dates.")
             if let error = habits.persistenceError { issue(error) { habits.retryPersistence(); refresh() } }
             if !habits.loadFailed {
                 if snapshot.habitsDue > 0 {
@@ -281,21 +283,17 @@ struct StatsView: View {
     private func tasksContent(_ snapshot: StatsSnapshot) -> some View {
         card {
             Text("Small things, done").font(KeepTheme.headingFont(size: 23))
-            Text("All tasks · assigned to selected dates").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                .accessibilityHint("All tasks assigned to selected dates. Current saved lists only; habit check-ins are counted separately.")
             if let error = tasks.persistenceError { issue(error) { tasks.retryPersistence(); refresh() } }
             if !tasks.loadFailed {
                 Text(snapshot.tasksTotal == 0 ? "No saved tasks for these dates" : "\(snapshot.tasksCompleted) of \(snapshot.tasksTotal) complete · \(rate(snapshot.tasksCompleted, snapshot.tasksTotal))")
                     .font(KeepTheme.headingFont(size: 24))
-                Text("Based on current saved task lists, without completion timestamps or deleted tasks. Habit check-ins are counted separately.")
-                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
             }
         }
     }
     private func streaks(_ snapshot: StatsSnapshot) -> some View {
         card {
             Text("A little consistency").font(KeepTheme.headingFont(size: 23))
-            Text("Streak at range end / best within range. A streak can begin before the selected dates.")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
             if workspace.canTrack { streakRow("Focus · selected filters", current: snapshot.currentStreak, best: snapshot.bestStreak) }
             if !habits.loadFailed {
                 ForEach(snapshot.habits) { streakRow($0.name, current: $0.currentStreak, best: $0.bestStreak, unit: "check-ins") }
@@ -312,9 +310,9 @@ struct StatsView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title).font(.system(size: 13, weight: .medium))
             Text(value).font(KeepTheme.headingFont(size: 29)).monospacedDigit().fixedSize(horizontal: false, vertical: true)
-            Text(detail).font(.system(size: 12))
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).padding(20)
             .background(fill, in: RoundedRectangle(cornerRadius: 20)).accessibilityElement(children: .combine)
+            .accessibilityHint(detail)
     }
     private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 14, content: content).frame(maxWidth: .infinity, alignment: .leading).padding(22)

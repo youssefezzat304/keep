@@ -10,6 +10,7 @@ import Foundation
             && close(a.adjustedTotal, b.adjustedTotal) && close(a.weeklyGoalSeconds, b.weeklyGoalSeconds)
             && a.tasksCompleted == b.tasksCompleted && a.tasksTotal == b.tasksTotal && a.habits == b.habits
             && a.currentStreak == b.currentStreak && a.bestStreak == b.bestStreak
+            && Set(a.dailyFocus.keys).union(b.dailyFocus.keys).allSatisfy { close(a.dailyFocus[$0, default: 0], b.dailyFocus[$0, default: 0]) }
             && close(a.focusActivity.seconds, b.focusActivity.seconds)
             && zip(a.focusActivity.weeks.flatMap(\.days), b.focusActivity.weeks.flatMap(\.days)).allSatisfy { $0.id == $1.id && close($0.seconds, $1.seconds) }
             && a.buckets.map(\.id) == b.buckets.map(\.id) && zip(a.buckets, b.buckets).allSatisfy { close($0.seconds, $1.seconds) }

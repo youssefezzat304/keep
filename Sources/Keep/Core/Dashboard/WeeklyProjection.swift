@@ -20,7 +20,7 @@ struct WeeklyProjection {
         for day in days {
             let sessions = index.sessions(on: day)
             sessionsByDay[day] = sessions
-            let recorded = sessions.reduce(0) { $0 + $1.seconds }
+            let recorded = TimesheetProjectionRules.recordedSeconds(sessions)
             sessionDayTotals[day] = recorded; sessionTotal += recorded
             sessionProjects.formUnion(sessions.map { $0.project.id })
         }

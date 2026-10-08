@@ -2,6 +2,8 @@
 
 ## [SNAPSHOT]
 
+- 2026-10-08 [CODE] Settings has independent Calendar/Timesheet CSV and full Stats CSV ZIP exports, shared backup/report capture, restore fencing and native save staging. See D063 and `docs/exports.md`.
+
 - 2026-10-08 [CODE] Stats now uses a bounded viewport to prevent a native scrollbar/content-width feedback loop. Focus activity appears first, above summaries/charts. See D061.
 
 - 2026-10-08 [CODE] Projects and habits now save optional weekly Goal/At least targets; habit weekdays are editable without deleting logs. Wide Stats pairs the main charts 2:1 and adds a filtered focus-hours activity grid with tracker-matched habit icons. See D060.
@@ -26,7 +28,7 @@
 - 2026-10-05 [USER] Keep agent guidance and architecture clearer as understanding of the project improves.
 - 2026-10-05 [CODE] Created projects, project/day totals, and edits persist in local preferences. A shared creation dialog offers a name and 30 colors. Music supports public Audius streaming and scoped playback control of the Mac’s Music app; Sparkle is now the first third-party package, and there is no Xcode test target. Daily-task and session-recording standalone checks are checked in; earlier timer/workspace check sources have been removed; new silent music/preferences checks are checked in.
 - 2026-10-06 [USER] Visual direction: cozy palette and quiet layouts, with lighter, friendly rounded headings replacing the earlier formal serif direction (D040).
-- 2026-10-05 [CODE] Timers/project selection/ledger, music, saved daily tasks, and habits are app-shared; appearance/music preferences and channel selection persist; provider/volume restore without autoplay; timer/music runtime, committed task text, task-day selection, and window-local editor/input drafts are not restored on relaunch. Recorded session metadata persists with daily totals. Stats is implemented under D044; export remains excluded.
+- 2026-10-05 [CODE] Timers/project selection/ledger, music, saved daily tasks, and habits are app-shared; appearance/music preferences and channel selection persist; provider/volume restore without autoplay; timer/music runtime, committed task text, task-day selection, and window-local editor/input drafts are not restored on relaunch. Recorded session metadata persists with daily totals. Stats is implemented under D044; reporting exports are added by D063.
 
 ## [DECISIONS]
 
@@ -407,6 +409,12 @@ Move Never to the third Change wallpaper segment beside On a timer and With each
 - [CODE] Removed weekly activity rendering, selector state and unused weekly-only rules/labels. Daily intensity, totals, date selection, filter behavior and weekly target/progress features remain unchanged. This supersedes activity-mode choices in D029–D031/D060.
 - [TOOL] Unsigned Debug build and whitespace check passed. Standalone checks linked against the Xcode-built app objects passed 30 native Stats viewport, 68 weekly-target/activity and 127 habit assertions (225 total); 26 native Light/Dark layouts rendered. Inspected default/narrow captures and verified both grids in the running Xcode app: no activity-mode selectors or Focus caption remain. Personal records and playback were not changed; VoiceOver remains UNCONFIRMED.
 
+### D063 — Dedicated reporting exports (2026-10-08)
+
+- [USER] Add the approved dedicated Settings Export card, with independent Calendar/Timesheet CSV and the full Stats CSV ZIP bundle. Inclusive ranges end no later than today; retain historical/deleted/No project options and project-scoped task selection where attribution exists. Preserve timers, music, history and existing reporting screen selections. PDF/ICS/import/scheduling remain excluded.
+- [CODE] Added immutable reporting contracts, reusable SnapshotCapture for backup/export, window-local ExportModel, injected file/panel/clock adapters, off-main validation/aggregation/CSV/ZIP/I/O, protected-store checks, restore/window cancellation and coordinated atomic destination writes. Stats now exposes full-range daily contributions; Timesheet recorded attribution shares projection rules. Backups retain schema/version/whitelist. Both Xcode configurations request user-selected read/write; wallpaper bookmarks and other source capabilities remain unchanged. See `docs/exports.md` for fields, encoding, coverage and scope contracts.
+- [TOOL] Verification results are recorded in the receipt below. A signed isolated sandbox build opens/cancels the asynchronous save sheet, but this host leaves Save disabled, including in a minimal independent AppKit sandbox baseline. Actual signed destination saving/overwrite and VoiceOver remain UNCONFIRMED.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -445,7 +453,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 
 - 2026-10-05 [CODE] UNCONFIRMED: Calendar drag-and-drop, restoring timer runtime, automatic interval starts, and future notifications. Habit tracking and weekday frequency are implemented under D029/D030; other recurrence rules/reminders/sync remain unrequested. Real session recording is implemented under D021. Current focus/break/sleep/relaunch behavior is documented in D008, D011, and architecture.
 - 2026-10-05 [CODE] UNCONFIRMED: task-level aggregate editing and future storage migration. Project renaming is implemented under D052. Task text is captured in actual sessions under D021. Project switches currently apply prospectively, and selection preserves task text.
-- 2026-10-07 [CODE] Statistics scope is implemented under D044; export remains excluded. UNCONFIRMED: offline audio and account/gated playback. Appearance, music preferences, and saved channels are implemented under D015.
+- 2026-10-07 [CODE] Statistics scope is implemented under D044; reporting exports are added by D063. UNCONFIRMED: offline audio and account/gated playback. Appearance, music preferences, and saved channels are implemented under D015.
 
 ## [WORKING SET]
 
@@ -581,3 +589,7 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-07 [TOOL] Never placement: unsigned Debug build, 61 wallpaper control checks and whitespace check passed. Rendered 32 isolated native layouts; inspected narrow Light timed/custom controls and narrow Dark Never selection, with three intact Change wallpaper segments and no interval row under Never. Legacy disabled settings map to Never; saved durations, manual navigation and rotation cancellation remain covered. Physical keyboard/VoiceOver operation was not exercised.
 
 - 2026-10-07 [TOOL] Optional iCloud backup: unsigned Debug build, plist validation and whitespace check passed. Passed 118 isolated backup checks and 454 regression checks (session recording, daily tasks, habits, Pomodoro completions, task activity, silent music/preferences and updater). Coverage includes portable round trips/exclusions, protected/legacy/corrupt archives, hourly scheduling, bounded retry queues, retention, native opaque-token equality/account fencing, metadata-confirmed upload and quota/error states, canceled previews, durable interrupted restore/rollback, recovery-write/commit-marker failures, concurrent timer/day-boundary settlement and completion preservation. Rendered 10 native Light/Dark default/narrow backup Settings and restore layouts; inspected validated replacement summaries and account-change status. Physical keyboard/VoiceOver, actual cloud transfers/quota/account switching, signed two-Mac and notarized DMG verification remain UNCONFIRMED; this Mac has no Developer ID Application identity or configured iCloud profile. No live archives, real audio, Music prompts or iCloud uploads were used.
+
+- 2026-10-08 [TOOL] Dedicated Export: unsigned Debug and ad hoc signed Debug/Release builds passed. Passed 63 export, 118 backup, 214 cache, 37 Stats and 100 session-recording assertions (532 total), plus 12 native export layouts. Rechecked 63 export assertions and 12 layouts after accessibility-label polish. Inspected default/narrow Light/Dark captures and actual signed sandbox/read-write entitlements. The isolated signed app opens/cancels its asynchronous native save sheet without changing live archives or playback. Actual signed destination saving/overwrite remains UNCONFIRMED: this host disables Save, including in a minimal independent AppKit sandbox baseline. Full keyboard/VoiceOver operation remains UNCONFIRMED.
+
+- 2026-10-08 [USER][CODE] Removed descriptive Stats subtitles, including the current-week recorded-focus caption. Reporting scope remains in accessibility hints. Project target rows now have pale backgrounds in their project colors; goals, calculations and actions are unchanged. [TOOL] Unsigned Debug build, whitespace check and 30 native viewport checks passed. Rendered 26 existing target/Stats layouts plus two full narrow Stats captures; inspected project rows in Light/Dark at normal/narrow widths. Full keyboard/VoiceOver remains UNCONFIRMED.
