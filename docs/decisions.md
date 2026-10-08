@@ -473,6 +473,16 @@ Move Never to the third Change wallpaper segment beside On a timer and With each
 - [USER] Remove the live wallpapers from the website and return to the original screenshot.
 - [CODE] Zen again displays the original responsive native capture directly. Removed the chooser/disclosure, preview component, styles, manifest, generation command/script, generated derivatives, video-specific preview-server handling and retired interaction checks. Personal-wallpaper feature copy and supplied original MP4 files remain. This supersedes D071’s website presentation; native app behavior is unchanged.
 
+### D073 — Product README (2026-10-08)
+
+- [USER] Follow the structure of the vorssaint-utils README, include Keep’s logo and screenshots, omit the donation section, and recommend a license.
+- [CODE] Root README now introduces implemented features, free pricing, local storage/permissions, installation status, build commands and canonical documentation. Nine PNG assets under `docs/assets/readme/` reuse the existing icon and eight isolated native captures. GitHub has no public release as of this update. `LICENSE.md` is empty; a license recommendation does not select or apply one.
+
+### D074 — MIT license (2026-10-08)
+
+- [USER] License Keep under MIT, superseding D073’s pending license selection.
+- [CODE] Added the standard MIT text to `LICENSE.md` with copyright 2026 Youssef Abdelrahim (name from repository commit metadata). README links to the license; third-party notices remain unchanged.
+
 ## [PROGRESS]
 
 - 2026-10-05 [CODE] Established architecture documentation from all current Swift views, asset definitions, and the Xcode project. Documented actual composition and separated placeholders from functional behavior.
@@ -529,6 +539,8 @@ These questions are not blockers for unrelated work; resolve them when the relev
 - 2026-10-08 [CODE] `website/`
 
 ## [RECEIPTS]
+
+- 2026-10-08 [TOOL] Product README: GitHub’s Markdown API rendered successfully; 30 local links/anchors/image references passed validation. Chromium previews at 1060 px and 390 px loaded all 12 images (nine local PNGs and three badges) without horizontal overflow; inspected desktop/mobile presentation. Whitespace checks passed. Review artifacts are in `/tmp/keep-readme-review/`. Native code was unchanged, so no Xcode build was run; `LICENSE.md` and the user’s Xcode project edits were preserved.
 
 - 2026-10-08 [TOOL] Zen screenshot restoration: type checking, ESLint, static build, whitespace check and 32 focused Chromium/WebKit cases passed across desktop/mobile and both system preferences. Inspected the restored native capture and confirmed responsive screenshot URLs, with no video, chooser or disclosure in Zen. Local Lighthouse performance is 96 mobile / 100 desktop; accessibility/best-practices/SEO are 100, LCP 2.8 s / 0.6 s, CLS 0. Review artifacts are in `/tmp/keep-website-review-zen-restored/`. Supplied original videos remain unchanged; no native code or remote publication changed.
 
