@@ -17,23 +17,22 @@ struct HabitActivityGrid: View {
     private var calendar: Calendar { store.calendar }
     private var year: Int { calendar.component(.year, from: today) }
     private var color: Color { HabitVisualStyle.ink(.fern, in: environment) }
-    private func tileSize(columns: Int) -> CGFloat { max(6, min(11, (availableWidth - CGFloat(columns - 1) * 3) / CGFloat(max(1, columns)))) }
 
     var body: some View {
         let snapshot = store.activity(today: today)
         let columns = snapshot.weeks
-        let size = tileSize(columns: columns.count)
+        let size = ActivityGridStyle.tileSize(availableWidth: availableWidth, columns: columns.count)
         let ink = color
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: ActivityGridStyle.spacing) {
             HStack {
                 Text("Habit activity").font(KeepTheme.headingFont(size: 24))
                 Text(String(year)).font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 Spacer(minLength: 12)
             }
-            HStack(alignment: .top, spacing: 3) {
+            HStack(alignment: .top, spacing: ActivityGridStyle.tileSpacing) {
                 ForEach(columns.indices, id: \.self) { index in
-                    VStack(spacing: 7) {
-                        VStack(spacing: 3) {
+                    VStack(spacing: ActivityGridStyle.monthSpacing) {
+                        VStack(spacing: ActivityGridStyle.tileSpacing) {
                             ForEach(0..<7) { row in dailyTile(columns[index].days[row], size: size, ink: ink) }
                         }
                         Text(columns[index].month)
@@ -57,24 +56,14 @@ struct HabitActivityGrid: View {
         }
     }
     private func fill(_ count: Int, ink: Color) -> Color {
-        count == 0 ? KeepTheme.mutedWarm.opacity(0.55) : ink.opacity([0.0, 0.3, 0.5, 0.75, 1.0][min(4, count)])
+        ActivityGridStyle.fill(level: count, ink: ink)
     }
     private func dailyTile(_ day: HabitActivitySnapshot.Day, size: CGFloat, ink: Color) -> some View {
         Button { onSelectDay(day.date) } label: {
             RoundedRectangle(cornerRadius: 2).fill(fill(day.count, ink: ink)).frame(width: size, height: size)
         }
-        .buttonStyle(HabitSquareButtonStyle()).disabled(!day.inYear || day.future)
-        .opacity(!day.inYear ? 0 : day.future ? 0.3 : 1)
+        .buttonStyle(ActivitySquareButtonStyle()).disabled(!day.inYear || day.future)
+        .opacity(day.inYear ? 1 : 0)
         .help(day.label).accessibilityLabel(day.label).accessibilityHidden(!day.inYear)
-    }
-}
-
-private struct HabitSquareButtonStyle: ButtonStyle {
-    @Environment(\.isFocused) private var focused
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.overlay {
-            RoundedRectangle(cornerRadius: 2).strokeBorder(focused ? KeepTheme.focusRing : .clear, lineWidth: 2)
-                .allowsHitTesting(false)
-        }.opacity(configuration.isPressed ? 0.7 : 1)
     }
 }

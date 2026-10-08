@@ -28,7 +28,7 @@ struct HabitStatisticsView: View {
                         .help("Edit habit name, icon, days and weekly targets")
                 }
                 if let targets = habit.weeklyTargets {
-                    WeeklyTargetsProgress(targets: targets, amount: Double(store.weeklyAmount(for: habit, today: today))) { amount in
+                    WeeklyTargetsProgress(targets: targets, amount: Double(store.weeklyAmount(for: habit, today: today)), color: habit.icon.ink(in: environment)) { amount in
                         habit.weeklyUnit == "minutes" ? TimesheetDuration.total(amount * 60) : "\(Int(amount)) \(habit.weeklyUnit)"
                     }
                 }

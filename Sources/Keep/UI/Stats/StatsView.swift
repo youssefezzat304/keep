@@ -244,7 +244,7 @@ struct StatsView: View {
                             .accessibilityLabel("Weekly targets for \(project.name)")
                     }
                     if let targets = workspace.projectTargets[project.id] {
-                        WeeklyTargetsProgress(targets: targets, amount: workspace.weeklyProjectSeconds(projectID: project.id) / 60) { TimesheetDuration.total($0 * 60) }
+                        WeeklyTargetsProgress(targets: targets, amount: workspace.weeklyProjectSeconds(projectID: project.id) / 60, color: project.labelColor(in: environment)) { TimesheetDuration.total($0 * 60) }
                     }
                 }.padding(.vertical, 6)
             }
@@ -270,7 +270,7 @@ struct StatsView: View {
                             .font(.system(size: 13)).monospacedDigit()
                     }.padding(.vertical, 6).accessibilityElement(children: .combine)
                     if let saved = habits.habits.first(where: { $0.id == habit.id }), let targets = saved.weeklyTargets {
-                        WeeklyTargetsProgress(targets: targets, amount: Double(habits.weeklyAmount(for: saved))) { amount in
+                        WeeklyTargetsProgress(targets: targets, amount: Double(habits.weeklyAmount(for: saved)), color: saved.icon.ink(in: environment)) { amount in
                             saved.weeklyUnit == "minutes" ? TimesheetDuration.total(amount * 60) : "\(Int(amount)) \(saved.weeklyUnit)"
                         }.padding(.bottom, 12)
                     }

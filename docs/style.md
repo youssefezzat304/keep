@@ -99,7 +99,7 @@ The menu-bar target field names the task only; its recent-task and project lists
 
 ## 8. Habit tracker and data
 
-Habit activity, weekly progress and selected-habit stats share one paper surface with faded separators. Center a compact full-current-year grid with month labels and Monday-first columns. Monthly intensity counts completed habits, with exact counts exposed; omit activity-mode controls. Future/rest states are subdued but still visible. Do not scale a lone completion into a filled column.
+Habit activity, weekly progress and selected-habit stats share one paper surface with faded separators. Center a compact full-current-year grid with month labels and Monday-first columns. Monthly intensity counts completed habits, with exact counts exposed; omit activity-mode controls. Focus and habit activity use the same shared grid geometry, square sizes, spacing and focus style. Empty in-year squares use one opaque neutral color, including future and unselected dates; disabled dates remain noninteractive. Do not scale a lone completion into a filled column.
 
 Weekly progress fits its seven day controls, leaving room for stats alongside; stack at narrow widths. Give habits varied existing project accents and metric surfaces quiet sage, blue, honey, and rose. Keep readable accent ink in both appearances. Empty circular check-in controls have visible outlines; completed and partial states use checks, rings or amounts, not color alone.
 

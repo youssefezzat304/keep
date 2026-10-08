@@ -32,6 +32,7 @@ struct WeeklyTargetsFields: View {
 struct WeeklyTargetsProgress: View {
     let targets: WeeklyTargets
     let amount: Double
+    let color: Color
     let format: (Double) -> String
 
     var body: some View {
@@ -45,14 +46,16 @@ struct WeeklyTargetsProgress: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule().fill(KeepTheme.mutedWarm)
-                    Capsule().fill(amount >= Double(targets.minimum) ? KeepTheme.sageInk : KeepTheme.accentStrong)
+                    Capsule().fill(color)
                         .frame(width: geometry.size.width * min(1, max(0, amount / Double(targets.goal))))
                     Rectangle().fill(KeepTheme.ink).frame(width: 2, height: 12)
                         .offset(x: min(max(0, geometry.size.width - 2), geometry.size.width * Double(targets.minimum) / Double(targets.goal)))
                 }
             }.frame(height: 8).accessibilityHidden(true)
-            Text(amount >= Double(targets.goal) ? "Goal reached" : amount >= Double(targets.minimum) ? "Weekly minimum reached" : "Working toward your weekly minimum")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
+            if amount >= Double(targets.minimum) {
+                Text(amount >= Double(targets.goal) ? "Goal reached" : "Weekly minimum reached")
+                    .font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk)
+            }
         }.accessibilityElement(children: .combine)
     }
 }
