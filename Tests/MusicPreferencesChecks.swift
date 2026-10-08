@@ -251,6 +251,32 @@ private actor DelayedMusic: AppleMusicControlling {
         let releaseCommands = await native.commands
         expect(releaseCommands.last == .pause && model.state == .idle, "Switching provider releases the owned Apple Music session")
 
+        // Retired materials migrate without losing unrelated settings or accepting corrupt values.
+        let beforeMigration = preferences.snapshot
+        guard var legacyMaterial = try JSONSerialization.jsonObject(with: JSONEncoder().encode(beforeMigration)) as? [String: Any] else {
+            throw CocoaError(.coderInvalidValue)
+        }
+        legacyMaterial["glassStyle"] = "liquid"
+        defaults.set(try JSONSerialization.data(withJSONObject: legacyMaterial), forKey: persistence.key)
+        let frosted = AppPreferences(persistence: persistence)
+        expect(frosted.canEdit && frosted.snapshot == beforeMigration, "Liquid Glass preferences migrate to frosted without losing other settings")
+        frosted.glassiness = 0.73
+        let savedFrosted = try persistence.load()
+        expect(savedFrosted.glassStyle == .frosted && savedFrosted.glassiness == 0.73,
+               "Migrated material and adjusted glassiness survive reload")
+        guard let savedBytes = defaults.data(forKey: persistence.key),
+              let savedMaterial = try JSONSerialization.jsonObject(with: savedBytes) as? [String: Any] else {
+            throw CocoaError(.coderReadCorrupt)
+        }
+        expect(savedMaterial["glassStyle"] as? String == "frosted", "Saving rewrites the retired material using the compatible frosted value")
+        legacyMaterial["glassStyle"] = "unknown-material"
+        let invalidMaterial = try JSONSerialization.data(withJSONObject: legacyMaterial)
+        defaults.set(invalidMaterial, forKey: persistence.key)
+        let protectedMaterial = AppPreferences(persistence: persistence)
+        protectedMaterial.glassiness = 0.2
+        expect(!protectedMaterial.canEdit && defaults.data(forKey: persistence.key) == invalidMaterial,
+               "Unknown material still protects the original archive from edits")
+
         // Existing preference archives omit the new optional fields.
         var old = try JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences.snapshot)) as? [String: Any] ?? [:]
         old.removeValue(forKey: "musicVolume"); old.removeValue(forKey: "musicProvider")

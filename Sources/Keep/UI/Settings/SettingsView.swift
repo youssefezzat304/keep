@@ -291,10 +291,6 @@ struct SettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Music card preview")
-            settingRow("Card material") {
-                KeepSegmentedPicker(label: "Music card material", selection: $preferences.glassStyle,
-                                    options: MusicGlassStyle.allCases, title: { $0.title })
-            }
             HStack {
                 Text("Glassiness").font(.system(size: 13, weight: .medium))
                 Spacer()

@@ -32,6 +32,6 @@ xcodebuild -project keep.xcodeproj -scheme keep -configuration Debug \
 python3 Tools/run-app-checks.py UpdaterChecks
 ```
 
-The project currently targets macOS 26.5. The unsigned build checks compilation; release signing, notarization and real update installation require separate verification.
+The project targets macOS 15 and newer. The unsigned build checks compilation; release signing, notarization and real update installation require separate verification.
 
 See [architecture and check commands](docs/architecture.md), [decisions](docs/decisions.md), [visual style](docs/style.md), and [Sparkle release setup](docs/updates.md).

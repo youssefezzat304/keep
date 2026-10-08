@@ -126,6 +126,25 @@ private final class Fixture {
         expect(payload.workspace.entries.first { $0.project.id == project.id && $0.dayID == day }?.seconds == 1234, "Adjusted totals stay independent")
         expect(payload.tasks.days[day]?.count == 1 && payload.tasks.hiddenHabitIDs[day]?.contains(habit.id) == true, "Tasks and hidden projections included")
         expect(payload.habits.logs.count == 1 && payload.settings.appearance == .dark, "Habits and settings included")
+        guard var legacyPayload = try JSONSerialization.jsonObject(with: original.payload) as? [String: Any],
+              var legacySettings = legacyPayload["settings"] as? [String: Any] else { throw BackupFailure.invalidArchive }
+        legacySettings["glassStyle"] = "liquid"
+        legacyPayload["settings"] = legacySettings
+        let legacyEnvelope = BackupEnvelope(payload: try JSONSerialization.data(withJSONObject: legacyPayload),
+                                            deviceID: original.deviceID, date: original.createdAt, appVersion: original.appVersion)
+        let migratedPayload = try legacyEnvelope.validatedPayload()
+        expect(migratedPayload.settings.applying(to: f.preferences.snapshot) == payload.settings.applying(to: f.preferences.snapshot),
+               "Liquid Glass backups restore as frosted while preserving portable and device-local settings")
+        let rewritten = try BackupEnvelope(snapshot: migratedPayload, deviceID: original.deviceID,
+                                           date: original.createdAt, appVersion: original.appVersion)
+        guard let rewrittenPayload = try JSONSerialization.jsonObject(with: rewritten.payload) as? [String: Any],
+              let rewrittenSettings = rewrittenPayload["settings"] as? [String: Any] else { throw BackupFailure.invalidArchive }
+        expect(rewrittenSettings["glassStyle"] as? String == "frosted", "New backups normalize the retired material without changing schema")
+        legacySettings["glassStyle"] = "unknown-material"
+        legacyPayload["settings"] = legacySettings
+        let invalidMaterialEnvelope = BackupEnvelope(payload: try JSONSerialization.data(withJSONObject: legacyPayload),
+                                                     deviceID: original.deviceID, date: original.createdAt, appVersion: original.appVersion)
+        rejects("Unknown backup material must fail validation") { _ = try invalidMaterialEnvelope.validatedPayload() }
         let text = String(decoding: original.payload, as: UTF8.self)
         expect(!text.contains("folderBookmark") && !text.contains("Device folder") && !text.contains("local-folder-only") && !text.contains("automaticBackup"), "Device access and local backup state excluded")
         f.cloud.confirm(); try await drain()

@@ -53,10 +53,18 @@ enum WallpaperIntervalChoice: Hashable {
     }
 }
 
-nonisolated enum MusicGlassStyle: String, Codable, CaseIterable, Identifiable {
-    case frosted, liquid
-    var id: String { rawValue }
-    var title: String { self == .frosted ? "Frosted" : "Liquid Glass" }
+// Retain the archive field while migrating the retired Liquid Glass selection to frosted.
+nonisolated enum MusicGlassStyle: String, Codable {
+    case frosted
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        switch try container.decode(String.self) {
+        case "frosted", "liquid": self = .frosted
+        default:
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown music card material")
+        }
+    }
 }
 
 nonisolated enum MenuBarTimer: String, Codable, CaseIterable, Identifiable {
@@ -189,10 +197,6 @@ final class AppPreferences {
     var automaticallyRotate: Bool {
         get { snapshot.automaticallyRotate }
         set { update { $0.automaticallyRotate = newValue } }
-    }
-    var glassStyle: MusicGlassStyle {
-        get { snapshot.glassStyle }
-        set { update { $0.glassStyle = newValue } }
     }
     var glassiness: Double {
         get { snapshot.glassiness }

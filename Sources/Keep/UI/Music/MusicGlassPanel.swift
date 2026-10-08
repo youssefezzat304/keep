@@ -38,23 +38,11 @@ struct MusicGlassPanel: ViewModifier {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                 }
-                .modifier(MusicGlassFinish(isLiquid: preferences.glassStyle == .liquid, shape: shape))
+                .overlay {
+                    shape.strokeBorder(KeepTheme.paper.opacity(0.65), lineWidth: 1).allowsHitTesting(false)
+                }
         }
     }
 
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 17) }
-}
-
-private struct MusicGlassFinish: ViewModifier {
-    let isLiquid: Bool
-    let shape: RoundedRectangle
-
-    @ViewBuilder func body(content: Content) -> some View {
-        if isLiquid {
-            // The clear variant keeps the explicitly aligned artwork visible.
-            content.glassEffect(.clear, in: shape)
-        } else {
-            content.overlay { shape.strokeBorder(KeepTheme.paper.opacity(0.65), lineWidth: 1).allowsHitTesting(false) }
-        }
-    }
 }
