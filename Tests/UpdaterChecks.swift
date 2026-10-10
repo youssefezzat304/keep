@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Run in the isolated app bundle described in docs/updates.md. Never checks a feed.
+/// Run with Tools/run-app-checks.py UpdaterChecks in an isolated app bundle. Never checks a feed.
 @main enum UpdaterChecks {
     static var checks = 0
     static func expect(_ value: Bool, _ message: String) {

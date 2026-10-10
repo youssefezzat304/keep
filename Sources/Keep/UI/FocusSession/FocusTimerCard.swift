@@ -10,7 +10,11 @@ struct FocusTimerCard: View {
     let onBreak: () -> Void
     var pomodoroSettings: PomodoroSettings = .defaults
     var onSettings: ((PomodoroSettings) -> Bool)? = nil
+    var pomodoroPresets: [PomodoroPreset] = []
+    var onSavePreset: ((String, PomodoroSettings) throws -> Void)? = nil
+    var onRemovePreset: ((UUID) throws -> Void)? = nil
     @Environment(\.self) private var environment
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showsSettings = false
     @State private var settingsHovered = false
     @FocusState private var settingsFocused: Bool
@@ -19,9 +23,13 @@ struct FocusTimerCard: View {
 
     private var isPomodoro: Bool { timer.mode == .pomodoro }
     private var isBreak: Bool { isPomodoro && timer.interval == .rest }
+    private struct ProgressIdentity: Hashable {
+        let intervalID: UUID
+        let isBreak: Bool
+    }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1, paused: timer.phase() != .running)) { _ in
+        TimelineView(.animation(minimumInterval: isPomodoro && !reduceMotion ? 0.25 : 1, paused: timer.phase() != .running)) { _ in
             let instant = ContinuousClock.now
             let phase = timer.phase(at: instant)
             let longBreakDue = timer.breakIsLong(at: instant)
@@ -50,7 +58,8 @@ struct FocusTimerCard: View {
                         .accessibilityLabel("Pomodoro settings")
                         .help("Set focus and break durations")
                         .popover(isPresented: $showsSettings) {
-                            PomodoroSettingsPopover(settings: pomodoroSettings) { onSettings?($0) ?? false }
+                            PomodoroSettingsPopover(settings: pomodoroSettings, presets: pomodoroPresets,
+                                onSavePreset: onSavePreset, onRemovePreset: onRemovePreset) { onSettings?($0) ?? false }
                         }
                     } else {
                         timerIcon.background(KeepTheme.paper.opacity(0.45), in: Circle()).accessibilityHidden(true)
@@ -89,6 +98,13 @@ struct FocusTimerCard: View {
             }
             .foregroundStyle(KeepTheme.ink)
             .cardStyle(backgroundColor: surfaceColor)
+            .overlay {
+                if isPomodoro {
+                    PomodoroProgressBorder(progress: timer.elapsed(at: instant) / timer.intervalDuration,
+                        isRunning: phase == .running)
+                        .id(ProgressIdentity(intervalID: timer.intervalID, isBreak: isBreak))
+                }
+            }
         }
     }
 

@@ -14,7 +14,10 @@ struct PomodoroTimerPanel: View {
             onReset: { beforeAction(); workspace.reset(.pomodoro) },
             onBreak: { beforeAction(); workspace.startBreak() },
             pomodoroSettings: workspace.pomodoroSettings,
-            onSettings: { beforeAction(); return workspace.updatePomodoroSettings($0) }
+            onSettings: { beforeAction(); return workspace.updatePomodoroSettings($0) },
+            pomodoroPresets: workspace.pomodoroPresets,
+            onSavePreset: { try workspace.savePomodoroPreset(name: $0, settings: $1) },
+            onRemovePreset: { try workspace.removePomodoroPreset(id: $0) }
         )
     }
 }

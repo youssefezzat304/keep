@@ -49,6 +49,7 @@ nonisolated struct TimesheetLedger: Codable {
     private(set) var projectTargets: [String: WeeklyTargets] = [:]
     private(set) var deletedProjectIDs: Set<String> = []
     private(set) var pomodoroSettings: PomodoroSettings?
+    private(set) var pomodoroPresets: [PomodoroPreset] = []
     private(set) var sessions: [RecordedSession] = []
     private(set) var taskActivities: [TaskActivity] = []
     private(set) var completedPomodoros: [CompletedPomodoro] = []
@@ -63,7 +64,7 @@ nonisolated struct TimesheetLedger: Codable {
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case entries, customProjects, projectOverrides, projectTargets, deletedProjectIDs, pomodoroSettings, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
+    private enum CodingKeys: String, CodingKey { case entries, customProjects, projectOverrides, projectTargets, deletedProjectIDs, pomodoroSettings, pomodoroPresets, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -74,6 +75,7 @@ nonisolated struct TimesheetLedger: Codable {
         projectTargets = try container.decodeIfPresent([String: WeeklyTargets].self, forKey: .projectTargets) ?? [:]
         deletedProjectIDs = try container.decodeIfPresent(Set<String>.self, forKey: .deletedProjectIDs) ?? []
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings)
+        pomodoroPresets = try container.decodeIfPresent([PomodoroPreset].self, forKey: .pomodoroPresets) ?? []
         sessions = try container.decodeIfPresent([RecordedSession].self, forKey: .sessions) ?? []
         completedPomodoros = try container.decodeIfPresent([CompletedPomodoro].self, forKey: .completedPomodoros) ?? []
         pomodoroHistoryStartedAt = try container.decodeIfPresent(Date.self, forKey: .pomodoroHistoryStartedAt)
@@ -118,6 +120,14 @@ nonisolated struct TimesheetLedger: Codable {
 
     mutating func setPomodoroSettings(_ settings: PomodoroSettings) {
         pomodoroSettings = settings
+    }
+
+    mutating func addPomodoroPreset(_ preset: PomodoroPreset) {
+        pomodoroPresets.append(preset)
+    }
+
+    mutating func removePomodoroPreset(id: UUID) {
+        pomodoroPresets.removeAll { $0.id == id }
     }
 
     mutating func registerProject(_ project: FocusProject) {

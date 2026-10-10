@@ -20,6 +20,7 @@ final class WorkspaceModel {
     let readIndex: WorkspaceReadIndex
     var projects: [FocusProject] { _ = readIndex.metadataRevision; return readIndex.activeProjects }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
+    var pomodoroPresets: [PomodoroPreset] { ledger.pomodoroPresets }
     var taskSuggestions: [TaskActivity] { _ = readIndex.metadataRevision; return readIndex.suggestions }
 
     func capturePersistentData(at instant: ContinuousClock.Instant = .now, date: Date = .now) throws -> TimesheetLedger {
@@ -269,6 +270,30 @@ final class WorkspaceModel {
         ledgerDirty = true
         save(at: instant)
         return true
+    }
+
+    func savePomodoroPreset(name: String, settings: PomodoroSettings, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack else { throw PomodoroPresetError.unavailable }
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= PomodoroPreset.maximumNameLength else { throw PomodoroPresetError.invalidName }
+        guard settings.isValid else { throw PomodoroPresetError.invalidSettings }
+        let preset = PomodoroPreset(id: UUID(), name: name, settings: settings)
+        guard !pomodoroPresets.contains(where: { $0.nameKey == preset.nameKey }) else { throw PomodoroPresetError.duplicateName }
+        synchronize(at: instant, date: date)
+        ledger.addPomodoroPreset(preset)
+        ledgerDirty = true
+        save(at: instant)
+        guard persistenceError == nil else { throw PomodoroPresetError.saveFailed }
+    }
+
+    func removePomodoroPreset(id: UUID, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack else { throw PomodoroPresetError.unavailable }
+        guard pomodoroPresets.contains(where: { $0.id == id }) else { throw PomodoroPresetError.missing }
+        synchronize(at: instant, date: date)
+        ledger.removePomodoroPreset(id: id)
+        ledgerDirty = true
+        save(at: instant)
+        guard persistenceError == nil else { throw PomodoroPresetError.saveFailed }
     }
 
     /// Edits replace the settled cell total. Future active time is added to that value.

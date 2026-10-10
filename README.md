@@ -104,7 +104,7 @@ Your projects, recorded sessions, tasks, habits, and preferences are saved local
 
 Music streaming and software-update checks use network connections. The Mac Music integration requests Automation access, and personal wallpapers use read-only access to a folder you select. Export files are written to a location you choose.
 
-See the [architecture and capability notes](docs/architecture.md#7-build-configuration-and-capabilities) for implementation details. Optional iCloud backup setup and its remaining distribution checks are documented separately in the [backup guide](docs/backups.md).
+See the [architecture and capability notes](docs/architecture.md#7-build-configuration-and-capabilities) for implementation details. Optional iCloud backup behavior and remaining distribution checks are covered in the [architecture notes](docs/architecture.md#optional-icloud-backup).
 
 ## What you need
 
@@ -143,7 +143,7 @@ Use the version configured in Xcode for the tag. The scripts prepare a DMG,
 signed Sparkle appcast, and checksums under `dist/`; they do not publish a release.
 Run either with `--help` for options, including custom build/output paths.
 
-An unsigned local build checks compilation. Release signing, notarization, and real update installation require separate verification; see the [Sparkle release guide](docs/updates.md).
+An unsigned local build checks compilation. Release signing, notarization, and real update installation require separate verification.
 
 <details>
 <summary>Project layout</summary>
@@ -159,7 +159,7 @@ Resources/      Assets, Info.plist, entitlements and third-party notices
 Configuration/ Public update configuration
 Tests/          Standalone checks
 Tools/          Development tools
-docs/           Architecture, decisions, style and release instructions
+docs/           Architecture, decisions and visual style
 website/        Independent Next.js product website
 keep.xcodeproj/ Xcode project and keep scheme
 ```
@@ -189,9 +189,6 @@ Report a bug in [GitHub Issues](https://github.com/youssefezzat304/keep/issues),
 - [Architecture](docs/architecture.md) — source boundaries, implemented behavior, capabilities, and build checks.
 - [Decisions](docs/decisions.md) — current state, durable decisions, and unresolved questions.
 - [Visual style](docs/style.md) — Keep’s palette, typography, and native UI conventions.
-- [Exports](docs/exports.md) — report formats, filters, and CSV fields.
-- [Backups](docs/backups.md) — optional backup behavior and setup requirements.
-- [Updates and releases](docs/updates.md) — Sparkle configuration, signing, and publishing.
 - [Website](website/README.md) — local development, app captures, and hosting.
 
 ## Community

@@ -22,6 +22,11 @@ struct TimesheetPersistence {
 
     nonisolated static func validate(_ ledger: TimesheetLedger) throws {
         guard ledger.pomodoroSettings?.isValid != false else { throw CocoaError(.coderReadCorrupt) }
+        var presetIDs: Set<UUID> = []
+        var presetNames: Set<String> = []
+        guard ledger.pomodoroPresets.allSatisfy({ preset in
+            preset.isValid && presetIDs.insert(preset.id).inserted && presetNames.insert(preset.nameKey).inserted
+        }) else { throw CocoaError(.coderReadCorrupt) }
         var projectIDs = Set((FocusProject.defaults + [.unassigned]).map(\.id))
         guard ledger.customProjects.allSatisfy({ project in
             !project.id.isEmpty && !project.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&

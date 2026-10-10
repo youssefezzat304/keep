@@ -155,7 +155,7 @@ if [[ "$appcast" == 1 ]]; then
         [[ -x "$sparkle_tools/$tool" ]] || fail "Missing Sparkle tool: $sparkle_tools/$tool. Use the build’s --derived-data path."
     done
     # -p only reads the existing public key; it never creates or exports keys.
-    existing_key=$("$sparkle_tools/generate_keys" --account "$account" -p) || fail "Cannot read the existing Sparkle key for account $account. See docs/updates.md."
+    existing_key=$("$sparkle_tools/generate_keys" --account "$account" -p) || fail "Cannot read the existing Sparkle key for account $account. Unlock the login Keychain or use --account to select the existing key matching this app."
     [[ "$existing_key" == "$public_key" ]] || fail 'Sparkle Keychain public key differs from the built app. Do not generate a replacement key.'
 fi
 mkdir -p "$(dirname "$output")"
@@ -167,7 +167,7 @@ ln -s /Applications "$work/image/Applications"
 cp "$repo/LICENSE.md" "$work/image/LICENSE.md"
 python3 "$work/validate.py" "$work/image/keep.app" "$receipt" "$tag" "$work/staged-metadata"
 verify_bundle "$work/image/keep.app"
-archive="Keep-$version-build-$build.dmg"
+archive="keep-$version.dmg"
 printf 'Packaging Keep %s (%s)…\n' "$version" "$build"
 hdiutil create -quiet -fs APFS -format ULFO -volname "Keep $version" -srcfolder "$work/image" "$output/$archive"
 hdiutil verify "$output/$archive"

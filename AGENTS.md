@@ -10,8 +10,8 @@ This file defines the working agreements for Codex in this repository. Distingui
 
 - Treat this file as read-only.
 - Do not modify, reorganize, compress, or append to `AGENTS.md` unless the user explicitly requests an `AGENTS.md` change.
-- Record evolving implementation facts in `docs/architecture.md`.
-- Record durable decisions, discoveries, and current project state in `docs/decisions.md`.
+- Treat `docs/architecture.md` and `docs/style.md` as read-only unless the user explicitly requests a change to that file.
+- During ordinary development, `docs/decisions.md` is the only documentation file agents may edit. Keep only its ten most recent decisions; inspect source code for implementation details. Other documentation requires an explicit user request to edit.
 
 ## 1. Project goals
 
@@ -43,14 +43,14 @@ Preserve the native SwiftUI approach. Do not add a web stack, package manager, b
 
 Before non-trivial work, read:
 
-- `docs/decisions.md` — durable decisions, current snapshot, and open questions.
-- Relevant sections of `docs/architecture.md` — implemented structure, responsibilities, and constraints.
-- `docs/style.md` before UI or styling work — canonical visual direction and design tokens.
+- `docs/decisions.md` — the ten most recent decisions and their relevant context.
+- `docs/architecture.md` — concise architecture baseline; read-only unless explicitly requested.
+- `docs/style.md` before UI or styling work — canonical visual direction and design tokens; read-only unless explicitly requested.
 - The source files affected by the task; use the architecture document as a map, not a substitute for inspecting code.
 
 Use the exact lowercase documentation paths. Do not create root-level duplicates or uppercase alternatives. There is no separate product specification yet; do not invent requirements to fill that gap.
 
-When documentation and implementation disagree, inspect the source, distinguish intended behavior from current behavior, and correct stale factual documentation within the task's scope. Flag unresolved product or architectural conflicts. The style guide owns visual intent; use shared theme tokens rather than treating incidental colors as new palette decisions.
+When documentation and implementation disagree, inspect the source and distinguish intended behavior from current behavior. Record meaningful discrepancies in `docs/decisions.md` without editing architecture or style. Flag unresolved product or architectural conflicts. The style guide owns visual intent; use shared theme tokens rather than treating incidental colors as new palette decisions.
 
 ## 4. Code quality
 
@@ -88,7 +88,7 @@ When timer behavior is requested:
 - Avoid duplicate ticking tasks and cancel work when its owner ends.
 - Make session completion and any notifications predictable and testable.
 
-Pomodoro and flow controls are independent and may run concurrently. Recorded time uses a single app-owned recorder: running Flow takes priority; otherwise only Pomodoro focus counts. Manual short/long Pomodoro breaks never add Pomodoro time. Route timer actions, settings changes, project changes, and Timesheet edits/removal/Undo through `WorkspaceModel` so elapsed time is settled before state changes. Settings changes preserve the duration of running/paused intervals; completed focus intervals advance the break cycle once. Removing a weekly row preserves the catalog and timers; new time may recreate the row, and Undo restores removed time without overwriting that new time. Preserve these rules. Consult `docs/architecture.md` for the implemented timing semantics and state lifetime.
+Pomodoro and flow controls are independent and may run concurrently. Recorded time uses a single app-owned recorder: running Flow takes priority; otherwise only Pomodoro focus counts. Manual short/long Pomodoro breaks never add Pomodoro time. Route timer actions, settings changes, project changes, and Timesheet edits/removal/Undo through `WorkspaceModel` so elapsed time is settled before state changes. Settings changes preserve the duration of running/paused intervals; completed focus intervals advance the break cycle once. Removing a weekly row preserves the catalog and timers; new time may recreate the row, and Undo restores removed time without overwriting that new time. Preserve these rules. Inspect `WorkspaceModel` and `FocusTimer` for detailed timing semantics and state lifetime.
 
 Do not add notification permissions, background services, persistence, or music-provider integrations as incidental parts of a visual task.
 
@@ -165,31 +165,20 @@ For a non-trivial task:
 5. Resolve uncertainty from the repository before asking unnecessary questions.
 6. Implement the smallest coherent change.
 7. Verify behavior and appearance at the appropriate level.
-8. Update the canonical documents when implementation or new findings change durable project knowledge.
+8. Record meaningful decisions in `docs/decisions.md`, retaining only the ten most recent entries. Leave other documentation unchanged unless the user explicitly requested its edit.
 
 Use a short execution plan for complex work. Ask for clarification when a material product or architectural choice remains unresolved; continue independent work where possible.
 
 ## 15. Continuity ledger
 
-The canonical continuity ledger is `docs/decisions.md`. Read it for non-trivial work. Do not maintain a second ledger.
+`docs/decisions.md` is the sole continuity ledger and the only documentation file agents may update during ordinary development. Read it before non-trivial work.
 
-Update it for meaningful product, architecture, constraint, or implementation-direction changes. Record existing implementation as `[CODE]` evidence; do not turn a suggestion or inference into an approved `[USER]` decision.
-
-Use these sections as needed:
-
-```text
-[SNAPSHOT]
-[DECISIONS]
-[PROGRESS]
-[DISCOVERIES]
-[OUTCOMES]
-[WORKING SET]
-[RECEIPTS]
-```
-
-Keep the snapshot to roughly 25 lines and the active working set to roughly 12 paths. Record ISO dates and provenance tags (`[USER]`, `[CODE]`, `[TOOL]`, or `[ASSUMPTION]`). Mark unknowns `UNCONFIRMED`. Preserve superseded decisions explicitly rather than rewriting history.
-
-Keep recent milestones and command outcomes concise. Compress older history; do not store transcripts, raw logs, or a micro-task checklist.
+- Keep only the ten most recent decision entries, ordered oldest to newest. When adding an entry beyond this limit, delete the oldest entries immediately.
+- Use stable, increasing decision IDs; do not renumber retained entries.
+- Record ISO dates and provenance tags (`[USER]`, `[CODE]`, `[TOOL]`, or `[ASSUMPTION]`). Do not describe an inference as a user-approved decision; mark unknowns `UNCONFIRMED`.
+- Keep each entry concise, with relevant outcomes or unresolved questions inside it. Preserve supersession context only for retained entries.
+- Do not keep separate snapshots, progress logs, receipts, archived decisions, duplicate ledgers or backups of pruned history. Consult source code and Git history when older details are needed.
+- Do not update `docs/architecture.md`, `docs/style.md`, or other documentation unless the user explicitly requests editing that file.
 
 ## 16. Testing and verification
 
@@ -204,16 +193,16 @@ Keep recent milestones and command outcomes concise. Compress older history; do 
 ## 17. Documentation ownership
 
 - `AGENTS.md` — static agent working agreements; read-only unless explicitly requested by the user.
-- `docs/architecture.md` — implementation structure, ownership, dependencies, build workflow, and verified constraints.
-- `docs/decisions.md` — durable decisions, current state, significant discoveries, and unresolved questions.
-- `docs/style.md` — visual language and UI implementation guidance.
+- `docs/architecture.md` — concise architecture baseline; read-only unless the user explicitly requests an edit.
+- `docs/decisions.md` — the only documentation maintained automatically; retain the ten most recent decisions.
+- `docs/style.md` — visual language and UI implementation guidance; read-only unless the user explicitly requests an edit.
 - Source code and `keep.xcodeproj` — implementation truth.
 
-Update the relevant documentation when a task materially changes durable project knowledge. Do not update documentation for trivial or cosmetic changes.
+Record meaningful changes only in `docs/decisions.md`, subject to the ten-decision limit. Do not automatically edit architecture, style, README files or other documentation. An explicit user request may authorize editing a named document. Do not add ledger entries for trivial or cosmetic changes.
 
 ## 18. Definition of done
 
-A task is complete when the requested change is implemented, relevant verification has run, new errors are addressed, and necessary documentation is updated.
+A task is complete when the requested change is implemented, relevant verification has run, new errors are addressed, and any meaningful decision is recorded within the ten-entry limit. Architecture, style and other documentation remain unchanged unless explicitly requested.
 
 The final response should state what changed, where, how it was verified, and any material limitation. Do not claim completion of functionality that remains a placeholder or verification that did not run.
 
