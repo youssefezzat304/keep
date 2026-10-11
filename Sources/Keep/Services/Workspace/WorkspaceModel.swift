@@ -72,6 +72,9 @@ final class WorkspaceModel {
     @ObservationIgnored private var recordingContext: RecordingContext?
     @ObservationIgnored private var recordingSessionID = UUID()
     @ObservationIgnored private let persistence: TimesheetPersistence?
+    @ObservationIgnored private let timerPreferences: AppPreferences?
+    @ObservationIgnored var onTimerReminder: ((TimerSound) -> Void)?
+    @ObservationIgnored private var flowReminders = FlowReminderSchedule()
     @ObservationIgnored let calendar: Calendar
 
     private struct RecordingContext: Equatable {
@@ -80,7 +83,7 @@ final class WorkspaceModel {
         let source: RecordedSession.Source
     }
 
-    init(ledger: TimesheetLedger = TimesheetLedger(), persistence: TimesheetPersistence? = nil, calendar: Calendar = .autoupdatingCurrent, focusDuration: TimeInterval = 1500, breakDuration: TimeInterval = 300, date: Date = .now) {
+    init(ledger: TimesheetLedger = TimesheetLedger(), persistence: TimesheetPersistence? = nil, calendar: Calendar = .autoupdatingCurrent, focusDuration: TimeInterval = 1500, breakDuration: TimeInterval = 300, date: Date = .now, timerPreferences: AppPreferences? = nil) {
         var initialLedger = ledger
         var failed = false
         if let persistence {
@@ -91,6 +94,7 @@ final class WorkspaceModel {
         self.ledger = initialLedger
         readIndex = WorkspaceReadIndex(ledger: initialLedger)
         self.persistence = persistence
+        self.timerPreferences = timerPreferences
         self.calendar = calendar
         today = calendar.startOfDay(for: date)
         pomodoro = FocusTimer(mode: .pomodoro, focusDuration: focusDuration, breakDuration: breakDuration)
@@ -388,6 +392,13 @@ final class WorkspaceModel {
             checkpointDate.map { $0.addingTimeInterval(max(0, pomodoro.intervalDuration - pomodoro.elapsed(at: previous))) }
         } ?? date
         let completion = pomodoro.settleCompletion(at: instant)
+        let flowReminderDue = flowReminders.isDue(timer: flow, minutes: timerPreferences?.flowReminderMinutes, at: instant)
+        if timerPreferences?.canEdit == true && timerPreferences?.timerSoundsEnabled == true {
+            if let completion {
+                onTimerReminder?(completion.interval == .focus ? .focusComplete : .breakComplete)
+            }
+            if flowReminderDue { onTimerReminder?(.flowReminder) }
+        }
         if let completion, completion.interval == .focus {
             ledger.recordCompletion(CompletedPomodoro(id: completion.id, project: selectedProject ?? .unassigned,
                 task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), completedAt: completionDate,

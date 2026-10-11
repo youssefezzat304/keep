@@ -97,6 +97,11 @@ nonisolated struct SettingsArchive: Codable, Equatable {
     var weeklyFocusGoalMinutes: Int?
     var wallpaperRotationTrigger: WallpaperRotationTrigger?
     var customRotationMinutes: Int?
+    var showPomodoroTimer: Bool?
+    var showPomodoroProgress: Bool?
+    var showFlowTimer: Bool?
+    var timerSoundsEnabled: Bool?
+    var flowReminderMinutes: Int?
 
     static let rotationIntervals = [30, 60, 300, 900, 3600, 18000, 43200, 86400]
     var effectiveRotationSeconds: Int { customRotationMinutes.map { $0 * 60 } ?? rotationSeconds }
@@ -111,6 +116,7 @@ nonisolated struct SettingsArchive: Codable, Equatable {
         && (selectedChannelID == nil || channels.contains { $0.id == selectedChannelID })
         && (musicVolume == nil || musicVolume.map { $0.isFinite && (0...1).contains($0) } == true)
         && (weeklyFocusGoalMinutes == nil || weeklyFocusGoalMinutes.map { (1...10080).contains($0) } == true)
+        && (flowReminderMinutes == nil || flowReminderMinutes.map { FlowReminderSchedule.minuteRange.contains($0) } == true)
     }
 }
 
@@ -226,6 +232,31 @@ final class AppPreferences {
     var weeklyFocusGoalMinutes: Int? {
         get { snapshot.weeklyFocusGoalMinutes }
         set { update { $0.weeklyFocusGoalMinutes = newValue } }
+    }
+
+    var showPomodoroTimer: Bool {
+        get { snapshot.showPomodoroTimer ?? true }
+        set { update { $0.showPomodoroTimer = newValue } }
+    }
+    var showPomodoroProgress: Bool {
+        get { snapshot.showPomodoroProgress ?? true }
+        set { update { $0.showPomodoroProgress = newValue } }
+    }
+    var showFlowTimer: Bool {
+        get { snapshot.showFlowTimer ?? true }
+        set { update { $0.showFlowTimer = newValue } }
+    }
+    var timerSoundsEnabled: Bool {
+        get { snapshot.timerSoundsEnabled ?? true }
+        set { update { $0.timerSoundsEnabled = newValue } }
+    }
+    var flowReminderMinutes: Int? { snapshot.flowReminderMinutes }
+
+    @discardableResult
+    func setFlowReminder(minutes: Int?) -> Bool {
+        guard canEdit, minutes.map({ FlowReminderSchedule.minuteRange.contains($0) }) ?? true else { return false }
+        update { $0.flowReminderMinutes = minutes }
+        return true
     }
 
     func saveChannel(_ channel: MusicChannel) {

@@ -20,6 +20,11 @@ nonisolated struct PortableSettings: Codable {
     let weeklyFocusGoalMinutes: Int?
     let wallpaperRotationTrigger: WallpaperRotationTrigger?
     let customRotationMinutes: Int?
+    let showPomodoroTimer: Bool?
+    let showPomodoroProgress: Bool?
+    let showFlowTimer: Bool?
+    let timerSoundsEnabled: Bool?
+    let flowReminderMinutes: Int?
 
     init(_ s: SettingsArchive) {
         appearance = s.appearance; wallpaperSource = s.wallpaperSource; wallpaperOrder = s.wallpaperOrder
@@ -29,6 +34,9 @@ nonisolated struct PortableSettings: Codable {
         menuBarEnabled = s.menuBarEnabled; menuBarTimer = s.menuBarTimer; menuBarShowSeconds = s.menuBarShowSeconds
         weeklyFocusGoalMinutes = s.weeklyFocusGoalMinutes; wallpaperRotationTrigger = s.wallpaperRotationTrigger
         customRotationMinutes = s.customRotationMinutes
+        showPomodoroTimer = s.showPomodoroTimer
+        showPomodoroProgress = s.showPomodoroProgress; showFlowTimer = s.showFlowTimer
+        timerSoundsEnabled = s.timerSoundsEnabled; flowReminderMinutes = s.flowReminderMinutes
     }
 
     func applying(to local: SettingsArchive) -> SettingsArchive {
@@ -40,6 +48,9 @@ nonisolated struct PortableSettings: Codable {
         s.menuBarEnabled = menuBarEnabled; s.menuBarTimer = menuBarTimer; s.menuBarShowSeconds = menuBarShowSeconds
         s.weeklyFocusGoalMinutes = weeklyFocusGoalMinutes; s.wallpaperRotationTrigger = wallpaperRotationTrigger
         s.customRotationMinutes = customRotationMinutes
+        s.showPomodoroTimer = showPomodoroTimer
+        s.showPomodoroProgress = showPomodoroProgress; s.showFlowTimer = showFlowTimer
+        s.timerSoundsEnabled = timerSoundsEnabled; s.flowReminderMinutes = flowReminderMinutes
         return s
     }
 }

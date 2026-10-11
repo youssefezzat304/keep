@@ -3,6 +3,7 @@ import SwiftUI
 struct PomodoroTimerPanel: View {
     let workspace: WorkspaceModel
     var beforeAction: () -> Void = {}
+    var showProgress = true
 
     var body: some View {
         FocusTimerCard(
@@ -17,7 +18,8 @@ struct PomodoroTimerPanel: View {
             onSettings: { beforeAction(); return workspace.updatePomodoroSettings($0) },
             pomodoroPresets: workspace.pomodoroPresets,
             onSavePreset: { try workspace.savePomodoroPreset(name: $0, settings: $1) },
-            onRemovePreset: { try workspace.removePomodoroPreset(id: $0) }
+            onRemovePreset: { try workspace.removePomodoroPreset(id: $0) },
+            showPomodoroProgress: showProgress
         )
     }
 }

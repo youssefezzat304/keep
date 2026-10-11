@@ -22,6 +22,8 @@ import SwiftUI
                 HStack {
                     Button("Light") { preferences.appearance = .light }
                     Button("Dark") { preferences.appearance = .dark }
+                    Toggle("Pomodoro", isOn: $preferences.showPomodoroTimer)
+                    Toggle("Flow", isOn: $preferences.showFlowTimer)
                 }
                 MenuBarWorkspaceView(workspace: workspace, music: music, tasks: tasks,
                     preferences: preferences, wallpapers: wallpapers)
@@ -40,7 +42,9 @@ import SwiftUI
                 preferences: preferences, wallpapers: wallpapers)
         } label: {
             MenuBarLabel(workspace: workspace, timer: preferences.menuBarTimer,
-                showFlowSeconds: preferences.menuBarShowSeconds)
+                showFlowSeconds: preferences.menuBarShowSeconds,
+                showPomodoroProgress: preferences.showPomodoroProgress,
+                showPomodoroTimer: preferences.showPomodoroTimer, showFlowTimer: preferences.showFlowTimer)
         }.menuBarExtraStyle(.window)
     }
 
@@ -49,10 +53,12 @@ import SwiftUI
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         var renders = 0
         for appearance in [AppAppearance.light, .dark] {
-            for state in ["idle", "half", "completed", "break", "both", "flow"] {
+            for state in ["idle", "half", "completed", "break", "both", "flow", "hide-pomodoro", "hide-flow", "hide-both"] {
                 let model = fixture(state)
                 let settings = AppPreferences()
                 settings.appearance = appearance
+                settings.showPomodoroTimer = !["hide-pomodoro", "hide-both"].contains(state)
+                settings.showFlowTimer = !["hide-flow", "hide-both"].contains(state)
                 let root = MenuBarWorkspaceView(workspace: model, music: MusicPlayerModel(), tasks: DailyTaskStore(),
                     preferences: settings, wallpapers: WallpaperLibrary())
                 let host = NSHostingView(rootView: root)
@@ -90,7 +96,7 @@ import SwiftUI
         let model = WorkspaceModel(focusDuration: 120, breakDuration: 60)
         let instant = ContinuousClock.now
         let date = Date.now
-        if ["half", "both"].contains(state) {
+        if ["half", "both", "hide-pomodoro", "hide-flow", "hide-both"].contains(state) {
             model.play(.pomodoro, at: instant.advanced(by: .seconds(-60)), date: date.addingTimeInterval(-60))
             if state == "half" { model.stop(.pomodoro, at: instant, date: date) }
         }
@@ -102,7 +108,7 @@ import SwiftUI
                 model.stop(.pomodoro, at: instant, date: date)
             }
         }
-        if ["flow", "both"].contains(state) {
+        if ["flow", "both", "hide-pomodoro", "hide-flow", "hide-both"].contains(state) {
             model.play(.flow, at: instant.advanced(by: .seconds(-10)), date: date.addingTimeInterval(-10))
         }
         model.synchronize(at: instant, date: date)

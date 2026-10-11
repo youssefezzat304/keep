@@ -4,6 +4,7 @@ struct TimerWorkspaceCard: View {
     let workspace: WorkspaceModel
     var isCompact = false
     var beforeAction: () -> Void = {}
+    var preferences: AppPreferences?
 
     var body: some View {
         if isCompact {
@@ -14,8 +15,13 @@ struct TimerWorkspaceCard: View {
     }
 
     @ViewBuilder private var panels: some View {
-        PomodoroTimerPanel(workspace: workspace, beforeAction: beforeAction)
-        FlowTimerPanel(workspace: workspace, beforeAction: beforeAction)
+        if preferences?.showPomodoroTimer != false {
+            PomodoroTimerPanel(workspace: workspace, beforeAction: beforeAction,
+                showProgress: preferences?.showPomodoroProgress ?? true)
+        }
+        if preferences?.showFlowTimer != false {
+            FlowTimerPanel(workspace: workspace, beforeAction: beforeAction, preferences: preferences)
+        }
     }
 }
 

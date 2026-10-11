@@ -13,9 +13,14 @@ struct FocusTimerCard: View {
     var pomodoroPresets: [PomodoroPreset] = []
     var onSavePreset: ((String, PomodoroSettings) throws -> Void)? = nil
     var onRemovePreset: ((UUID) throws -> Void)? = nil
+    var showPomodoroProgress = true
+    var flowReminderMinutes: Int?
+    var onFlowReminder: ((Int?) -> Bool)?
+    var canConfigureReminders = true
     @Environment(\.self) private var environment
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showsSettings = false
+    @State private var showsReminder = false
     @State private var settingsHovered = false
     @FocusState private var settingsFocused: Bool
     @FocusState private var resetFocused: Bool
@@ -58,7 +63,19 @@ struct FocusTimerCard: View {
                                 onSavePreset: onSavePreset, onRemovePreset: onRemovePreset) { onSettings?($0) ?? false }
                         }
                     } else {
-                        timerIcon.background(KeepTheme.paper.opacity(0.45), in: Circle()).accessibilityHidden(true)
+                        Button { showsReminder = true } label: {
+                            timerIcon.background(KeepTheme.paper.opacity(settingsHovered ? 0.65 : 0.45), in: Circle())
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain).onHover { settingsHovered = $0 }.focused($settingsFocused)
+                        .overlay { Circle().strokeBorder(settingsFocused || showsReminder ? KeepTheme.focusRing : .clear, lineWidth: 2) }
+                        .disabled(!canConfigureReminders || onFlowReminder == nil)
+                        .accessibilityLabel("Flow reminder settings")
+                        .accessibilityValue(flowReminderMinutes.map { "Every \($0) minutes" } ?? "Off")
+                        .help("Set a reminder while Flow is running")
+                        .popover(isPresented: $showsReminder) {
+                            FlowReminderPopover(minutes: flowReminderMinutes) { onFlowReminder?($0) ?? false }
+                        }
                     }
                 }
 
@@ -95,7 +112,7 @@ struct FocusTimerCard: View {
             .foregroundStyle(KeepTheme.ink)
             .cardStyle(backgroundColor: surfaceColor)
             .overlay {
-                if isPomodoro {
+                if isPomodoro && showPomodoroProgress {
                     PomodoroProgressBorder(progress: timer.elapsed(at: instant) / timer.intervalDuration,
                         isRunning: phase == .running)
                         .id(PomodoroProgressBorder.Identity(timer: timer))
@@ -170,7 +187,7 @@ struct FocusTimerCard: View {
     }
 
     private var timerIcon: some View {
-        Image(systemName: isBreak ? "cup.and.saucer" : isPomodoro ? "timer" : "leaf")
+        Image(systemName: isBreak ? "cup.and.saucer" : isPomodoro ? "timer" : flowReminderMinutes == nil ? "leaf" : "bell")
             .font(.system(size: 22, weight: .light))
             .frame(width: 46, height: 46)
     }

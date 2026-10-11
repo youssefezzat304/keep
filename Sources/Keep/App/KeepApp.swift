@@ -7,6 +7,7 @@ struct keepApp: App {
     @State private var updater: AppUpdater
     @State private var music: MusicPlayerModel
     @State private var preferences: AppPreferences
+    @State private var timerSounds = TimerSoundPlayer()
     @State private var wallpapers: WallpaperLibrary
     @State private var tasks: DailyTaskStore
     @State private var habits: HabitStore
@@ -24,13 +25,13 @@ struct keepApp: App {
         var taskPersistence = TaskPersistence(); taskPersistence.access = gate
         var habitPersistence = HabitPersistence(); habitPersistence.access = gate
         var settingsPersistence = SettingsPersistence(); settingsPersistence.access = gate
-        let workspace = WorkspaceModel(persistence: workspacePersistence)
+        let preferences = AppPreferences(persistence: settingsPersistence)
+        let workspace = WorkspaceModel(persistence: workspacePersistence, timerPreferences: preferences)
         _workspace = State(initialValue: workspace)
         let habits = HabitStore(persistence: habitPersistence)
         _habits = State(initialValue: habits)
         let tasks = DailyTaskStore(persistence: taskPersistence, habits: habits)
         _tasks = State(initialValue: tasks)
-        let preferences = AppPreferences(persistence: settingsPersistence)
         let music = MusicPlayerModel(preferences: preferences, systemControls: MusicSystemController())
         let wallpapers = WallpaperLibrary()
         music.onTrackChange = { [weak wallpapers] provider, id in wallpapers?.songChanged(provider: provider, trackID: id) }
@@ -45,6 +46,7 @@ struct keepApp: App {
     var body: some Scene {
         WindowGroup("Keep", id: "workspace") {
             AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers, loginItem: loginItem, updater: updater, backup: backup)
+                .environment(timerSounds)
                 .id(backup.gate.generation)
                 .disabled(backup.gate.isLocked)
                 .overlay {
@@ -78,7 +80,9 @@ struct keepApp: App {
                 .disabled(backup.gate.isLocked)
                 .onAppear { connectRuntime() }
         } label: {
-            MenuBarLabel(workspace: workspace, timer: preferences.menuBarTimer, showFlowSeconds: preferences.menuBarShowSeconds)
+            MenuBarLabel(workspace: workspace, timer: preferences.menuBarTimer, showFlowSeconds: preferences.menuBarShowSeconds,
+                showPomodoroProgress: preferences.showPomodoroProgress,
+                showPomodoroTimer: preferences.showPomodoroTimer, showFlowTimer: preferences.showFlowTimer)
                 .onAppear { connectRuntime() }
         }
         .menuBarExtraStyle(.window)
@@ -89,6 +93,8 @@ struct keepApp: App {
         appDelegate.workspace = workspace
         appDelegate.music = music
         appDelegate.wallpapers = wallpapers
+        appDelegate.timerSounds = timerSounds
+        workspace.onTimerReminder = { [weak timerSounds] sound in timerSounds?.play(sound) }
         workspace.startUpdating()
         if !backup.gate.isLocked { updater.start() }
         backup.start()

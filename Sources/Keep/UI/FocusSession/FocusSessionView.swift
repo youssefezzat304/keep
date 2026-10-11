@@ -16,7 +16,10 @@ struct FocusSessionView: View {
         VStack(alignment: .leading, spacing: 22) {
             ActiveTargetHeader(editor: taskEditor, workspace: workspace, isCompact: isCompact)
 
-            TimerWorkspaceCard(workspace: workspace, isCompact: isCompact, beforeAction: { taskEditor.commit(to: workspace) })
+            if preferences.showPomodoroTimer || preferences.showFlowTimer {
+                TimerWorkspaceCard(workspace: workspace, isCompact: isCompact, beforeAction: { taskEditor.commit(to: workspace) },
+                    preferences: preferences)
+            }
 
             if isCompact {
                 VStack(spacing: 18) { supportingCards }

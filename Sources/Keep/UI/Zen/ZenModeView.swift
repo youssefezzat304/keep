@@ -43,8 +43,8 @@ struct ZenModeView: View {
 
     private var timers: some View {
         HStack(alignment: .bottom, spacing: 28) {
-            ZenTimerReadout(workspace: workspace, mode: .pomodoro)
-            ZenTimerReadout(workspace: workspace, mode: .flow)
+            if preferences.showPomodoroTimer { ZenTimerReadout(workspace: workspace, mode: .pomodoro) }
+            if preferences.showFlowTimer { ZenTimerReadout(workspace: workspace, mode: .flow) }
         }
     }
 }

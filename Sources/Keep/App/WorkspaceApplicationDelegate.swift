@@ -6,6 +6,7 @@ final class WorkspaceApplicationDelegate: NSObject, NSApplicationDelegate {
     weak var wallpapers: WallpaperLibrary?
     weak var backup: BackupModel?
     weak var music: MusicPlayerModel?
+    weak var timerSounds: TimerSoundPlayer?
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard backup?.gate.isLocked != true || backup?.gate.recoveryError != nil else { return .terminateCancel }
@@ -20,6 +21,7 @@ final class WorkspaceApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         backup?.stop()
         workspace?.shutdown()
+        timerSounds?.stop()
         music?.shutdown()
         wallpapers?.shutdown()
     }

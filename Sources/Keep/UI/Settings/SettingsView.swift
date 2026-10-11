@@ -159,6 +159,10 @@ struct SettingsView: View {
 
             musicPermissions
 
+            section("Timers", symbol: "timer") {
+                TimerSettingsControls(preferences: preferences)
+            }
+
             section("Menu bar", symbol: "menubar.rectangle") {
                 Toggle("Show Keep in the menu bar", isOn: $preferences.menuBarEnabled)
                     .toggleStyle(.switch).controlSize(.small)
@@ -170,11 +174,11 @@ struct SettingsView: View {
                 }
                 .disabled(!preferences.menuBarEnabled)
                 Text(preferences.menuBarTimer == .none
-                     ? "Only the leaf appears. Timer controls remain available in its menu."
-                     : "A single running timer appears automatically. This choice applies when both or neither are running.")
+                     ? "Only the leaf appears. Visible timers retain their controls in its menu."
+                     : "Only visible timers appear. With both visible, a single running timer appears automatically; this choice applies when both or neither run.")
                     .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
-                if preferences.menuBarTimer != .none {
+                if preferences.menuBarTimer != .none && preferences.showFlowTimer {
                     Toggle("Show Flow seconds", isOn: $preferences.menuBarShowSeconds)
                         .toggleStyle(.switch).controlSize(.small)
                         .font(.system(size: 13))

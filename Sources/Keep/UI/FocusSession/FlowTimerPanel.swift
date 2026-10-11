@@ -3,6 +3,7 @@ import SwiftUI
 struct FlowTimerPanel: View {
     let workspace: WorkspaceModel
     var beforeAction: () -> Void = {}
+    var preferences: AppPreferences?
 
     var body: some View {
         FocusTimerCard(
@@ -12,7 +13,10 @@ struct FlowTimerPanel: View {
             onPlay: { beforeAction(); workspace.play(.flow) },
             onStop: { beforeAction(); workspace.stop(.flow) },
             onReset: { beforeAction(); workspace.reset(.flow) },
-            onBreak: { beforeAction(); workspace.startBreak() }
+            onBreak: { beforeAction(); workspace.startBreak() },
+            flowReminderMinutes: preferences?.flowReminderMinutes,
+            onFlowReminder: preferences.map { preferences in { preferences.setFlowReminder(minutes: $0) } },
+            canConfigureReminders: preferences?.canEdit ?? false
         )
     }
 }

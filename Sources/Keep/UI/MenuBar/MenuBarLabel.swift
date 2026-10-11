@@ -6,6 +6,9 @@ struct MenuBarLabel: View {
     let workspace: WorkspaceModel
     let timer: MenuBarTimer
     var showFlowSeconds = true
+    var showPomodoroProgress = true
+    var showPomodoroTimer = true
+    var showFlowTimer = true
     @State private var renderedImage: NSImage?
 
     private struct Readout: Equatable {
@@ -16,14 +19,15 @@ struct MenuBarLabel: View {
     var body: some View {
         let instant = workspace.displayInstant
         let selection = Self.displayedTimer(preference: timer, pomodoro: workspace.pomodoro,
-                                            flow: workspace.flow, at: instant)
+                                            flow: workspace.flow, showPomodoroTimer: showPomodoroTimer,
+                                            showFlowTimer: showFlowTimer, at: instant)
         let selectedTimer: FocusTimer? = switch selection {
         case .pomodoro: workspace.pomodoro
         case .flow: workspace.flow
         case .none: nil
         }
         let readout = Readout(text: selectedTimer.map { Self.display($0, showFlowSeconds: showFlowSeconds, at: instant) },
-            progress: selection == .pomodoro ? min(1, workspace.pomodoro.elapsed(at: instant) / workspace.pomodoro.intervalDuration) : nil)
+            progress: selection == .pomodoro && showPomodoroProgress ? min(1, workspace.pomodoro.elapsed(at: instant) / workspace.pomodoro.intervalDuration) : nil)
         Group {
             if let renderedImage {
                 Image(nsImage: renderedImage)
@@ -71,10 +75,13 @@ struct MenuBarLabel: View {
         return image
     }
 
-    /// A single running timer takes priority; icon-only remains an explicit opt-out.
+    /// Only visible timers can appear; icon-only remains an explicit opt-out.
     static func displayedTimer(preference: MenuBarTimer, pomodoro: FocusTimer, flow: FocusTimer,
+                               showPomodoroTimer: Bool = true, showFlowTimer: Bool = true,
                                at instant: ContinuousClock.Instant) -> MenuBarTimer {
         guard preference != .none else { return .none }
+        if !showPomodoroTimer { return showFlowTimer ? .flow : .none }
+        if !showFlowTimer { return .pomodoro }
         let pomodoroRunning = pomodoro.phase(at: instant) == .running
         let flowRunning = flow.phase(at: instant) == .running
         if pomodoroRunning != flowRunning { return pomodoroRunning ? .pomodoro : .flow }

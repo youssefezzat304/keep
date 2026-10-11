@@ -68,6 +68,25 @@ import SwiftUI
                 }
             }
         }
+        for showPomodoro in [true, false] {
+            for showFlow in [true, false] {
+                for pomodoroPhase in [FocusTimer.Phase.idle, .running, .stopped, .completed] {
+                    for flowPhase in [FocusTimer.Phase.idle, .running, .stopped] {
+                        let pomodoro = fixture(mode: .pomodoro, phase: pomodoroPhase, at: selectionInstant)
+                        let flow = fixture(mode: .flow, phase: flowPhase, at: selectionInstant)
+                        for preference in MenuBarTimer.allCases {
+                            let expected: MenuBarTimer = preference == .none || (!showPomodoro && !showFlow) ? .none
+                                : !showPomodoro ? .flow : !showFlow ? .pomodoro
+                                : pomodoroPhase == .running && flowPhase != .running ? .pomodoro
+                                : flowPhase == .running && pomodoroPhase != .running ? .flow : preference
+                            expect(MenuBarLabel.displayedTimer(preference: preference, pomodoro: pomodoro,
+                                flow: flow, showPomodoroTimer: showPomodoro, showFlowTimer: showFlow, at: selectionInstant) == expected,
+                                "Hidden timers never appear, including when running or preferred")
+                        }
+                    }
+                }
+            }
+        }
         var breakTimer = fixture(mode: .pomodoro, phase: .completed, at: selectionInstant)
         let focusOutline = PomodoroProgressBorder.Identity(timer: breakTimer)
         breakTimer.startBreak(at: selectionInstant)
@@ -76,6 +95,9 @@ import SwiftUI
         expect(MenuBarLabel.displayedTimer(preference: .flow, pomodoro: breakTimer,
             flow: FocusTimer(mode: .flow), at: selectionInstant) == .pomodoro,
             "A running Pomodoro break also takes priority over an idle Flow preference")
+        expect(MenuBarLabel.displayedTimer(preference: .pomodoro, pomodoro: breakTimer,
+            flow: FocusTimer(mode: .flow), showPomodoroTimer: false, at: selectionInstant) == .flow,
+            "A hidden Pomodoro break never appears in the status readout")
         let halfBreak = selectionInstant.advanced(by: .seconds(30))
         breakTimer.stop(at: halfBreak)
         expect(breakTimer.elapsed(at: halfBreak) / breakTimer.intervalDuration == 0.5,

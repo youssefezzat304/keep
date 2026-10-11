@@ -2,16 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D072 — Restore the original Zen screenshot (2026-10-08)
-
-- [USER] Remove the live wallpapers from the website and return to the original screenshot.
-- [CODE] Zen again displays the original responsive native capture directly. Removed the chooser/disclosure, preview component, styles, manifest, generation command/script, generated derivatives, video-specific preview-server handling and retired interaction checks. Personal-wallpaper feature copy and supplied original MP4 files remain. This supersedes D071’s website presentation; native app behavior is unchanged.
-
-### D073 — Product README (2026-10-08)
-
-- [USER] Follow the structure of the vorssaint-utils README, include Keep’s logo and screenshots, omit the donation section, and recommend a license.
-- [CODE] Root README now introduces implemented features, free pricing, local storage/permissions, installation status, build commands and canonical documentation. Nine PNG assets under `docs/assets/readme/` reuse the existing icon and eight isolated native captures. GitHub has no public release as of this update. `LICENSE.md` is empty; a license recommendation does not select or apply one.
-
 ### D074 — MIT license (2026-10-08)
 
 - [USER] License Keep under MIT, superseding D073’s pending license selection.
@@ -52,3 +42,16 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 
 - [USER] Show the single running timer in the menu bar regardless of the preferred timer, use the preference when both run, and include Pomodoro's progress outline.
 - [CODE] Status selection uses current timer phases, including Pomodoro breaks; when neither runs it retains the preferred readout. Icon only remains an explicit opt-out. The compact readout is a native template image containing the shared perimeter outline, refreshed by the existing workspace clock. The menu panel reuses the outline on its Pomodoro row, with smooth refreshes disabled under Reduce Motion. Pause freezes progress, reset clears it, and a new focus/break gets a fresh outline. Settings explains automatic selection and exposes Flow seconds whenever timer readouts are enabled. No timer or recording semantics changed.
+
+### D082 — Timer visibility and sound reminders (2026-10-11)
+
+- [USER] Add timer controls in Settings for Pomodoro progress and Flow visibility, integrate the three original cues, and make Flow’s top-right icon configure recurring reminders.
+- [CODE] Validated preferences and portable backups retain visibility, sound enablement and optional 1–1,440-minute Flow intervals; older archives keep timers visible, completion sounds enabled and Flow reminders off. Progress visibility covers Focus and menu-bar readouts; Flow visibility covers Focus and Zen without stopping recording or removing menu controls.
+- [CODE] The existing app-owned timer refresh emits one focus/break completion cue and recurring Flow cues using accumulated running time. Pauses preserve cadence; reset or interval changes start a fresh countdown; late refreshes coalesce missed Flow reminders into one cue, and muted events never replay. Recording priority and completion history remain unchanged.
+- [CODE] Bundled WAVs reuse D080’s original bytes. One app-owned native audio player queues concurrent cues and supplies Settings previews/mute controls. These are sound reminders while Keep runs (including with windows closed), without notification banners, OS permissions or scheduling after quitting.
+
+### D083 — Shared timer visibility across surfaces (2026-10-11)
+
+- [USER] Add a Show Pomodoro timer setting and hide every hidden timer from the menu bar.
+- [CODE] Both timer visibility preferences now apply to Focus, Zen, status readouts and menu controls. A single visible timer supplies the status readout even if the preferred/running timer is hidden; hiding both leaves the leaf. Icon only remains an explicit opt-out, and the saved preference returns when both timers become visible. Combined start/stop and Pomodoro break actions are absent when their timers are hidden.
+- [CODE] Pomodoro visibility defaults on in older settings/backups and persists through existing validated storage and portable restore. Its progress switch retains its value while disabled when Pomodoro is hidden. Hiding affects presentation only; active sessions, recording and sound reminders continue. This supersedes D082’s policy of retaining hidden Flow controls in the menu bar.

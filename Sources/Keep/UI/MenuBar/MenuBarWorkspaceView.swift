@@ -64,7 +64,9 @@ struct MenuBarWorkspaceView: View {
             .fixedSize(horizontal: false, vertical: true)
             targetHeader.fixedSize(horizontal: false, vertical: true)
 
-            timerControls.fixedSize(horizontal: false, vertical: true)
+            if preferences.showPomodoroTimer || preferences.showFlowTimer {
+                timerControls.fixedSize(horizontal: false, vertical: true)
+            }
             rule
             todayTasks.frame(maxHeight: .infinity, alignment: .top)
             rule
@@ -142,13 +144,15 @@ struct MenuBarWorkspaceView: View {
                                 paused: workspace.pomodoro.phase() != .running && workspace.flow.phase() != .running)) { _ in
             let instant = ContinuousClock.now
             VStack(spacing: 10) {
-                timerRow(workspace.pomodoro, at: instant)
-                timerRow(workspace.flow, at: instant)
-                HStack {
-                    startBothButton
-                    Spacer(minLength: 0)
+                if preferences.showPomodoroTimer { timerRow(workspace.pomodoro, at: instant) }
+                if preferences.showFlowTimer { timerRow(workspace.flow, at: instant) }
+                if preferences.showPomodoroTimer && preferences.showFlowTimer {
+                    HStack {
+                        startBothButton
+                        Spacer(minLength: 0)
+                    }
                 }
-                if workspace.pomodoro.interval == .focus && workspace.pomodoro.phase(at: instant) == .completed {
+                if preferences.showPomodoroTimer && workspace.pomodoro.interval == .focus && workspace.pomodoro.phase(at: instant) == .completed {
                     HStack {
                         Button("\(Int(workspace.pomodoro.upcomingBreakDuration(at: instant) / 60))m break") {
                             workspace.startBreak()
@@ -193,7 +197,7 @@ struct MenuBarWorkspaceView: View {
         .background(KeepTheme.defaultTimerSurface(mode: timer.mode, isBreak: timer.interval == .rest),
                     in: RoundedRectangle(cornerRadius: 12))
         .overlay {
-            if timer.mode == .pomodoro {
+            if timer.mode == .pomodoro && preferences.showPomodoroProgress {
                 PomodoroProgressBorder(progress: timer.elapsed(at: instant) / timer.intervalDuration,
                     isRunning: running, cornerRadius: 12, lineWidth: 2)
                     .id(PomodoroProgressBorder.Identity(timer: timer))
