@@ -23,10 +23,6 @@ struct FocusTimerCard: View {
 
     private var isPomodoro: Bool { timer.mode == .pomodoro }
     private var isBreak: Bool { isPomodoro && timer.interval == .rest }
-    private struct ProgressIdentity: Hashable {
-        let intervalID: UUID
-        let isBreak: Bool
-    }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: isPomodoro && !reduceMotion ? 0.25 : 1, paused: timer.phase() != .running)) { _ in
@@ -102,7 +98,7 @@ struct FocusTimerCard: View {
                 if isPomodoro {
                     PomodoroProgressBorder(progress: timer.elapsed(at: instant) / timer.intervalDuration,
                         isRunning: phase == .running)
-                        .id(ProgressIdentity(intervalID: timer.intervalID, isBreak: isBreak))
+                        .id(PomodoroProgressBorder.Identity(timer: timer))
                 }
             }
         }

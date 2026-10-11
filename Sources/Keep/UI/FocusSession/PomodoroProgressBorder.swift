@@ -2,14 +2,28 @@ import SwiftUI
 
 /// An elapsed-time outline, drawn inside the card from the top center clockwise.
 struct PomodoroProgressBorder: View {
+    /// Breaks reuse the focus interval ID, but must start a fresh outline.
+    struct Identity: Hashable {
+        let intervalID: UUID
+        let isBreak: Bool
+
+        init(timer: FocusTimer) {
+            intervalID = timer.intervalID
+            isBreak = timer.interval == .rest
+        }
+    }
+
     let progress: Double
     let isRunning: Bool
+    var cornerRadius: CGFloat = KeepTheme.cardRadius
+    var lineWidth: CGFloat = 3
+    var color: Color = KeepTheme.ink
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ClockwiseCardOutline(cornerRadius: KeepTheme.cardRadius, inset: 1.5)
+        ClockwiseCardOutline(cornerRadius: cornerRadius, inset: lineWidth / 2)
             .trim(from: 0, to: min(1, max(0, progress)))
-            .stroke(KeepTheme.ink, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
             .animation(isRunning && !reduceMotion ? .linear(duration: 0.2) : nil, value: progress)
             .opacity(progress > 0 ? 1 : 0)
             .allowsHitTesting(false)

@@ -169,8 +169,13 @@ struct SettingsView: View {
                         .frame(width: 160)
                 }
                 .disabled(!preferences.menuBarEnabled)
-                if preferences.menuBarTimer == .flow {
-                    Toggle("Show seconds", isOn: $preferences.menuBarShowSeconds)
+                Text(preferences.menuBarTimer == .none
+                     ? "Only the leaf appears. Timer controls remain available in its menu."
+                     : "A single running timer appears automatically. This choice applies when both or neither are running.")
+                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                if preferences.menuBarTimer != .none {
+                    Toggle("Show Flow seconds", isOn: $preferences.menuBarShowSeconds)
                         .toggleStyle(.switch).controlSize(.small)
                         .font(.system(size: 13))
                         .disabled(!preferences.menuBarEnabled)

@@ -138,7 +138,7 @@ struct MenuBarWorkspaceView: View {
     }
 
     private var timerControls: some View {
-        TimelineView(.animation(minimumInterval: 1,
+        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 0.25,
                                 paused: workspace.pomodoro.phase() != .running && workspace.flow.phase() != .running)) { _ in
             let instant = ContinuousClock.now
             VStack(spacing: 10) {
@@ -192,6 +192,13 @@ struct MenuBarWorkspaceView: View {
         .padding(10)
         .background(KeepTheme.defaultTimerSurface(mode: timer.mode, isBreak: timer.interval == .rest),
                     in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            if timer.mode == .pomodoro {
+                PomodoroProgressBorder(progress: timer.elapsed(at: instant) / timer.intervalDuration,
+                    isRunning: running, cornerRadius: 12, lineWidth: 2)
+                    .id(PomodoroProgressBorder.Identity(timer: timer))
+            }
+        }
     }
 
     private var todayTasks: some View {

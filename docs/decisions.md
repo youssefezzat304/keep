@@ -2,12 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D071 — Supplied live wallpaper previews (2026-10-08; superseded by D072)
-
-- [USER] Use the four MP4 wallpapers supplied in `website/public/live wallpapers/` for the website.
-- [CODE] Zen has a four-choice live wallpaper preview, with explicit play/pause, muted inline looping and viewport-based playback. Reduced Motion, data saving and disabled JavaScript retain still posters; explicit Play can opt into motion. The existing actual native Zen capture remains available in an expandable preview. No web imitation of native app controls is introduced.
-- [CODE] `npm run wallpapers` uses installed FFmpeg and existing Sharp to create silent 720p fast-start H.264 derivatives, WebP posters and thumbnails in `public/media/wallpapers/`. Original files are unchanged. Only the selected video loads when its preview enters view. The local static-preview server supports MP4 byte ranges for WebKit playback. No native runtime, release or hosting behavior changes.
-
 ### D072 — Restore the original Zen screenshot (2026-10-08)
 
 - [USER] Remove the live wallpapers from the website and return to the original screenshot.
@@ -53,3 +47,8 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 
 - [USER] Create three notification sounds matching Keep's atmosphere and put them in the existing sounds folder.
 - [CODE] Added original synthesized soft mallet cues in `docs/assets/sounds/`: `focus-complete.wav` (descending, 2.30 s), `break-complete.wav` (ascending, 1.95 s), and `flow-reminder.wav` (single quieter tone, 1.70 s). Masters are 48 kHz, stereo, 24-bit PCM with gentle attacks, short room tails and faded boundaries. Existing supplied recordings remain unchanged. These are standalone assets; timer playback, preferences and the optional one-hour Flow reminder are not implemented by this asset task.
+
+### D081 — Active timer selection and menu bar progress (2026-10-11)
+
+- [USER] Show the single running timer in the menu bar regardless of the preferred timer, use the preference when both run, and include Pomodoro's progress outline.
+- [CODE] Status selection uses current timer phases, including Pomodoro breaks; when neither runs it retains the preferred readout. Icon only remains an explicit opt-out. The compact readout is a native template image containing the shared perimeter outline, refreshed by the existing workspace clock. The menu panel reuses the outline on its Pomodoro row, with smooth refreshes disabled under Reduce Motion. Pause freezes progress, reset clears it, and a new focus/break gets a fresh outline. Settings explains automatic selection and exposes Flow seconds whenever timer readouts are enabled. No timer or recording semantics changed.

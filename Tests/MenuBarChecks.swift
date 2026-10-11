@@ -53,6 +53,39 @@ import SwiftUI
         blocked.menuBarShowSeconds = false
         expect(!blocked.canEdit && defaults.data(forKey: persistence.key) == corrupt, "Invalid menu values preserve saved data and block edits")
 
+        let selectionInstant = ContinuousClock.now
+        for pomodoroPhase in [FocusTimer.Phase.idle, .running, .stopped, .completed] {
+            for flowPhase in [FocusTimer.Phase.idle, .running, .stopped] {
+                let pomodoro = fixture(mode: .pomodoro, phase: pomodoroPhase, at: selectionInstant)
+                let flow = fixture(mode: .flow, phase: flowPhase, at: selectionInstant)
+                for preference in MenuBarTimer.allCases {
+                    let expected: MenuBarTimer = preference == .none ? .none
+                        : pomodoroPhase == .running && flowPhase != .running ? .pomodoro
+                        : flowPhase == .running && pomodoroPhase != .running ? .flow : preference
+                    expect(MenuBarLabel.displayedTimer(preference: preference, pomodoro: pomodoro,
+                        flow: flow, at: selectionInstant) == expected,
+                        "Running timer selection for \(pomodoroPhase)/\(flowPhase), preference \(preference)")
+                }
+            }
+        }
+        var breakTimer = fixture(mode: .pomodoro, phase: .completed, at: selectionInstant)
+        let focusOutline = PomodoroProgressBorder.Identity(timer: breakTimer)
+        breakTimer.startBreak(at: selectionInstant)
+        let breakOutline = PomodoroProgressBorder.Identity(timer: breakTimer)
+        expect(focusOutline != breakOutline, "A new break clears the completed focus outline even with the same interval ID")
+        expect(MenuBarLabel.displayedTimer(preference: .flow, pomodoro: breakTimer,
+            flow: FocusTimer(mode: .flow), at: selectionInstant) == .pomodoro,
+            "A running Pomodoro break also takes priority over an idle Flow preference")
+        let halfBreak = selectionInstant.advanced(by: .seconds(30))
+        breakTimer.stop(at: halfBreak)
+        expect(breakTimer.elapsed(at: halfBreak) / breakTimer.intervalDuration == 0.5,
+            "The shared outline derives break progress from its own duration")
+        expect(breakTimer.elapsed(at: halfBreak.advanced(by: .seconds(300))) == 30,
+            "Paused outline progress stays frozen")
+        breakTimer.reset()
+        expect(PomodoroProgressBorder.Identity(timer: breakTimer) != breakOutline && breakTimer.elapsed() == 0,
+            "Reset clears the outline and starts a fresh identity")
+
         let workspace = WorkspaceModel()
         let instant = ContinuousClock.now
         let date = Date.now
@@ -64,6 +97,14 @@ import SwiftUI
         expect(MenuBarLabel.display(workspace.flow, showFlowSeconds: false, at: later) == "00:00", "Hide Flow seconds without rounding minutes up")
         expect(MenuBarLabel.display(workspace.flow, showFlowSeconds: true, at: later) == "00:00:03", "Show Flow seconds from the same clock")
         expect(MenuBarLabel.display(workspace.pomodoro, showFlowSeconds: false, at: later) == "24:57", "Show seconds preference never changes Pomodoro")
+        workspace.stop(.flow, at: later, date: date.addingTimeInterval(3))
+        expect(MenuBarLabel.displayedTimer(preference: .flow, pomodoro: workspace.pomodoro,
+            flow: workspace.flow, at: workspace.displayInstant) == .pomodoro,
+            "Stopping preferred Flow switches immediately to running Pomodoro")
+        workspace.play(.flow, at: later, date: date.addingTimeInterval(3))
+        expect(MenuBarLabel.displayedTimer(preference: .flow, pomodoro: workspace.pomodoro,
+            flow: workspace.flow, at: workspace.displayInstant) == .flow,
+            "Resuming Flow restores the user's preference when both run")
         for (seconds, expected) in [(59, "00:00"), (60, "00:01"), (3599, "00:59"), (3600, "01:00"), (3661, "01:01")] {
             expect(MenuBarLabel.display(workspace.flow, showFlowSeconds: false, at: instant.advanced(by: .seconds(seconds))) == expected, "Flow formatting preserves hour/minute boundaries")
         }
@@ -101,5 +142,20 @@ import SwiftUI
         }
         panelWorkspace.shutdown()
         print("Passed \(checks) menu bar preference/display/layout checks")
+    }
+
+    static func fixture(mode: FocusTimer.Mode, phase: FocusTimer.Phase, at instant: ContinuousClock.Instant) -> FocusTimer {
+        var timer = FocusTimer(mode: mode, focusDuration: 60, breakDuration: 60)
+        switch phase {
+        case .idle: break
+        case .running: timer.play(at: instant.advanced(by: .seconds(-20)))
+        case .stopped:
+            timer.play(at: instant.advanced(by: .seconds(-30)))
+            timer.stop(at: instant.advanced(by: .seconds(-10)))
+        case .completed:
+            timer.play(at: instant.advanced(by: .seconds(-60)))
+            timer.settleCompletion(at: instant)
+        }
+        return timer
     }
 }
