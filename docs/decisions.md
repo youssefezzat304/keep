@@ -2,12 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D070 — Music player and personal Zen wallpapers (2026-10-08)
-
-- [USER] Highlight the music player and personal Zen wallpapers using images the user will provide. The initial 500,000+ lo-fi/ambient claim is superseded by the user's follow-up: use music copy without a count for now.
-- [CODE] A dedicated music section describes Audius discovery/saved public artists and playlists, the Mac Music library and shared playback controls. Zen explicitly describes selecting a personal folder of images or MP4 videos. Wallpaper files were initially pending; supplied assets are integrated under D071.
-- [CODE][TOOL] The genre-specific catalog count remains UNCONFIRMED and is omitted. `AudiusClient.lofiTracks()` requests 30 results; public artist/playlist channels extend that selection. Audius’s overall catalog size does not establish a lo-fi/ambient count or Keep’s playable selection. No music or wallpaper runtime behavior changed.
-
 ### D071 — Supplied live wallpaper previews (2026-10-08; superseded by D072)
 
 - [USER] Use the four MP4 wallpapers supplied in `website/public/live wallpapers/` for the website.
@@ -54,3 +48,8 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 
 - [USER] Implement the rectangular visual timer as no border → border.
 - [CODE] Pomodoro cards trace a thin inset outline clockwise from the top center using the native continuous rounded-card shape. Progress derives from elapsed time and the current interval duration: idle/reset is empty, pause freezes it, completion is full, and each new focus/break starts a fresh outline. Preset changes retain the active interval's existing duration. The overlay uses shared readable ink, cannot intercept controls and adds no accessibility element; Reduce Motion disables interpolation and uses the existing one-second refresh. Flow and recording rules are unchanged.
+
+### D080 — Original timer sound assets (2026-10-11)
+
+- [USER] Create three notification sounds matching Keep's atmosphere and put them in the existing sounds folder.
+- [CODE] Added original synthesized soft mallet cues in `docs/assets/sounds/`: `focus-complete.wav` (descending, 2.30 s), `break-complete.wav` (ascending, 1.95 s), and `flow-reminder.wav` (single quieter tone, 1.70 s). Masters are 48 kHz, stereo, 24-bit PCM with gentle attacks, short room tails and faded boundaries. Existing supplied recordings remain unchanged. These are standalone assets; timer playback, preferences and the optional one-hour Flow reminder are not implemented by this asset task.
