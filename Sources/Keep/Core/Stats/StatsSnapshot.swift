@@ -227,8 +227,8 @@ nonisolated struct StatsSnapshot: Sendable {
                 }
                 previousTotal += max(0, previousSeconds)
             }
-            // Keep prior days too, so a current streak may start before the displayed range.
-            if session.dayID <= effectiveEnd { daily[session.dayID, default: 0] += seconds }
+            // Keep all recorded days through today for the annual grid and streaks.
+            if session.dayID <= todayID { daily[session.dayID, default: 0] += seconds }
             guard session.dayID >= startID && session.dayID <= effectiveEnd, seconds > 0 else { continue }
             let key = query.projectID == nil ? session.projectID : StatsQuery.taskKey(session.task)
             let project = projectMap[session.projectID]
@@ -298,7 +298,7 @@ nonisolated struct StatsSnapshot: Sendable {
         return StatsSnapshot(range: range, total: total, previousTotal: previousTotal, activeDays: selectedDaily.count,
             pomodoros: completed,
             pomodorosAvailable: input.historyStartedAt.map { dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
-            adjustedTotal: adjusted, dailyFocus: selectedDaily, focusActivity: FocusActivitySnapshot(range: range, now: now, calendar: calendar).filling(selectedDaily), buckets: buckets,
+            adjustedTotal: adjusted, dailyFocus: selectedDaily, focusActivity: FocusActivitySnapshot(range: range, now: now, calendar: calendar).filling(daily), buckets: buckets,
             distribution: distribution.values.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds },
             weekdays: weekdays, hours: hours, tasksCompleted: taskDays.reduce(0) { $0 + $1.completed }, tasksTotal: taskDays.reduce(0) { $0 + $1.total },
             habits: habitRows, weeklyGoalSeconds: weeklyGoalSeconds, currentStreak: streak.current, bestStreak: streak.best)

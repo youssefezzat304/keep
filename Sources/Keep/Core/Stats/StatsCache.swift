@@ -201,6 +201,8 @@ actor StatsCache {
         var now: Date
         // Positive-session counts avoid rounding residuals changing active days or streaks.
         let activityLayout: FocusActivitySnapshot
+        let activityDays: Set<String>
+        var annualDaily: [String: Double] = [:]
         var activityDaily: [String: Double] = [:]
         var daily: [String: Double] = [:]
         var groups: [String: Group] = [:]
@@ -215,6 +217,7 @@ actor StatsCache {
 
         init(query: StatsQuery, range: StatsRange, now: Date, calendar: Calendar, projects: [StatsInput.Project]) throws {
             activityLayout = FocusActivitySnapshot(range: range, now: now, calendar: calendar)
+            activityDays = Set(activityLayout.weeks.flatMap(\.days).filter { $0.inYear && !$0.future }.map(\.id))
             self.query = query; self.range = range; self.now = now; self.calendar = calendar
             today = StatsSnapshot.dayID(now, calendar: calendar)
             startID = StatsSnapshot.dayID(range.start, calendar: calendar)
@@ -289,6 +292,9 @@ actor StatsCache {
                     if wasActive != isActive { activeDays += isActive ? 1 : -1 }
                 }
             }
+            if activityDays.contains(record.dayID), seconds > 0 {
+                annualDaily[record.dayID, default: 0] += seconds * factor
+            }
             guard selected(record.dayID), seconds > 0 else { return }
             activityDaily[record.dayID, default: 0] += seconds * factor
             total += seconds * factor
@@ -351,7 +357,7 @@ actor StatsCache {
             }.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds }
             return StatsSnapshot(range: range, total: max(0, total), previousTotal: max(0, previousTotal), activeDays: activeDays,
                 pomodoros: pomodoros, pomodorosAvailable: historyStartedAt.map { StatsSnapshot.dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
-                adjustedTotal: max(0, adjusted), dailyFocus: activityDaily, focusActivity: activityLayout.filling(activityDaily), buckets: buckets, distribution: distribution, weekdays: weekdays, hours: hours,
+                adjustedTotal: max(0, adjusted), dailyFocus: activityDaily, focusActivity: activityLayout.filling(annualDaily), buckets: buckets, distribution: distribution, weekdays: weekdays, hours: hours,
                 tasksCompleted: summary.tasksCompleted, tasksTotal: summary.tasksTotal, habits: summary.habits, weeklyGoalSeconds: max(0, weeklyGoal),
                 currentStreak: streak.current, bestStreak: streak.best)
         }

@@ -11,7 +11,7 @@ struct StatsActivityGrid: View {
         return dayLabel(day)
     }
     private func dayLabel(_ day: FocusActivitySnapshot.Day) -> String {
-        "\(day.label): \(TimesheetDuration.total(day.seconds)) recorded focus\(day.selected ? "" : ", outside selected dates")"
+        "\(day.label): \(TimesheetDuration.total(day.seconds)) recorded focus"
     }
 
     private var ink: Color { HabitVisualStyle.ink(.fern, in: environment) }
@@ -47,7 +47,7 @@ struct StatsActivityGrid: View {
     private var title: some View {
         HStack { Text("Focus activity").font(KeepTheme.headingFont(size: 24)); Text(String(snapshot.year)).font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk) }
     }
-    private var total: some View { Text("\(TimesheetDuration.total(snapshot.seconds)) in the displayed year and selected dates").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk) }
+    private var total: some View { Text("\(TimesheetDuration.total(snapshot.seconds)) in \(String(snapshot.year))").font(.system(size: 12)).foregroundStyle(KeepTheme.secondaryInk) }
     private var legend: some View {
         HStack(spacing: 4) {
             Text("Less")
@@ -64,6 +64,6 @@ struct StatsActivityGrid: View {
             RoundedRectangle(cornerRadius: 2).fill(fill(day.seconds)).frame(width: size, height: size)
         }.buttonStyle(ActivitySquareButtonStyle())
             .opacity(day.inYear ? 1 : 0)
-            .disabled(!day.inYear || day.future || !day.selected).help(label).accessibilityLabel(label).accessibilityHidden(!day.inYear)
+            .disabled(!day.inYear || day.future).help(label).accessibilityLabel(label).accessibilityHidden(!day.inYear)
     }
 }

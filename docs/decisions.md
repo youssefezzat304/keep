@@ -2,11 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D075 — Remove auxiliary documentation (2026-10-09)
-
-- [USER] Remove unnecessary standalone guides from the pushed repository and let agents inspect implementation when details are needed.
-- [CODE] Preserved the user's deletion of the backup, update, export and music-artwork guides. Removed their stale links and tool references; canonical architecture, decisions and style remain. Documentation no longer repeats the local signing account or iCloud container identifier in those architecture sections. Runtime identifiers and configuration are unchanged; deleting files does not rewrite existing Git history.
-
 ### D076 — Concise architecture and bounded documentation (2026-10-09)
 
 - [USER] Condense the architecture overview, stop automatic architecture/style edits, and retain only the ten most recent decisions. Put these working rules in `AGENTS.md`.
@@ -58,3 +53,9 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [CODE] The read index derives actuals from session deltas; HabitStore combines those seconds with existing manual logs for task rows, activity, streaks, Stats and weekly targets. Automatic minutes are not stored as manual progress. Persisted consumed goal markers prevent replay after mute, corrections, reload and locked backup restore. New original 48 kHz stereo/24-bit `habit-complete.wav` is bundled with existing preview/mute/queued playback.
 - [CODE] Task estimates allow blank or 1–1,440 whole minutes. Daily planned totals retain completed rows and include scheduled visible timed-habit goals. Both running cards display task/project context while preserving break and recording-priority notices. The new date-only Task estimates CSV and Stats ZIP report include zero-time estimates, future plans, removed-task recorded history, and separate manual/combined habit columns; unavailable data surfaces recovery errors.
 - [TOOL] Ad hoc Xcode build and 763 focused/regression checks passed across task identity, timer recording, habits, sound playback, exports, Stats and backup/restore. Twenty native layouts covered light/dark and default/narrow sizes; native input verified validation, Return save, Escape cancel, rename attribution, manual-minute clearing and active timer labels. Distribution signing and macOS 15 execution were not validated.
+
+### D085 — Annual focus activity independent of Stats dates (2026-10-12)
+
+- [USER] Focus activity must show the whole year independently of the selected week.
+- [CODE] Both direct Stats aggregation and the incremental cache now populate every recorded day of the displayed year through today. Project/task filters still apply; period totals, charts, streaks and daily exports retain their date scope. The existing displayed-year selection remains tied to the range’s starting year. Annual tiles outside the selected period can be inspected, and the caption reports the year’s total without date-range qualifiers or numeric grouping in the year.
+- [TOOL] Ad hoc Xcode build and 382 Stats, weekly-target, cache, model and viewport checks passed; native renders inspected at 1000 × 900 and 680 × 650 in light/dark. Corrected a Monday-sensitive presentation check to accept an empty current week while verifying loaded annual history.

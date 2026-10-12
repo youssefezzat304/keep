@@ -1,12 +1,11 @@
 import Foundation
 
-/// A year of civil days, with only the selected date range contributing recorded hours.
+/// A full year of recorded civil days, independent of the selected Stats date range.
 nonisolated struct FocusActivitySnapshot: Sendable {
     struct Day: Sendable {
         let id: String
         let date: Date
         let inYear: Bool
-        let selected: Bool
         let future: Bool
         let label: String
         var seconds: Double = 0
@@ -35,7 +34,7 @@ nonisolated struct FocusActivitySnapshot: Sendable {
                 guard let date = calendar.date(byAdding: .day, value: index, to: cursor) else { continue }
                 days.append(Day(id: StatsSnapshot.dayID(date, calendar: calendar), date: date,
                     inYear: date >= interval.start && date < interval.end,
-                    selected: date >= range.start && date < range.end, future: date > today, label: formatter.string(from: date)))
+                    future: date > today, label: formatter.string(from: date)))
             }
             let firstOfMonth = days.first { $0.inYear && calendar.component(.day, from: $0.date) == 1 }
             let month = firstOfMonth.map { calendar.shortMonthSymbols[calendar.component(.month, from: $0.date) - 1] } ?? " "
@@ -50,7 +49,7 @@ nonisolated struct FocusActivitySnapshot: Sendable {
         for week in value.weeks.indices {
             for day in value.weeks[week].days.indices {
                 let tile = value.weeks[week].days[day]
-                value.weeks[week].days[day].seconds = tile.inYear && tile.selected && !tile.future ? max(0, daily[tile.id, default: 0]) : 0
+                value.weeks[week].days[day].seconds = tile.inYear && !tile.future ? max(0, daily[tile.id, default: 0]) : 0
             }
         }
         return value

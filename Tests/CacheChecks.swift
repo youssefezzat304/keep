@@ -38,9 +38,57 @@ import Foundation
             entries: workspace.ledger.entries.map { .init(projectID: $0.project.id, dayID: $0.dayID, seconds: $0.seconds) }, tasks: supplement.tasks, habits: supplement.habits))
     }
     static func main() async throws {
+        try await annualActivityChecks()
         try await historyChecks()
         try await musicChecks()
         print("Passed \(checks) cache correctness, invalidation, lifecycle and retention checks")
+    }
+
+    static func annualActivityChecks() async throws {
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .gmt
+        func date(_ month: Int, _ day: Int, year: Int = 2026) -> Date {
+            calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 10)) ?? .distantPast
+        }
+        let now = date(10, 12), clock = ContinuousClock.now
+        var ledger = TimesheetLedger()
+        for (month, day, year, project, task, seconds) in [
+            (1, 4, 2026, FocusProject.defaults[1], "Read", 60.0),
+            (10, 5, 2026, .defaults[1], "Read", 120.0),
+            (10, 12, 2026, .unassigned, "Other", 180.0),
+            (12, 1, 2026, .defaults[1], "Read", 240.0),
+            (12, 30, 2025, .defaults[1], "Read", 300.0)
+        ] {
+            ledger.record(project: project, from: date(month, day, year: year), seconds: seconds,
+                          calendar: calendar, sessionID: UUID(), task: task)
+        }
+        let workspace = WorkspaceModel(ledger: ledger, calendar: calendar, date: now.addingTimeInterval(180))
+        defer { workspace.shutdown() }
+        let cache = StatsCache(), values = StatsSupplement(taskRevision: 0, habitRevision: 0, tasks: [], habits: [])
+        var cursor: (epoch: UUID, revision: UInt64)?
+        func snapshot(_ query: StatsQuery) async throws -> StatsSnapshot {
+            let batch = workspace.readIndex.batch(since: cursor?.revision, epoch: cursor?.epoch)
+            let result = try await cache.snapshot(batch: batch, query: query, supplement: values,
+                now: now.addingTimeInterval(180), calendar: calendar)
+            equivalent(result, try reference(workspace, query: query, supplement: values,
+                now: now.addingTimeInterval(180), calendar: calendar), "Annual cache matches reference through date navigation and mutations")
+            cursor = (batch.epoch, batch.revision)
+            return result
+        }
+        let current = try await snapshot(StatsQuery())
+        expect(close(current.focusActivity.seconds, 360) && close(current.total, 180), "Cache separates full-year activity from current week and excludes future/other-year sessions")
+        var past = StatsQuery(); past.anchor = date(10, 5)
+        let previous = try await snapshot(past)
+        expect(close(previous.focusActivity.seconds, 360) && close(previous.total, 120), "Past week includes activity recorded after its end")
+        var filtered = past; filtered.projectID = FocusProject.defaults[1].id; filtered.taskKeys = ["read"]
+        expect(close(try await snapshot(filtered).focusActivity.seconds, 180), "Annual cache respects project/task filters")
+        if let january = workspace.ledger.sessions.first(where: { $0.dayID == "2026-01-04" }) {
+            try workspace.editSession(id: january.id, start: january.start, end: january.start.addingTimeInterval(90), at: clock, date: now)
+            expect(close(try await snapshot(past).focusActivity.seconds, 390), "Outside-period session edits patch annual activity")
+            try workspace.deleteSession(id: january.id, at: clock, date: now)
+            expect(close(try await snapshot(past).focusActivity.seconds, 300), "Outside-period session deletion patches annual activity")
+        } else { preconditionFailure("Missing January fixture session") }
+        var oldYear = StatsQuery(); oldYear.period = .year; oldYear.anchor = date(1, 1, year: 2025)
+        expect(close(try await snapshot(oldYear).focusActivity.seconds, 300), "Year navigation retains the displayed year's historical activity")
     }
 
     static func historyChecks() async throws {

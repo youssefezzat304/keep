@@ -72,11 +72,13 @@ import SwiftUI
         model.query = StatsQuery()
         model.refresh(workspace: workspace, tasks: tasks, habits: habits)
         try await waitForSnapshot(model)
-        expect((model.snapshot?.total ?? 0) > 0, "Returning to visible page refreshes")
+        expect(model.snapshot?.range == StatsQuery().range(now: .now, calendar: workspace.calendar)
+            && (model.snapshot?.focusActivity.seconds ?? 0) > 0, "Returning to visible page refreshes annual history even when the current week is empty")
         let other = StatsModel(); other.query.period = .month
         other.refresh(workspace: workspace, tasks: tasks, habits: habits)
         try await waitForSnapshot(other)
         expect(model.query.period == .week && other.query.period == .month, "Window filter state stays independent")
+        expect(model.snapshot?.focusActivity.seconds == other.snapshot?.focusActivity.seconds, "Window periods share full-year focus activity")
 
         _ = NSApplication.shared
         let output = URL(fileURLWithPath: "/tmp/keep-stats-renders")

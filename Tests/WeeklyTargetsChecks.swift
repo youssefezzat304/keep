@@ -117,7 +117,7 @@ import Foundation
         query.period = .month
         let range = query.range(now: now, calendar: StatsSnapshot.calendar(calendar))
         let grid = FocusActivitySnapshot(range: range, now: now, calendar: calendar).filling(["2026-10-08": 3600, "2026-09-30": 80000, "2026-10-09": 90000])
-        expect(grid.seconds == 3600, "Grid excludes unselected and future days")
+        expect(grid.seconds == 83600, "Grid includes the full year and excludes future days")
         expect(grid.weeks.flatMap(\.days).first { $0.id == "2026-10-08" }?.seconds == 3600, "Correct day receives focus time")
         let cache = StatsCache(), supplement = StatsSupplement(taskRevision: 0, habitRevision: 0, tasks: [], habits: [])
         let cached = try await cache.snapshot(batch: workspace.readIndex.batch(since: nil, epoch: nil), query: query, supplement: supplement, now: now.addingTimeInterval(70), calendar: calendar)
