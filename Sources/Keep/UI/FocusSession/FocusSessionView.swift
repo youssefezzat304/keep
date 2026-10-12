@@ -42,9 +42,9 @@ struct FocusSessionView: View {
 
     @ViewBuilder private var supportingCards: some View {
         MusicPlayerCard(player: music, preferences: preferences, wallpapers: wallpapers, onEnterZen: onEnterZen.map { enter in { taskEditor.commit(to: workspace); enter() } }, wallpaperIsActive: isActive)
-        TasksCard(store: tasks, today: workspace.today, canStartTimer: workspace.canTrack) { task, timers in
+        TasksCard(store: tasks, today: workspace.today, canStartTimer: workspace.canTrack, workspace: workspace) { task, timers in
             taskEditor.commit(to: workspace)
-            workspace.startTask(task.title, timers: timers)
+            workspace.startTask(task, on: TaskDay.id(for: workspace.today, calendar: tasks.calendar), timers: timers)
         }
     }
 }

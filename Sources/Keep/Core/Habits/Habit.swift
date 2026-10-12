@@ -33,6 +33,7 @@ nonisolated enum HabitUnit: String, Codable, CaseIterable, Identifiable {
 nonisolated enum HabitGoal: Codable, Equatable {
     case checkIn
     case amount(target: Int, unit: HabitUnit)
+    var minuteTarget: Int? { if case .amount(let target, .minutes) = self { return target }; return nil }
     var target: Int { if case .amount(let target, _) = self { return target }; return 1 }
     var isValid: Bool { if case .amount(let target, let unit) = self { return (1...unit.maximumTarget).contains(target) }; return true }
     var summary: String {
@@ -126,11 +127,13 @@ nonisolated struct HabitLog: Codable, Equatable {
 nonisolated struct HabitArchive: Codable, Equatable {
     var habits: [Habit] = []
     var logs: [HabitLog] = []
+    var consumedTimerGoals: [UUID: Set<String>]?
     var isValid: Bool {
         var ids: Set<UUID> = []
         guard habits.allSatisfy({ $0.isValid && ids.insert($0.id).inserted }) else { return false }
         let catalog = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
         var days: [UUID: Set<String>] = [:]
+        guard consumedTimerGoals?.allSatisfy({ ids.contains($0.key) && $0.value.allSatisfy(TaskDay.isValid) }) ?? true else { return false }
         return logs.allSatisfy { log in
             guard let habit = catalog[log.habitID] else { return false }
             return TaskDay.isValid(log.dayID) && habit.isWithinRange(log.dayID) &&

@@ -43,6 +43,9 @@ struct MenuBarTargetPicker: View {
                             HStack(spacing: 10) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(task.title).font(.system(size: 13, weight: .medium)).lineLimit(2)
+                                    if let reference = task.taskReference {
+                                        Text(referenceLabel(reference)).font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)
+                                    }
                                     Label(task.project.name, systemImage: "folder.fill")
                                         .font(.system(size: 11)).foregroundStyle(task.project.labelColor(in: environment))
                                         .lineLimit(1)
@@ -71,6 +74,10 @@ struct MenuBarTargetPicker: View {
         .foregroundStyle(KeepTheme.ink)
         .onChange(of: isVisible, initial: true) { _, visible in nameFocused = visible }
         .onExitCommand { if isVisible { onBack() } }
+    }
+
+    private func referenceLabel(_ reference: TaskReference) -> String {
+        switch reference { case .task(_, let day): "Task · \(day)"; case .habit: "Habit" }
     }
 
     private func projectRow(_ project: FocusProject?) -> some View {

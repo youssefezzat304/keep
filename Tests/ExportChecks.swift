@@ -118,7 +118,7 @@ private actor FakeFiles: ExportFileWriting {
         let projection = WeeklyProjection(days: weekDays, index: workspace.readIndex)
         expect(sheet.dropFirst().reduce(0) { $0 + (Double($1[4]) ?? 0) } == projection.rowTotals[project.id], "Timesheet projection reconciliation")
         let reports = try ExportReports.make(request(.stats), snapshot: snapshot)
-        expect(reports.count == 11 && Set(reports.map(\.filename)).count == 11, "Full Stats CSV bundle")
+        expect(reports.count == 12 && Set(reports.map(\.filename)).count == 12, "Full Stats CSV bundle")
         expect(try ExportReports.make(request(.stats), snapshot: snapshot).map(\.contents) == reports.map(\.contents), "Deterministic report bytes")
         let summary = rows(reports, "summary.csv")
         expect(summary[1][0] == "6000.0" && summary[1][7] == "1" && summary[1][9] == "partial", "Focus and partial Pomodoro coverage")

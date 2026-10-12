@@ -53,7 +53,7 @@ struct TimesheetPersistence {
         guard ledger.sessions.allSatisfy({ session in
             guard session.start.timeIntervalSince1970.isFinite, session.end.timeIntervalSince1970.isFinite,
                   session.start >= .distantPast, session.end <= .distantFuture,
-                  session.seconds > 0 else { return false }
+                  session.seconds > 0, session.taskReference?.isValid != false else { return false }
             var calendar = Calendar(identifier: .gregorian)
             guard let zone = TimeZone(identifier: session.timeZoneID) else { return false }
             calendar.timeZone = zone
@@ -82,8 +82,8 @@ struct TimesheetPersistence {
         var activityKeys: [String: Set<String>] = [:]
         guard ledger.taskActivities.allSatisfy({ activity in
             let title = activity.title.trimmingCharacters(in: .whitespacesAndNewlines)
-            let key = title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-            return !title.isEmpty && title == activity.title && title.count <= 200 && !activity.project.id.isEmpty && !activity.project.name.isEmpty &&
+            let key = activity.taskReference?.storageKey ?? "name/" + title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            return activity.taskReference?.isValid != false && !title.isEmpty && title == activity.title && title.count <= 200 && !activity.project.id.isEmpty && !activity.project.name.isEmpty &&
                 activity.lastUsed.timeIntervalSince1970.isFinite && activity.lastUsed >= .distantPast && activity.lastUsed <= .distantFuture &&
                 activityIDs.insert(activity.id).inserted && activityKeys[activity.project.id, default: []].insert(key).inserted
         }) else { throw CocoaError(.coderReadCorrupt) }

@@ -6,12 +6,14 @@ nonisolated struct FocusTask: Identifiable, Codable, Equatable {
     var isComplete = false
     /// Only projected habit rows carry an origin; they are never saved as ordinary tasks.
     var habitID: UUID?
+    var estimateMinutes: Int?
 
-    init(id: UUID = UUID(), title: String, isComplete: Bool = false, habitID: UUID? = nil) {
+    init(id: UUID = UUID(), title: String, isComplete: Bool = false, habitID: UUID? = nil, estimateMinutes: Int? = nil) {
         self.id = id
         self.title = title
         self.isComplete = isComplete
         self.habitID = habitID
+        self.estimateMinutes = estimateMinutes
     }
 
     var listID: String { habitID.map { "habit/" + $0.uuidString } ?? "task/" + id.uuidString }

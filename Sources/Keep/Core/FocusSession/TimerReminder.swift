@@ -3,6 +3,7 @@ import Foundation
 nonisolated enum TimerSound: String, CaseIterable, Sendable {
     case focusComplete = "focus-complete"
     case breakComplete = "break-complete"
+    case habitComplete = "habit-complete"
     case flowReminder = "flow-reminder"
 
     var title: String {
@@ -10,6 +11,7 @@ nonisolated enum TimerSound: String, CaseIterable, Sendable {
         case .focusComplete: "Focus complete"
         case .breakComplete: "Break complete"
         case .flowReminder: "Flow reminder"
+        case .habitComplete: "Timed habit complete"
         }
     }
 }

@@ -17,7 +17,7 @@ nonisolated struct PersistentSnapshot: Sendable {
 }
 
 nonisolated enum ExportData: String, CaseIterable, Sendable {
-    case calendar = "Calendar", timesheet = "Timesheet", stats = "Stats"
+    case calendar = "Calendar", timesheet = "Timesheet", stats = "Stats", taskEstimates = "Task estimates"
     var format: String { self == .stats ? "CSV reports (.zip)" : "CSV (.csv)" }
     var fileExtension: String { self == .stats ? "zip" : "csv" }
 }
@@ -36,7 +36,8 @@ nonisolated struct ExportRequest: Sendable {
     func validate(now: Date, calendar: Calendar) throws {
         guard from.timeIntervalSince1970.isFinite, through.timeIntervalSince1970.isFinite,
               calendar.startOfDay(for: from) <= calendar.startOfDay(for: through),
-              calendar.startOfDay(for: through) <= calendar.startOfDay(for: now),
+              (data == .taskEstimates || calendar.startOfDay(for: through) <= calendar.startOfDay(for: now)),
+              data != .taskEstimates || (projectID == nil && taskKeys == nil),
               taskKeys == nil || (data != .timesheet && projectID != nil && taskKeys?.isEmpty == false) else { throw ExportFailure.invalidRequest }
     }
     func filename(calendar: Calendar) -> String {
@@ -59,7 +60,7 @@ nonisolated enum ExportFailure: LocalizedError {
     case invalidRequest, unavailable, restoreLocked, noWindow, saveFailed
     var errorDescription: String? {
         switch self {
-        case .invalidRequest: "Choose From on or before Through, no later than today. Select a project before filtering tasks."
+        case .invalidRequest: "Choose From on or before Through. Future dates are available for Task estimates only. Select a project before filtering session tasks."
         case .unavailable: "Required saved data is unavailable. Use Retry to reload or save it, then export again."
         case .restoreLocked: "Wait for restore recovery to finish before exporting."
         case .noWindow: "Open a Keep window and try Export again."

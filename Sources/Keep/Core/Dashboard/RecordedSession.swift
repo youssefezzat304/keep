@@ -16,6 +16,7 @@ nonisolated struct RecordedSession: Identifiable, Codable, Sendable {
     let timeZoneID: String
     let start: Date
     var end: Date
+    var taskReference: TaskReference? = nil
     var seconds: TimeInterval { end.timeIntervalSince(start) }
     var title: String { task.isEmpty ? project.name : task }
 
@@ -48,7 +49,7 @@ nonisolated struct RecordedSession: Identifiable, Codable, Sendable {
         guard let day = localCalendar.dateInterval(of: .day, for: self.start),
               start >= day.start, start < day.end, end <= day.end else { throw SessionEditError.outsideDay }
         return RecordedSession(id: id, recordingID: recordingID, dayID: dayID, project: project,
-            task: task, source: source, timeZoneID: timeZoneID, start: start, end: end)
+            task: task, source: source, timeZoneID: timeZoneID, start: start, end: end, taskReference: taskReference)
     }
 
     // Preserve the civil day/time in which the time was recorded, as Timesheet does.

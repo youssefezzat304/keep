@@ -17,6 +17,7 @@ nonisolated struct TaskActivity: Identifiable, Codable, Sendable {
     var project: FocusProject
     var lastUsed: Date
     var isPinned = false
+    var taskReference: TaskReference? = nil
 }
 
 nonisolated struct TimesheetEntry: Identifiable, Codable, Sendable {
@@ -83,7 +84,7 @@ nonisolated struct TimesheetLedger: Codable {
             taskActivities = saved
         } else {
             for session in sessions.sorted(by: { $0.end < $1.end }) {
-                rememberTask(session.task, project: session.project, date: session.end)
+                rememberTask(session.task, project: session.project, date: session.end, reference: session.taskReference)
             }
         }
     }
@@ -98,15 +99,15 @@ nonisolated struct TimesheetLedger: Codable {
         changes.append(.completion(completion))
     }
 
-    mutating func rememberTask(_ name: String, project: FocusProject, date: Date) {
+    mutating func rememberTask(_ name: String, project: FocusProject, date: Date, reference: TaskReference? = nil) {
         let title = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
         guard !title.isEmpty else { return }
-        if let index = taskActivities.firstIndex(where: { $0.project.id == project.id && $0.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
+        if let index = taskActivities.firstIndex(where: { $0.project.id == project.id && (reference != nil ? $0.taskReference == reference : $0.taskReference == nil && $0.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame) }) {
             taskActivities[index].title = title
             taskActivities[index].lastUsed = date
             changes.append(.activity(taskActivities[index]))
         } else {
-            let activity = TaskActivity(id: UUID(), title: title, project: project, lastUsed: date)
+            let activity = TaskActivity(id: UUID(), title: title, project: project, lastUsed: date, taskReference: reference)
             taskActivities.append(activity)
             changes.append(.activity(activity))
         }
@@ -265,7 +266,7 @@ nonisolated struct TimesheetLedger: Codable {
                 sessions.append(session)
                 changes.append(.session(session))
                 let separate = RecordedSession(id: UUID().uuidString, recordingID: new.recordingID, dayID: new.dayID, project: new.project,
-                    task: new.task, source: new.source, timeZoneID: new.timeZoneID, start: new.start, end: new.end)
+                    task: new.task, source: new.source, timeZoneID: new.timeZoneID, start: new.start, end: new.end, taskReference: new.taskReference)
                 sessions.append(separate)
                 changes.append(.session(separate))
             } else {
@@ -277,7 +278,7 @@ nonisolated struct TimesheetLedger: Codable {
 
     /// Split elapsed time across local midnight, including DST days of unequal length.
     mutating func record(project: FocusProject, from start: Date, seconds: TimeInterval, calendar: Calendar,
-                         sessionID: UUID? = nil, task: String = "", source: RecordedSession.Source = .pomodoro) {
+                         sessionID: UUID? = nil, task: String = "", source: RecordedSession.Source = .pomodoro, taskReference: TaskReference? = nil) {
         guard seconds.isFinite && seconds > 0 else { return }
         var cursor = start
         var remaining = seconds
@@ -298,7 +299,7 @@ nonisolated struct TimesheetLedger: Codable {
                     // Discontinuous wall clocks or a removed row start a separate block.
                     let uniqueID = sessions.contains { $0.id == id } ? UUID().uuidString : id
                     let session = RecordedSession(id: uniqueID, recordingID: sessionID, dayID: dayID, project: project, task: task,
-                        source: source, timeZoneID: calendar.timeZone.identifier, start: cursor, end: end)
+                        source: source, timeZoneID: calendar.timeZone.identifier, start: cursor, end: end, taskReference: taskReference)
                     sessions.append(session)
                     changes.append(.session(session))
                 }

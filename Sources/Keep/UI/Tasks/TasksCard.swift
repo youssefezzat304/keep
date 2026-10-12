@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TasksCard: View {
+    let workspace: WorkspaceModel?
     @Bindable var store: DailyTaskStore
     var today: Date = .now
     var canStartTimer: Bool
@@ -12,7 +13,8 @@ struct TasksCard: View {
     @FocusState private var isChoosingDay: Bool
 
     init(store: DailyTaskStore, today: Date = .now, initialDate: Date? = nil, canStartTimer: Bool = true,
-         onStartTimer: ((FocusTask, WorkspaceModel.TaskTimers) -> Void)? = nil) {
+         workspace: WorkspaceModel? = nil, onStartTimer: ((FocusTask, WorkspaceModel.TaskTimers) -> Void)? = nil) {
+        self.workspace = workspace
         self.store = store
         self.today = today
         self.canStartTimer = canStartTimer
@@ -53,14 +55,17 @@ struct TasksCard: View {
 
             dayNavigation
 
-            if let error = store.persistenceError ?? store.habitPersistenceError {
+            if let error = store.persistenceError ?? store.habitPersistenceError ?? store.habitStore?.recordingError {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(error).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-                    Button("Retry") { store.retryPersistence() }.font(.system(size: 12))
+                    Button("Retry") { workspace?.retryPersistence(); store.retryPersistence() }.font(.system(size: 12))
                 }
                 .padding(8)
                 .background(KeepTheme.highlight, in: RoundedRectangle(cornerRadius: 8))
             }
+
+            Text(plannedSummary(tasks, today: isToday)).font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
 
             GeometryReader { listArea in
                 KeepScrollView {
@@ -69,8 +74,13 @@ struct TasksCard: View {
                             TaskRow(task: task, isComplete: Binding(
                                     get: { store.tasks(on: day).first { $0.id == task.id && $0.habitID == task.habitID }?.isComplete ?? task.isComplete },
                                     set: { store.setComplete($0, taskID: task.id, on: day, habitID: task.habitID, today: today) }
-                                ), canComplete: store.canComplete(task, on: day, today: today), canStartTimer: canStartTimer, onStartTimer: timerAction(on: day)) {
-                                    store.remove(taskID: task.id, on: day, habitID: task.habitID)
+                                ), dayID: day, focusedSeconds: focusedSeconds(task, on: day), habitStore: store.habitStore,
+                                onEdit: { title, estimate in
+                                    if let workspace { try workspace.editTask(id: task.id, on: day, title: title, estimateMinutes: estimate) }
+                                    else { try store.update(taskID: task.id, on: day, title: title, estimateMinutes: estimate) }
+                                }, canComplete: store.canComplete(task, on: day, today: today), canStartTimer: canStartTimer, onStartTimer: timerAction(on: day)) {
+                                    if let workspace { workspace.removeTask(task, on: day) }
+                                    else { store.remove(taskID: task.id, on: day, habitID: task.habitID) }
                             }
                             .disabled(!store.canEdit)
                             .padding(.vertical, 8)
@@ -141,6 +151,18 @@ struct TasksCard: View {
         .onChange(of: dayID) { _, _ in isAddingTask = false }
     }
 
+    private func focusedSeconds(_ task: FocusTask, on day: String) -> Double? {
+        guard let workspace, workspace.canTrack else { return nil }
+        return workspace.readIndex.focusedSeconds(task.habitID.map { .habit(id: $0) } ?? .task(id: task.id, dayID: day), on: day)
+    }
+
+    private func plannedSummary(_ tasks: [FocusTask], today: Bool) -> String {
+        let planned = tasks.compactMap(\.estimateMinutes).reduce(0, +)
+        let missing = tasks.filter { $0.habitID == nil && $0.estimateMinutes == nil }.count
+        let duration = planned >= 60 ? "\(planned / 60) hr\(planned % 60 == 0 ? "" : " \(planned % 60) min")" : "\(planned) min"
+        return "Planned \(today ? "today" : "for this day"): \(duration) · \(missing) \(missing == 1 ? "task" : "tasks") without estimates"
+    }
+
     private var dayNavigation: some View {
         HStack(spacing: 6) {
             TaskDayButton(symbol: "chevron.left", label: "Previous day") { selection.move(by: -1, today: today, calendar: store.calendar) }
@@ -196,6 +218,10 @@ struct TasksCard: View {
 private struct TaskRow: View {
     let task: FocusTask
     @Binding var isComplete: Bool
+    let dayID: String
+    let focusedSeconds: Double?
+    let habitStore: HabitStore?
+    let onEdit: (String, Int?) throws -> Void
     let canComplete: Bool
     let canStartTimer: Bool
     let onStartTimer: ((FocusTask, WorkspaceModel.TaskTimers) -> Void)?
@@ -203,20 +229,41 @@ private struct TaskRow: View {
     @State private var hovered = false
     @FocusState private var focused: Control?
     @Environment(\.self) private var environment
-    private enum Control: Hashable { case complete, focus, flow, both, remove }
+    @State private var showsEdit = false
+    @State private var editHovered = false
+    private enum Control: Hashable { case complete, focus, flow, both, edit, remove }
+    private var timedHabit: Habit? { habitStore?.habits.first { $0.id == task.habitID && $0.goal.minuteTarget != nil } }
 
     var body: some View {
         HStack(spacing: 10) {
-            Toggle("", isOn: $isComplete).labelsHidden().toggleStyle(KeepCheckboxStyle())
-                .focused($focused, equals: .complete)
-                .accessibilityLabel("Complete \(task.title)").disabled(!canComplete)
+            if timedHabit != nil {
+                Image(systemName: task.isComplete ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 18)).frame(width: 18, height: 18)
+                    .foregroundStyle(task.isComplete ? KeepTheme.accentStrong : KeepTheme.mutedInk)
+                    .accessibilityLabel("\(task.title) habit goal").accessibilityValue(habitStore?.recordedDataAvailable == false ? "Recorded progress unavailable" : task.isComplete ? "Complete" : "In progress")
+                    .help("Completed automatically from manual and recorded minutes")
+            } else {
+                Toggle("", isOn: $isComplete).labelsHidden().toggleStyle(KeepCheckboxStyle())
+                    .focused($focused, equals: .complete)
+                    .accessibilityLabel("Complete \(task.title)").disabled(!canComplete)
+            }
             VStack(alignment: .leading, spacing: 3) {
                 Text(task.title).font(.system(size: 13)).strikethrough(task.isComplete)
-                if task.habitID != nil { Text("Habit").font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk) }
+                if task.habitID == nil || timedHabit != nil {
+                    Text("\(task.estimateMinutes.map { "Planned \($0) min" } ?? "Not estimated") · Focused \(focusedSeconds.map { TaskTimeTotals.minutesLabel(seconds: $0) } ?? "—")")
+                        .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+                }
+                if let habit = timedHabit, let habitStore {
+                    let manual = habitStore.manualAmount(habitID: habit.id, on: dayID)
+                    Text("Habit \(habitStore.recordedDataAvailable ? String(habitStore.amount(for: habit, on: dayID)) : "—")/\(habit.goal.target) min\(manual > 0 ? " · Manual \(manual) min" : "")")
+                        .font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)
+                } else if task.habitID != nil { Text("Habit").font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk) }
             }
                 .foregroundStyle(task.isComplete ? KeepTheme.mutedInk : KeepTheme.ink)
                 .frame(maxWidth: .infinity, alignment: .leading).lineLimit(2).help(task.title)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(task.title)
+                .accessibilityValue(accessibleProgress)
                 .accessibilityActions {
                     if let onStartTimer, canStartTimer {
                         Button("Start Focus") { onStartTimer(task, .focus) }
@@ -236,11 +283,31 @@ private struct TaskRow: View {
                 .opacity(hovered || focused != nil ? 1 : 0)
                 .allowsHitTesting(hovered || focused != nil)
             }
+            Button { showsEdit = true } label: { Image(systemName: "pencil").frame(width: 24, height: 30)
+                    .background(editHovered ? KeepTheme.mutedWarm.opacity(0.6) : .clear, in: RoundedRectangle(cornerRadius: 6)) }
+                .buttonStyle(.plain).onHover { editHovered = $0 }.focused($focused, equals: .edit)
+                .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(focused == .edit ? KeepTheme.focusRing : .clear, lineWidth: 2) }
+                .accessibilityLabel("\(task.habitID == nil ? "Edit task" : "Edit habit progress"): \(task.title)")
+                .help(task.habitID == nil ? "Edit task and estimate" : "Edit manually logged habit progress")
+                .popover(isPresented: $showsEdit) {
+                    if let habitID = task.habitID, let habitStore, let habit = habitStore.habits.first(where: { $0.id == habitID }) {
+                        HabitAmountDialog(selection: HabitLogSelection(habit: habit, dayID: dayID), store: habitStore, today: .now)
+                    } else if task.habitID == nil { TaskEstimateEditor(task: task, onSave: onEdit) }
+                }
             RemoveRowButton(label: "Delete task: \(task.title)", action: onRemove)
                 .focused($focused, equals: .remove)
         }
         .contentShape(Rectangle())
         .onHover { hovered = $0 }
+        .contextMenu { Button(task.habitID == nil ? "Edit task…" : "Edit habit progress…") { showsEdit = true } }
+    }
+
+    private var accessibleProgress: String {
+        guard task.habitID == nil || timedHabit != nil else { return "Habit" }
+        let comparison = "\(task.estimateMinutes.map { "Planned \($0) minutes" } ?? "Not estimated"), focused \(focusedSeconds.map { TaskTimeTotals.minutesLabel(seconds: $0) } ?? "time unavailable")"
+        guard let habit = timedHabit, let habitStore else { return comparison }
+        guard habitStore.recordedDataAvailable else { return comparison + ", recorded habit progress unavailable" }
+        return comparison + ", habit progress \(habitStore.amount(for: habit, on: dayID)) of \(habit.goal.target) minutes, manual \(habitStore.manualAmount(habitID: habit.id, on: dayID)) minutes"
     }
 
     private func timerButton(_ timers: WorkspaceModel.TaskTimers, label: String, control: Control,

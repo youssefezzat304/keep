@@ -9,6 +9,7 @@ final class WorkspaceModel {
     private(set) var flow = FocusTimer(mode: .flow)
     private(set) var selectedProject: FocusProject? = FocusProject.defaults.first
     private(set) var taskName = ""
+    private(set) var taskReference: TaskReference?
     private(set) var ledger: TimesheetLedger
     private(set) var persistenceError: String?
     private(set) var loadFailed = false
@@ -21,6 +22,7 @@ final class WorkspaceModel {
     var projects: [FocusProject] { _ = readIndex.metadataRevision; return readIndex.activeProjects }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
     var pomodoroPresets: [PomodoroPreset] { ledger.pomodoroPresets }
+    var activeTaskName: String { linkedTitle(taskReference) ?? taskName }
     var taskSuggestions: [TaskActivity] { _ = readIndex.metadataRevision; return readIndex.suggestions }
 
     func capturePersistentData(at instant: ContinuousClock.Instant = .now, date: Date = .now) throws -> TimesheetLedger {
@@ -36,16 +38,18 @@ final class WorkspaceModel {
         readIndex.rebuild(ledger)
         pomodoro = FocusTimer(mode: .pomodoro); flow = FocusTimer(mode: .flow)
         pomodoro.configure(value.pomodoroSettings ?? .defaults)
-        selectedProject = nil; taskName = ""; lastTimesheetRemoval = nil
+        selectedProject = nil; taskName = ""; taskReference = nil; lastTimesheetRemoval = nil
         recordingContext = nil; recordingSessionID = UUID(); checkpoint = nil; checkpointDate = nil
         ledgerDirty = false; loadFailed = false; persistenceError = nil; lastSave = nil
+        refreshHabitProgress()
     }
 
     func selectTask(_ activity: TaskActivity, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack, let current = taskSuggestions.first(where: { $0.id == activity.id }) else { return }
         synchronize(at: instant, date: date)
         selectedProject = projects.first { $0.id == current.project.id }
-        taskName = current.title
+        taskReference = validReference(current.taskReference)
+        taskName = String((linkedTitle(taskReference) ?? current.title).prefix(200))
         if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
     }
@@ -60,7 +64,7 @@ final class WorkspaceModel {
 
     private func rememberCurrentTask(on date: Date) {
         guard !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        ledger.rememberTask(taskName, project: selectedProject ?? .unassigned, date: date)
+        ledger.rememberTask(taskName, project: selectedProject ?? .unassigned, date: date, reference: taskReference)
         ledgerDirty = true
     }
 
@@ -72,6 +76,8 @@ final class WorkspaceModel {
     @ObservationIgnored private var recordingContext: RecordingContext?
     @ObservationIgnored private var recordingSessionID = UUID()
     @ObservationIgnored private let persistence: TimesheetPersistence?
+    @ObservationIgnored private let tasks: DailyTaskStore?
+    @ObservationIgnored private let habits: HabitStore?
     @ObservationIgnored private let timerPreferences: AppPreferences?
     @ObservationIgnored var onTimerReminder: ((TimerSound) -> Void)?
     @ObservationIgnored private var flowReminders = FlowReminderSchedule()
@@ -81,9 +87,10 @@ final class WorkspaceModel {
         let project: FocusProject
         let task: String
         let source: RecordedSession.Source
+        let reference: TaskReference?
     }
 
-    init(ledger: TimesheetLedger = TimesheetLedger(), persistence: TimesheetPersistence? = nil, calendar: Calendar = .autoupdatingCurrent, focusDuration: TimeInterval = 1500, breakDuration: TimeInterval = 300, date: Date = .now, timerPreferences: AppPreferences? = nil) {
+    init(ledger: TimesheetLedger = TimesheetLedger(), persistence: TimesheetPersistence? = nil, calendar: Calendar = .autoupdatingCurrent, focusDuration: TimeInterval = 1500, breakDuration: TimeInterval = 300, date: Date = .now, timerPreferences: AppPreferences? = nil, tasks: DailyTaskStore? = nil, habits: HabitStore? = nil) {
         var initialLedger = ledger
         var failed = false
         if let persistence {
@@ -95,13 +102,23 @@ final class WorkspaceModel {
         readIndex = WorkspaceReadIndex(ledger: initialLedger)
         self.persistence = persistence
         self.timerPreferences = timerPreferences
-        self.calendar = calendar
-        today = calendar.startOfDay(for: date)
+        self.tasks = tasks
+        self.habits = habits
+        var recordingCalendar = Calendar(identifier: .gregorian)
+        recordingCalendar.timeZone = calendar.timeZone
+        recordingCalendar.locale = calendar.locale
+        recordingCalendar.firstWeekday = calendar.firstWeekday
+        self.calendar = recordingCalendar
+        today = recordingCalendar.startOfDay(for: date)
         pomodoro = FocusTimer(mode: .pomodoro, focusDuration: focusDuration, breakDuration: breakDuration)
         loadFailed = failed
         if failed { persistenceError = "Couldn’t load your saved workspace. Retry before recording, editing time, or changing projects." }
         if let settings = self.ledger.pomodoroSettings { pomodoro.configure(settings) }
         reconcileProjectSelection()
+        habits?.beforeManualEdit = { [weak self] in self?.synchronize() }
+        habits?.onReload = { [weak self] in self?.refreshHabitProgress() }
+        habits?.retryRecordedData = { [weak self] in self?.retryPersistence() }
+        refreshHabitProgress()
         if !loadFailed, self.ledger.pomodoroHistoryStartedAt == nil {
             self.ledger.beginPomodoroHistory(at: date)
             ledgerDirty = true
@@ -122,6 +139,7 @@ final class WorkspaceModel {
         guard canTrack, name != taskName else { return }
         synchronize(at: instant, date: date)
         taskName = String(name.prefix(200))
+        taskReference = nil
         if isRecording(at: instant) { rememberCurrentTask(on: date) }
         save(at: instant)
     }
@@ -220,15 +238,68 @@ final class WorkspaceModel {
     }
 
     /// Assign and start atomically after settling the previous shared task. The other timer is untouched.
-    func startTask(_ title: String, timers: TaskTimers, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+    func startTask(_ title: String, timers: TaskTimers, at instant: ContinuousClock.Instant = .now, date: Date = .now, reference: TaskReference? = nil) {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard canTrack, !title.isEmpty else { return }
         synchronize(at: instant, date: date)
-        taskName = String(title.prefix(200))
+        taskReference = validReference(reference)
+        taskName = String((linkedTitle(taskReference) ?? title).prefix(200))
         if timers == .focus || timers == .both { pomodoro.playFocus(at: instant) }
         if timers == .flow || timers == .both { flow.play(at: instant) }
         if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
+    }
+
+    func startTask(_ task: FocusTask, on day: String, timers: TaskTimers, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard day == TaskDay.id(for: date, calendar: calendar) else { return }
+        let reference: TaskReference = task.habitID.map { .habit(id: $0) } ?? .task(id: task.id, dayID: day)
+        guard validReference(reference) != nil else { return }
+        startTask(task.title, timers: timers, at: instant, date: date, reference: reference)
+    }
+
+    func editTask(id: UUID, on day: String, title: String, estimateMinutes: Int?, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack, let tasks else { throw TaskEditError.unavailable }
+        synchronize(at: instant, date: date)
+        try tasks.update(taskID: id, on: day, title: title, estimateMinutes: estimateMinutes)
+        if taskReference == .task(id: id, dayID: day) {
+            taskName = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+            if isRecording(at: instant) { rememberCurrentTask(on: date) }
+            save(at: instant)
+        }
+    }
+
+    func removeTask(_ task: FocusTask, on day: String, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, let tasks else { return }
+        synchronize(at: instant, date: date)
+        tasks.remove(taskID: task.id, on: day, habitID: task.habitID)
+        if task.habitID == nil, taskReference == .task(id: task.id, dayID: day) { taskReference = nil }
+        save(at: instant)
+    }
+
+    private func linkedTitle(_ reference: TaskReference?) -> String? {
+        switch reference {
+        case .task(let id, let day): tasks?.archive.days[day]?.first { $0.id == id }?.title
+        case .habit(let id): habits?.habits.first { $0.id == id }?.name
+        case nil: nil
+        }
+    }
+
+    private func validReference(_ reference: TaskReference?) -> TaskReference? {
+        guard let reference, reference.isValid else { return nil }
+        switch reference {
+        case .task(let id, let day):
+            return tasks?.canEdit == true && tasks?.archive.days[day]?.contains(where: { $0.id == id }) == true ? reference : nil
+        case .habit(let id): return habits?.canEdit == true && habits?.habits.contains(where: { $0.id == id }) == true ? reference : nil
+        }
+    }
+
+    private func refreshHabitProgress(live: Bool = false) {
+        habits?.recordedDataAvailable = !loadFailed
+        guard !loadFailed else { return }
+        let due = habits?.applyRecordedProgress(readIndex.taskTimes.habits, live: live) == true
+        if due && timerPreferences?.canEdit == true && timerPreferences?.timerSoundsEnabled == true {
+            onTimerReminder?(.habitComplete)
+        }
     }
 
     func stop(_ mode: FocusTimer.Mode, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
@@ -382,7 +453,7 @@ final class WorkspaceModel {
                 let source: RecordedSession.Source = flow.phase(at: checkpoint) == .running ? .flow : .pomodoro
                 ledger.record(project: selectedProject ?? .unassigned, from: checkpointDate, seconds: recorded,
                     calendar: calendar, sessionID: recordingSessionID,
-                    task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), source: source)
+                    task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), source: source, taskReference: taskReference)
                 ledgerDirty = true
             }
         }
@@ -409,7 +480,7 @@ final class WorkspaceModel {
         checkpoint = instant
         checkpointDate = date
         updateRecordingContext(at: instant)
-        publishChanges()
+        publishChanges(live: true)
         if completion?.interval == .focus { save(at: instant); return }
         if let lastSave, instant - lastSave < .seconds(5) { return }
         save(at: instant)
@@ -464,9 +535,10 @@ final class WorkspaceModel {
         ledgerDirty = true
     }
 
-    private func publishChanges() {
+    private func publishChanges(live: Bool = false) {
         let changes = ledger.takeChanges()
         readIndex.apply(changes, ledger: ledger)
+        refreshHabitProgress(live: live)
     }
 
     private func save(at instant: ContinuousClock.Instant = .now) {
@@ -487,7 +559,7 @@ final class WorkspaceModel {
         else if pomodoro.interval == .focus, pomodoro.phase(at: instant) == .running { source = .pomodoro }
         else { source = nil }
         let context = source.map { RecordingContext(project: selectedProject ?? .unassigned,
-            task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), source: $0) }
+            task: taskName.trimmingCharacters(in: .whitespacesAndNewlines), source: $0, reference: taskReference) }
         if context != recordingContext { recordingSessionID = UUID(); recordingContext = context }
     }
 }

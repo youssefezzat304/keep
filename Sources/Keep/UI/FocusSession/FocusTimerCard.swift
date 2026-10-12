@@ -17,6 +17,8 @@ struct FocusTimerCard: View {
     var flowReminderMinutes: Int?
     var onFlowReminder: ((Int?) -> Bool)?
     var canConfigureReminders = true
+    var taskName = ""
+    var projectName = "No project"
     @Environment(\.self) private var environment
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showsSettings = false
@@ -88,16 +90,21 @@ struct FocusTimerCard: View {
                         .accessibilityLabel(isBreak ? "Break time remaining" : isPomodoro ? "Pomodoro time remaining" : "Flow time elapsed")
                         .accessibilityValue(timer.display(at: instant))
 
-                    HStack(spacing: 6) {
-                        Circle().fill(KeepTheme.ink)
-                            .frame(width: 5, height: 5)
-                            .accessibilityHidden(true)
-                        Text(status(for: phase))
-                            .font(.system(size: 12))
+                    if phase == .running {
+                        Text("\(taskName.isEmpty ? "Unnamed task" : taskName) · \(projectName)")
+                            .font(.system(size: 12)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                            .help("\(taskName.isEmpty ? "Unnamed task" : taskName) · \(projectName)")
+                            .accessibilityLabel("Working on \(taskName.isEmpty ? "Unnamed task" : taskName), project \(projectName)")
+                    }
+                    if phase != .running || isBreak || (isPomodoro && flowOverrides) {
+                        HStack(spacing: 6) {
+                            Circle().fill(KeepTheme.ink).frame(width: 5, height: 5).accessibilityHidden(true)
+                            Text(status(for: phase)).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 104, alignment: .leading)
+                .frame(minHeight: 128, alignment: .leading)
 
                 ViewThatFits(in: .horizontal) {
                     controlRow(phase: phase, longBreakDue: longBreakDue, upcomingBreakDuration: upcomingBreakDuration, includeBreak: true)

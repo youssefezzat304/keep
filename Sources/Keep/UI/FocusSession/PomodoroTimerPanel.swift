@@ -19,7 +19,7 @@ struct PomodoroTimerPanel: View {
             pomodoroPresets: workspace.pomodoroPresets,
             onSavePreset: { try workspace.savePomodoroPreset(name: $0, settings: $1) },
             onRemovePreset: { try workspace.removePomodoroPreset(id: $0) },
-            showPomodoroProgress: showProgress
+            showPomodoroProgress: showProgress, taskName: workspace.activeTaskName, projectName: workspace.selectedProject?.name ?? "No project"
         )
     }
 }

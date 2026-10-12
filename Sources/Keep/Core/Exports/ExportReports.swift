@@ -4,10 +4,13 @@ nonisolated enum ExportReports {
     static func make(_ request: ExportRequest, snapshot s: PersistentSnapshot) throws -> [ExportReport] {
         try request.validate(now: s.capturedAt, calendar: s.calendar)
         try TimesheetPersistence.validate(s.workspace)
-        if request.data == .stats { try s.backupPayload().validate() }
+        if request.data == .stats || request.data == .taskEstimates { try s.backupPayload().validate() }
         let calendar = s.calendar
         let start = StatsSnapshot.dayID(request.from, calendar: calendar)
         let end = StatsSnapshot.dayID(request.through, calendar: calendar)
+        if request.data == .taskEstimates {
+            return [try TaskEstimateReports.make(filename: request.filename(calendar: calendar), from: start, through: end, snapshot: s)]
+        }
         let projects = Dictionary(uniqueKeysWithValues: s.projects.map { ($0.id, $0) })
         func included(_ day: String, _ project: String) -> Bool {
             day >= start && day <= end && (request.projectID == nil || project == request.projectID)
@@ -44,7 +47,8 @@ nonisolated enum ExportReports {
         }
         let adjustedHeaders = ["civil_day", "project_id", "project_name", "project_deleted", "adjusted_timesheet_seconds", "recorded_focus_seconds"]
         if request.data == .timesheet { return [try report(request.filename(calendar: calendar), adjustedHeaders, adjustedRows)] }
-        guard let tasks = s.tasks, let habits = s.habits else { throw ExportFailure.unavailable }
+        guard let tasks = s.tasks, let manualHabits = s.habits else { throw ExportFailure.unavailable }
+        let habits = manualHabits.effectiveProgress(recorded: TaskTimeTotals(sessions: s.workspace.sessions).habits)
         let input = statsInput(request, snapshot: s, tasks: tasks, habits: habits)
         let stats = try StatsSnapshot.make(input)
         let coverage: String
@@ -59,9 +63,10 @@ nonisolated enum ExportReports {
             ("from_inclusive", start), ("through_inclusive", end), ("reporting_timezone", calendar.timeZone.identifier),
             ("project_id", request.projectID ?? "all"), ("project_name", request.projectID.flatMap { projects[$0]?.name } ?? "All projects"),
             ("task_keys", request.taskKeys.map { $0.sorted().joined(separator: " | ") } ?? "all"),
-            ("time_units", "seconds; habit targets use their stated units; rates are fractions 0 to 1"),
+            ("time_units", "seconds except task_estimates.csv, which uses minutes; habit targets use their stated units; rates are fractions 0 to 1"),
             ("task_scope", "all tasks; date scope only; projected habit rows excluded"),
             ("habit_scope", "all habits; date scope only"),
+            ("task_estimates_scope", "ordinary task planned dates with all linked focus time; timed habits by recorded civil day; manual minutes excluded from focused minutes"),
             ("adjusted_totals_scope", "project and date scope only; independent of task filters; differences from recorded focus are not known manual adjustments"),
             ("weekly_targets_scope", "current week; all tasks; independent of export range and filters"),
             ("comparison_from", StatsSnapshot.dayID(previous.range.start, calendar: calendar)),
@@ -88,6 +93,7 @@ nonisolated enum ExportReports {
         reports.append(try report("focus_weekdays.csv", ["weekday", "recorded_focus_seconds"], stats.weekdays.enumerated().map { [.value(weekdays[$0.offset]), .number($0.element)] }))
         reports.append(try report("focus_hours.csv", ["recorded_local_hour", "recorded_focus_seconds"], stats.hours.enumerated().map { [.integer($0.offset), .number($0.element)] }))
         reports.append(try report("adjusted_totals.csv", adjustedHeaders, adjustedRows))
+        reports.append(try TaskEstimateReports.make(filename: "task_estimates.csv", from: start, through: end, snapshot: s))
         reports.append(try report("tasks.csv", ["civil_day", "saved_tasks", "completed_tasks", "scope"], days.map { day in
             let rows = tasks.days[day, default: []].filter { $0.habitID == nil }
             return [.value(day), .integer(rows.count), .integer(rows.filter(\.isComplete).count), .value("all tasks; date scope only")]

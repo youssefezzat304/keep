@@ -20,7 +20,7 @@ struct HabitTrackerView: View {
                         Button { showsCreation = true } label: { Label("Add habit", systemImage: "plus") }
                             .buttonStyle(KeepButtonStyle(emphasis: .primary)).disabled(!store.canEdit)
                     }
-                    if let error = store.persistenceError {
+                    if let error = store.persistenceError ?? store.recordingError {
                         HStack {
                             Text(error).font(.system(size: 13))
                             Spacer()

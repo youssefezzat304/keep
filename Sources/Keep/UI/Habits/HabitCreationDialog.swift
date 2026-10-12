@@ -190,22 +190,27 @@ struct HabitAmountDialog: View {
     @State private var error: String?
     init(selection: HabitLogSelection, store: HabitStore, today: Date) {
         self.selection = selection; self.store = store; self.today = today
-        _amount = State(initialValue: String(store.amount(for: selection.habit, on: selection.dayID)))
+        _amount = State(initialValue: String(store.manualAmount(habitID: selection.habit.id, on: selection.dayID)))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label(selection.habit.name, systemImage: selection.habit.icon.rawValue).font(KeepTheme.headingFont(size: 24))
             Text(selection.dayID + " · " + selection.habit.goal.summary).font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
-            TextField("Amount", text: $amount).modifier(KeepInputStyle()).accessibilityLabel("Completed amount")
+            TextField(selection.habit.goal.minuteTarget != nil ? "Manual minutes" : "Amount", text: $amount).modifier(KeepInputStyle()).accessibilityLabel(selection.habit.goal.minuteTarget != nil ? "Manually logged minutes" : "Completed amount")
                 .onSubmit(save)
                 .onChange(of: amount) { error = nil }
-            Text("Use 0 to clear this day’s progress.").font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
-            Button("Meet daily target") { amount = String(selection.habit.goal.target) }.buttonStyle(KeepButtonStyle(emphasis: .quiet))
+            if selection.habit.goal.minuteTarget != nil {
+                Text(store.recordedDataAvailable ? "Recorded: \(TaskTimeTotals.minutesLabel(seconds: store.timedSeconds(habitID: selection.habit.id, on: selection.dayID))) · Total: \(store.amount(for: selection.habit, on: selection.dayID)) min" : "Recorded time is unavailable. Retry loading your workspace to review the total.")
+                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
+            }
+            Text(selection.habit.goal.minuteTarget != nil ? "Use 0 to clear manual minutes. Recorded timer progress stays intact." : "Use 0 to clear this day’s progress.").font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
+            Button("Meet daily target") { amount = String(max(0, selection.habit.goal.target - Int(store.timedSeconds(habitID: selection.habit.id, on: selection.dayID) / 60))) }.buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(selection.habit.goal.minuteTarget != nil && !store.recordedDataAvailable)
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong) }
             HStack {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(KeepButtonStyle(emphasis: .quiet))
                 Spacer()
                 Button("Save", action: save).keyboardShortcut(.defaultAction).buttonStyle(KeepButtonStyle(emphasis: .primary))
+                    .disabled(selection.habit.goal.minuteTarget != nil && !store.recordedDataAvailable)
             }
         }.padding(24).frame(width: 380).foregroundStyle(KeepTheme.ink).background(KeepTheme.paper)
     }

@@ -2,11 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D074 — MIT license (2026-10-08)
-
-- [USER] License Keep under MIT, superseding D073’s pending license selection.
-- [CODE] Added the standard MIT text to `LICENSE.md` with copyright 2026 Youssef Abdelrahim (name from repository commit metadata). README links to the license; third-party notices remain unchanged.
-
 ### D075 — Remove auxiliary documentation (2026-10-09)
 
 - [USER] Remove unnecessary standalone guides from the pushed repository and let agents inspect implementation when details are needed.
@@ -55,3 +50,11 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [USER] Add a Show Pomodoro timer setting and hide every hidden timer from the menu bar.
 - [CODE] Both timer visibility preferences now apply to Focus, Zen, status readouts and menu controls. A single visible timer supplies the status readout even if the preferred/running timer is hidden; hiding both leaves the leaf. Icon only remains an explicit opt-out, and the saved preference returns when both timers become visible. Combined start/stop and Pomodoro break actions are absent when their timers are hidden.
 - [CODE] Pomodoro visibility defaults on in older settings/backups and persists through existing validated storage and portable restore. Its progress switch retains its value while disabled when Pomodoro is hidden. Hiding affects presentation only; active sessions, recording and sound reminders continue. This supersedes D082’s policy of retaining hidden Flow controls in the menu bar.
+
+### D084 — Task estimates and automatic timed habits (2026-10-12)
+
+- [USER] Implement the accepted plan: right-side task editing and optional estimates, identity-based actual time, minute-habit progress combining manual and recorded minutes, one goal sound without stopping timers, active task/project labels, and future-plan CSV exports. Keep normal Pomodoro intervals; use daily habit goals in planned totals and automatic timed-habit completion status.
+- [CODE] Optional task references preserve daily task identity and habitual civil-day occurrences through recording, recent targets, editing and Undo. Ordinary task comparisons include linked work across midnight; habit progress splits by recorded day. Renaming retains attribution, removal detaches subsequent ordinary-task recording, and older unlinked history is never matched by title. Gregorian keys now agree across task, habit and recording stores without rewriting saved sessions.
+- [CODE] The read index derives actuals from session deltas; HabitStore combines those seconds with existing manual logs for task rows, activity, streaks, Stats and weekly targets. Automatic minutes are not stored as manual progress. Persisted consumed goal markers prevent replay after mute, corrections, reload and locked backup restore. New original 48 kHz stereo/24-bit `habit-complete.wav` is bundled with existing preview/mute/queued playback.
+- [CODE] Task estimates allow blank or 1–1,440 whole minutes. Daily planned totals retain completed rows and include scheduled visible timed-habit goals. Both running cards display task/project context while preserving break and recording-priority notices. The new date-only Task estimates CSV and Stats ZIP report include zero-time estimates, future plans, removed-task recorded history, and separate manual/combined habit columns; unavailable data surfaces recovery errors.
+- [TOOL] Ad hoc Xcode build and 763 focused/regression checks passed across task identity, timer recording, habits, sound playback, exports, Stats and backup/restore. Twenty native layouts covered light/dark and default/narrow sizes; native input verified validation, Return save, Escape cancel, rename attribution, manual-minute clearing and active timer labels. Distribution signing and macOS 15 execution were not validated.

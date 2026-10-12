@@ -24,6 +24,7 @@ struct ExportSettingsView: View {
                     HStack(spacing: 16) { dateField("From", date: $model.from); dateField("Through", date: $model.through) }
                     VStack(alignment: .leading, spacing: 12) { dateField("From", date: $model.from); dateField("Through", date: $model.through) }
                 }
+                if model.data != .taskEstimates {
                 row("Project") {
                     Button { showingProjects = true } label: {
                         Text(projectTitle).lineLimit(1)
@@ -32,7 +33,8 @@ struct ExportSettingsView: View {
                 .popover(isPresented: $showingProjects) {
                     StatsProjectPicker(options: model.projects, selection: model.projectID) { model.projectID = $0; model.taskKeys = nil }
                 }
-                if model.data != .timesheet, model.projectID != nil {
+                }
+                if model.data != .taskEstimates, model.data != .timesheet, model.projectID != nil {
                     row("Tasks") {
                         Button { showingTasks = true } label: { Text(taskTitle) }
                             .buttonStyle(KeepButtonStyle()).accessibilityLabel("Export tasks").accessibilityValue(taskTitle)
@@ -42,6 +44,10 @@ struct ExportSettingsView: View {
                     }
                 }
             }.disabled(model.status.busy)
+            if model.data == .taskEstimates {
+                Text("Tasks use their planned dates and all linked focus time. Habits use recorded days. Future plans have zero focused time.")
+                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+            }
             HStack {
                 Text(model.data.format).font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 Spacer()

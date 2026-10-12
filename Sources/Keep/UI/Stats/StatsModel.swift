@@ -63,7 +63,7 @@ import Observation
             taskRevision = tasks.revision
         }
         if habitRevision != habits.revision {
-            let progress = Dictionary(grouping: habits.archive.logs, by: \.habitID)
+            let progress = Dictionary(grouping: habits.effectiveArchive.logs, by: \.habitID)
             preparedHabits = habits.habits.map { habit in
                 .init(id: habit.id, name: habit.name, icon: habit.icon.rawValue, start: habit.startDay, end: habit.endDay,
                       weekdays: Set(habit.weekdays.map(\.rawValue)), target: habit.goal.target,

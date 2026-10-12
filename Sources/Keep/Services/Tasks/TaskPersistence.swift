@@ -38,7 +38,7 @@ struct TaskPersistence {
         for (day, tasks) in archive.days {
             var seen = Set<UUID>()
             guard TaskDay.isValid(day), tasks.allSatisfy({
-                $0.habitID == nil && !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && seen.insert($0.id).inserted
+                $0.habitID == nil && ($0.estimateMinutes.map { (1...1440).contains($0) } ?? true) && !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && seen.insert($0.id).inserted
             }) else { throw CocoaError(.coderReadCorrupt) }
         }
         guard archive.hiddenHabitIDs.keys.allSatisfy({ TaskDay.isValid($0) }) else { throw CocoaError(.coderReadCorrupt) }

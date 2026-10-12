@@ -18,6 +18,8 @@ struct SnapshotCapture {
         let ledger: TimesheetLedger
         do { ledger = try workspace.capturePersistentData(at: instant, date: date) }
         catch { throw ExportFailure.unavailable }
+        guard !all || (tasks.canEdit && habits.canEdit && preferences.canEdit &&
+            tasks.persistenceError == nil && habits.persistenceError == nil && preferences.persistenceError == nil) else { throw ExportFailure.unavailable }
         return PersistentSnapshot(workspace: ledger, tasks: all ? tasks.archive : nil, habits: all ? habits.archive : nil,
             settings: all ? PortableSettings(preferences.snapshot) : nil,
             projects: projects, capturedAt: date, calendar: StatsSnapshot.calendar(workspace.calendar))

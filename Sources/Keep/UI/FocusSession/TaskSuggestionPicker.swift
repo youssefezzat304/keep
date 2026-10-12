@@ -42,11 +42,20 @@ struct TaskSuggestionPicker: View {
         .onExitCommand(perform: onCancel)
     }
 
+    private func referenceLabel(_ reference: TaskReference) -> String {
+        switch reference { case .task(_, let day): "Task · \(day)"; case .habit: "Habit" }
+    }
+
     private func row(_ activity: TaskActivity) -> some View {
         HStack(spacing: 8) {
             Button { onSelect(activity) } label: {
                 HStack(spacing: 10) {
-                    Text(activity.title).font(.system(size: 14)).lineLimit(2)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(activity.title).font(.system(size: 14)).lineLimit(2)
+                        if let reference = activity.taskReference {
+                            Text(referenceLabel(reference)).font(.system(size: 10)).foregroundStyle(KeepTheme.mutedInk)
+                        }
+                    }
                     Label(activity.project.name, systemImage: "folder.fill")
                         .font(.system(size: 12)).foregroundStyle(activity.project.labelColor(in: environment)).lineLimit(1)
                     Spacer(minLength: 0)

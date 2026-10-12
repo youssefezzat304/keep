@@ -26,12 +26,12 @@ struct keepApp: App {
         var habitPersistence = HabitPersistence(); habitPersistence.access = gate
         var settingsPersistence = SettingsPersistence(); settingsPersistence.access = gate
         let preferences = AppPreferences(persistence: settingsPersistence)
-        let workspace = WorkspaceModel(persistence: workspacePersistence, timerPreferences: preferences)
-        _workspace = State(initialValue: workspace)
         let habits = HabitStore(persistence: habitPersistence)
         _habits = State(initialValue: habits)
         let tasks = DailyTaskStore(persistence: taskPersistence, habits: habits)
         _tasks = State(initialValue: tasks)
+        let workspace = WorkspaceModel(persistence: workspacePersistence, timerPreferences: preferences, tasks: tasks, habits: habits)
+        _workspace = State(initialValue: workspace)
         let music = MusicPlayerModel(preferences: preferences, systemControls: MusicSystemController())
         let wallpapers = WallpaperLibrary()
         music.onTrackChange = { [weak wallpapers] provider, id in wallpapers?.songChanged(provider: provider, trackID: id) }

@@ -16,7 +16,8 @@ struct FlowTimerPanel: View {
             onBreak: { beforeAction(); workspace.startBreak() },
             flowReminderMinutes: preferences?.flowReminderMinutes,
             onFlowReminder: preferences.map { preferences in { preferences.setFlowReminder(minutes: $0) } },
-            canConfigureReminders: preferences?.canEdit ?? false
+            canConfigureReminders: preferences?.canEdit ?? false,
+            taskName: workspace.activeTaskName, projectName: workspace.selectedProject?.name ?? "No project"
         )
     }
 }

@@ -34,9 +34,15 @@ struct HabitStatistics {
     private(set) var revision: UInt64 = 0
     private(set) var archive: HabitArchive
     // Derived query index keeps a long history from being scanned for every visible cell.
+    private var recordedSeconds: [UUID: [String: Double]] = [:]
     private var progressByHabit: [UUID: [String: Int]] = [:]
     private(set) var loadFailed = false
     private(set) var persistenceError: String?
+    @ObservationIgnored var onReload: (() -> Void)?
+    @ObservationIgnored var retryRecordedData: (() -> Void)?
+    @ObservationIgnored var beforeManualEdit: (() -> Void)?
+    var recordedDataAvailable = true
+    var recordingError: String? { recordedDataAvailable ? nil : "Recorded habit time is unavailable. Retry loading your workspace before reviewing timed progress." }
     var canEdit: Bool { !loadFailed && persistence?.access?.isLocked != true }
     var habits: [Habit] { archive.habits }
     @ObservationIgnored private let persistence: HabitPersistence?
@@ -66,22 +72,55 @@ struct HabitStatistics {
         archive = value; loadFailed = false; persistenceError = nil; needsSave = false
         revision &+= 1
         rebuildProgressIndex()
+        _ = applyRecordedProgress(recordedSeconds)
+        onReload?()
     }
 
     func activity(today: Date) -> HabitActivitySnapshot {
-        _ = archive // Observe data changes even when the prepared snapshot is cached.
+        _ = archive // Observe manual changes even when the prepared snapshot is cached.
+        _ = revision // Automatic progress and corrections also invalidate cached consumers.
         let key = TaskDay.id(for: today, calendar: calendar) + calendar.timeZone.identifier + (calendar.locale?.identifier ?? "")
         if let cached = activityCache, cached.key == key { return cached.snapshot }
-        let snapshot = HabitActivitySnapshot(archive: archive, today: today, calendar: calendar)
+        let snapshot = HabitActivitySnapshot(archive: effectiveArchive, today: today, calendar: calendar)
         activityCache = (key, snapshot)
         return snapshot
     }
 
     private func rebuildProgressIndex() {
         activityCache = nil
-        progressByHabit = archive.logs.reduce(into: [:]) { index, log in
+        progressByHabit = effectiveArchive.logs.reduce(into: [:]) { index, log in
             index[log.habitID, default: [:]][log.dayID] = log.amount
         }
+    }
+
+    var effectiveArchive: HabitArchive { archive.effectiveProgress(recorded: recordedSeconds) }
+    func manualAmount(habitID: UUID, on day: String) -> Int { archive.logs.first { $0.habitID == habitID && $0.dayID == day }?.amount ?? 0 }
+    func timedSeconds(habitID: UUID, on day: String) -> Double { recordedSeconds[habitID]?[day] ?? 0 }
+
+    /// Only live recording can sound. Every other route silently consumes completed goals.
+    @discardableResult
+    func applyRecordedProgress(_ seconds: [UUID: [String: Double]], live: Bool = false) -> Bool {
+        guard !loadFailed else { return false }
+        let previous = recordedSeconds
+        if recordedSeconds != seconds {
+            recordedSeconds = seconds
+            rebuildProgressIndex()
+            revision &+= 1
+        }
+        guard canEdit else { return false }
+        var audible = false
+        var consumed = archive.consumedTimerGoals ?? [:]
+        var changed = false
+        for habit in habits where habit.goal.minuteTarget != nil {
+            for (day, amount) in progressByHabit[habit.id, default: [:]] where amount >= habit.goal.target && habit.isScheduled(on: day) {
+                guard !consumed[habit.id, default: []].contains(day) else { continue }
+                consumed[habit.id, default: []].insert(day)
+                changed = true
+                if live && (seconds[habit.id]?[day] ?? 0) > (previous[habit.id]?[day] ?? 0) { audible = true }
+            }
+        }
+        if changed { archive.consumedTimerGoals = consumed; save() }
+        return audible
     }
 
     @discardableResult
@@ -145,18 +184,21 @@ struct HabitStatistics {
 
     @discardableResult
     func setAmount(_ amount: Int, habitID: UUID, on dayID: String, today: Date = .now) -> Bool {
+        beforeManualEdit?()
         guard canEdit, TaskDay.isValid(dayID), dayID <= TaskDay.id(for: today, calendar: calendar),
               let habit = habits.first(where: { $0.id == habitID }), habit.isScheduled(on: dayID),
               (0...1_000_000).contains(amount), habit.goal != .checkIn || amount <= 1 else { return false }
         activityCache = nil
         archive.logs.removeAll { $0.habitID == habitID && $0.dayID == dayID }
         if amount > 0 { archive.logs.append(HabitLog(habitID: habitID, dayID: dayID, amount: amount)) }
-        progressByHabit[habitID, default: [:]][dayID] = amount > 0 ? amount : nil
+        rebuildProgressIndex()
+        _ = applyRecordedProgress(recordedSeconds)
         save()
         return true
     }
 
     func retryPersistence() {
+        if !recordedDataAvailable { retryRecordedData?() }
         guard persistence?.access?.isLocked != true else { return }
         if loadFailed, let persistence {
             do {
@@ -165,6 +207,7 @@ struct HabitStatistics {
                 rebuildProgressIndex()
                 loadFailed = false
                 persistenceError = nil
+                onReload?()
             }
             catch { persistenceError = "Couldn’t load your saved habits. Retry before changing them." }
         } else if needsSave { save() }

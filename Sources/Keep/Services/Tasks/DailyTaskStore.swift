@@ -47,7 +47,7 @@ final class DailyTaskStore {
         let hidden = archive.hiddenHabitIDs[dayID, default: []]
         let scheduled = habits.habits.filter { $0.isScheduled(on: dayID) && !hidden.contains($0.id) }
         return ordinary + scheduled.map {
-            FocusTask(id: $0.id, title: $0.name, isComplete: habits.isComplete($0, on: dayID), habitID: $0.id)
+            FocusTask(id: $0.id, title: $0.name, isComplete: habits.isComplete($0, on: dayID), habitID: $0.id, estimateMinutes: $0.goal.minuteTarget)
         }
     }
 
@@ -55,8 +55,10 @@ final class DailyTaskStore {
         TaskDay.isValid(dayID) && dayID == TaskDay.id(for: today, calendar: calendar)
     }
 
+    var habitStore: HabitStore? { habits }
+
     func canComplete(_ task: FocusTask, on dayID: String, today: Date) -> Bool {
-        canEdit && (task.habitID == nil || (habits?.canEdit == true && dayID <= TaskDay.id(for: today, calendar: calendar)))
+        canEdit && (task.habitID.flatMap { id in habits?.habits.first { $0.id == id }?.goal.minuteTarget } == nil) && (task.habitID == nil || (habits?.canEdit == true && dayID <= TaskDay.id(for: today, calendar: calendar)))
     }
 
     @discardableResult
@@ -68,9 +70,19 @@ final class DailyTaskStore {
         return true
     }
 
+    func update(taskID: UUID, on day: String, title: String, estimateMinutes: Int?) throws {
+        guard canEdit else { throw TaskEditError.unavailable }
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, estimateMinutes.map({ (1...1440).contains($0) }) ?? true else { throw TaskEditError.invalid }
+        guard let index = archive.days[day]?.firstIndex(where: { $0.id == taskID }) else { throw TaskEditError.missing }
+        archive.days[day]?[index].title = title
+        archive.days[day]?[index].estimateMinutes = estimateMinutes
+        save()
+    }
+
     func setComplete(_ complete: Bool, taskID: UUID, on dayID: String, habitID: UUID? = nil, today: Date = .now) {
         if let habitID {
-            guard canEdit, taskID == habitID, let habits, let habit = habits.habits.first(where: { $0.id == habitID }),
+            guard canEdit, taskID == habitID, let habits, let habit = habits.habits.first(where: { $0.id == habitID }), habit.goal.minuteTarget == nil,
                   !archive.hiddenHabitIDs[dayID, default: []].contains(habitID) else { return }
             _ = habits.setAmount(complete ? habit.goal.target : 0, habitID: habitID, on: dayID, today: today)
             return
