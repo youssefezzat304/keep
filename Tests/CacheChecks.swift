@@ -13,10 +13,14 @@ import Foundation
             && Set(a.dailyFocus.keys).union(b.dailyFocus.keys).allSatisfy { close(a.dailyFocus[$0, default: 0], b.dailyFocus[$0, default: 0]) }
             && close(a.focusActivity.seconds, b.focusActivity.seconds)
             && zip(a.focusActivity.weeks.flatMap(\.days), b.focusActivity.weeks.flatMap(\.days)).allSatisfy { $0.id == $1.id && close($0.seconds, $1.seconds) }
-            && a.buckets.map(\.id) == b.buckets.map(\.id) && zip(a.buckets, b.buckets).allSatisfy { close($0.seconds, $1.seconds) }
+            && a.buckets.map(\.id) == b.buckets.map(\.id) && zip(a.buckets, b.buckets).allSatisfy {
+                close($0.seconds, $1.seconds) && $0.projects.map(\.id) == $1.projects.map(\.id)
+                    && zip($0.projects, $1.projects).allSatisfy { $0.name == $1.name && $0.accent == $1.accent && close($0.seconds, $1.seconds) }
+            }
             && a.distribution.map(\.id) == b.distribution.map(\.id) && a.distribution.map(\.name) == b.distribution.map(\.name)
             && zip(a.distribution, b.distribution).allSatisfy { close($0.seconds, $1.seconds) }
-            && zip(a.hours, b.hours).allSatisfy(close) && zip(a.weekdays, b.weekdays).allSatisfy(close), message)
+            && zip(a.hours, b.hours).allSatisfy(close) && zip(a.weekdays, b.weekdays).allSatisfy(close)
+            && a.todayID == b.todayID && zip(a.todayHours, b.todayHours).allSatisfy(close), message)
     }
     static func supplement(_ tasks: DailyTaskStore, _ habits: HabitStore) -> StatsSupplement {
         let logs = Dictionary(grouping: habits.archive.logs, by: \.habitID)

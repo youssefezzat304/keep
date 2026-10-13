@@ -190,7 +190,7 @@ struct StatsView: View {
     private func trend(_ snapshot: StatsSnapshot, height: CGFloat) -> some View {
         card {
             StatsBarChart(title: "Your focus over time", points: snapshot.buckets.enumerated().map {
-                .init(id: $0.offset, label: $0.element.label, seconds: $0.element.seconds)
+                .init(id: $0.offset, label: $0.element.label, seconds: $0.element.seconds, projects: $0.element.projects)
             }, plotHeight: height)
             if snapshot.total == 0 { Text("No recorded focus matches these dates and filters.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk) }
         }
@@ -204,8 +204,18 @@ struct StatsView: View {
     }
     private func hourChart(_ snapshot: StatsSnapshot) -> some View {
         card {
-            StatsBarChart(title: "Focus by hour", points: snapshot.hours.enumerated().map { .init(id: $0.offset, label: String(format: "%02d:00", $0.offset), seconds: $0.element) })
+            StatsBarChart(title: "Focus by hour", points: snapshot.todayHours.enumerated().map { .init(id: $0.offset, label: String(format: "%02d:00", $0.offset), seconds: $0.element) }, subtitle: todayCaption(snapshot))
+            if snapshot.todayHours.allSatisfy({ $0 == 0 }) {
+                Text("No recorded focus today matches these filters.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
+            }
         }
+    }
+    private func todayCaption(_ snapshot: StatsSnapshot) -> String {
+        guard let date = StatsSnapshot.date(snapshot.todayID, calendar: calendar) else { return "Today" }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar; formatter.timeZone = calendar.timeZone; formatter.locale = calendar.locale
+        formatter.dateFormat = "EEE, d MMM yyyy"
+        return "Today · " + formatter.string(from: date)
     }
     private func distribution(_ snapshot: StatsSnapshot, compact: Bool = false) -> some View {
         StatsDistributionChart(rows: snapshot.distribution, showsTasks: model.query.projectID != nil, onSelect: { row in

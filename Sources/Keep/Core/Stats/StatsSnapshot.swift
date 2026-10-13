@@ -114,11 +114,18 @@ nonisolated struct StatsInput: Sendable {
 }
 
 nonisolated struct StatsSnapshot: Sendable {
+    struct BucketProject: Identifiable, Equatable, Sendable {
+        let id: String
+        let name: String
+        let accent: String
+        let seconds: Double
+    }
     struct Bucket: Identifiable, Sendable {
         let id: String
         let date: Date
         let label: String
         var seconds: Double
+        var projects: [BucketProject] = []
     }
     struct Distribution: Identifiable, Sendable {
         let id: String
@@ -152,6 +159,8 @@ nonisolated struct StatsSnapshot: Sendable {
     let distribution: [Distribution]
     let weekdays: [Double]
     let hours: [Double]
+    let todayID: String
+    let todayHours: [Double]
     let tasksCompleted: Int
     let tasksTotal: Int
     let habits: [Habit]
@@ -201,7 +210,9 @@ nonisolated struct StatsSnapshot: Sendable {
         }
         let projectMap = Dictionary(uniqueKeysWithValues: input.projects.map { ($0.id, $0) })
         var daily: [String: Double] = [:], distribution: [String: Distribution] = [:]
+        var dailyProjects: [String: [String: Double]] = [:]
         var weekdays = Array(repeating: 0.0, count: 7), hours = Array(repeating: 0.0, count: 24)
+        var todayHours = Array(repeating: 0.0, count: 24)
         let week = StatsQuery().range(now: now, calendar: calendar)
         let weekStart = dayID(week.start, calendar: calendar), weekEnd = dayID(week.endDay(calendar: calendar), calendar: calendar)
         var weeklyGoalSeconds = 0.0
@@ -229,7 +240,11 @@ nonisolated struct StatsSnapshot: Sendable {
             }
             // Keep all recorded days through today for the annual grid and streaks.
             if session.dayID <= todayID { daily[session.dayID, default: 0] += seconds }
+            if session.dayID == todayID, seconds > 0 {
+                try addHours(session, until: end, to: &todayHours, calendar: calendar)
+            }
             guard session.dayID >= startID && session.dayID <= effectiveEnd, seconds > 0 else { continue }
+            dailyProjects[session.dayID, default: [:]][session.projectID, default: 0] += seconds
             let key = query.projectID == nil ? session.projectID : StatsQuery.taskKey(session.task)
             let project = projectMap[session.projectID]
             if distribution[key] == nil {
@@ -238,21 +253,13 @@ nonisolated struct StatsSnapshot: Sendable {
             }
             distribution[key]?.seconds += seconds
             if let day = date(session.dayID, calendar: calendar) { weekdays[(calendar.component(.weekday, from: day) + 5) % 7] += seconds }
-            var local = calendar
-            local.timeZone = TimeZone(identifier: session.timeZoneID) ?? calendar.timeZone
-            var cursor = session.start
-            while cursor < end {
-                try Task.checkCancellation()
-                guard let hour = local.dateInterval(of: .hour, for: cursor), hour.end > cursor else { break }
-                let stop = min(hour.end, end)
-                hours[local.component(.hour, from: cursor)] += stop.timeIntervalSince(cursor)
-                cursor = stop
-            }
+            try addHours(session, until: end, to: &hours, calendar: calendar)
         }
         let selectedDaily = daily.filter { $0.key >= startID && $0.key <= effectiveEnd && $0.value > 0 }
         let total = selectedDaily.values.reduce(0, +)
         let grouping: Calendar.Component = query.period == .year || (query.period == .custom && rangeDays.count > 180) ? .month : query.period == .custom && rangeDays.count > 31 ? .weekOfYear : .day
         var buckets: [Bucket] = [], bucketIndices: [String: Int] = [:]
+        var bucketProjects: [String: [String: Double]] = [:]
         let formatter = DateFormatter()
         formatter.calendar = calendar; formatter.timeZone = calendar.timeZone; formatter.locale = calendar.locale
         formatter.dateFormat = grouping == .month ? "MMM yyyy" : "d MMM"
@@ -264,6 +271,12 @@ nonisolated struct StatsSnapshot: Sendable {
                 buckets.append(Bucket(id: key, date: bucketDate, label: formatter.string(from: bucketDate), seconds: 0))
             }
             if let index = bucketIndices[key] { buckets[index].seconds += selectedDaily[dayID(day, calendar: calendar), default: 0] }
+            for (project, seconds) in dailyProjects[dayID(day, calendar: calendar), default: [:]] {
+                bucketProjects[key, default: [:]][project, default: 0] += seconds
+            }
+        }
+        for index in buckets.indices {
+            buckets[index].projects = projectSegments(bucketProjects[buckets[index].id, default: [:]], projects: projectMap)
         }
         let completed = input.completions.filter { $0.dayID >= startID && $0.dayID <= effectiveEnd && $0.date <= now && matches($0.projectID, $0.task) }.count
         let adjusted = input.entries.filter { $0.dayID >= startID && $0.dayID <= effectiveEnd && (query.projectID == nil || $0.projectID == query.projectID) }.reduce(0) { $0 + $1.seconds }
@@ -300,8 +313,27 @@ nonisolated struct StatsSnapshot: Sendable {
             pomodorosAvailable: input.historyStartedAt.map { dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
             adjustedTotal: adjusted, dailyFocus: selectedDaily, focusActivity: FocusActivitySnapshot(range: range, now: now, calendar: calendar).filling(daily), buckets: buckets,
             distribution: distribution.values.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds },
-            weekdays: weekdays, hours: hours, tasksCompleted: taskDays.reduce(0) { $0 + $1.completed }, tasksTotal: taskDays.reduce(0) { $0 + $1.total },
+            weekdays: weekdays, hours: hours, todayID: todayID, todayHours: todayHours, tasksCompleted: taskDays.reduce(0) { $0 + $1.completed }, tasksTotal: taskDays.reduce(0) { $0 + $1.total },
             habits: habitRows, weeklyGoalSeconds: weeklyGoalSeconds, currentStreak: streak.current, bestStreak: streak.best)
+    }
+
+    static func projectSegments(_ seconds: [String: Double], projects: [String: StatsInput.Project]) -> [BucketProject] {
+        seconds.filter { $0.value > 0 }.map { id, value in
+            .init(id: id, name: projects[id]?.name ?? "No project", accent: projects[id]?.accent ?? "neutral", seconds: value)
+        }.sorted { $0.id < $1.id }
+    }
+
+    private static func addHours(_ session: StatsInput.Session, until end: Date, to hours: inout [Double], calendar: Calendar) throws {
+        var local = calendar
+        local.timeZone = TimeZone(identifier: session.timeZoneID) ?? calendar.timeZone
+        var cursor = session.start
+        while cursor < end {
+            try Task.checkCancellation()
+            guard let hour = local.dateInterval(of: .hour, for: cursor), hour.end > cursor else { break }
+            let stop = min(hour.end, end)
+            hours[local.component(.hour, from: cursor)] += stop.timeIntervalSince(cursor)
+            cursor = stop
+        }
     }
 
     static func comparisonRange(query: StatsQuery, range: StatsRange, now: Date, calendar: Calendar) -> (range: StatsRange, wallCutoff: DateComponents?) {

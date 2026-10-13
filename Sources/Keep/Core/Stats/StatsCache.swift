@@ -209,7 +209,9 @@ actor StatsCache {
         var total = 0.0, previousTotal = 0.0, weeklyGoal = 0.0, adjusted = 0.0
         var activeDays = 0, pomodoros = 0
         var weekdays = Array(repeating: 0.0, count: 7), hours = Array(repeating: 0.0, count: 24)
+        var todayHours = Array(repeating: 0.0, count: 24)
         var buckets: [StatsSnapshot.Bucket] = []
+        var bucketProjects: [Int: [String: Double]] = [:]
         var bucketByDay: [String: Int] = [:]
         var dynamicSessions: Set<String> = [], dynamicCompletions: Set<UUID> = []
         var streakDirty = true
@@ -295,10 +297,17 @@ actor StatsCache {
             if activityDays.contains(record.dayID), seconds > 0 {
                 annualDaily[record.dayID, default: 0] += seconds * factor
             }
+            if record.dayID == today, seconds > 0 {
+                let values = session.hourValues(until: end, calendar: calendar)
+                for index in 0..<24 { todayHours[index] += values[index] * factor }
+            }
             guard selected(record.dayID), seconds > 0 else { return }
             activityDaily[record.dayID, default: 0] += seconds * factor
             total += seconds * factor
-            if let index = bucketByDay[record.dayID] { buckets[index].seconds += seconds * factor }
+            if let index = bucketByDay[record.dayID] {
+                buckets[index].seconds += seconds * factor
+                bucketProjects[index, default: [:]][record.project.id, default: 0] += seconds * factor
+            }
             let key = query.projectID == nil ? record.project.id : StatsQuery.taskKey(record.task)
             let group = groups[key] ?? Group(projectID: record.project.id, taskKey: query.projectID == nil ? nil : key, accent: projectMap[record.project.id]?.accent ?? "neutral")
             group.seconds += seconds * factor
@@ -355,9 +364,14 @@ actor StatsCache {
                 guard let first = group.first else { return nil }
                 return .init(id: key, name: first.name, projectID: group.projectID, taskKey: group.taskKey, accent: group.accent, seconds: group.seconds)
             }.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds }
+            var stackedBuckets = buckets
+            for index in stackedBuckets.indices {
+                stackedBuckets[index].projects = StatsSnapshot.projectSegments(bucketProjects[index, default: [:]], projects: projectMap)
+            }
             return StatsSnapshot(range: range, total: max(0, total), previousTotal: max(0, previousTotal), activeDays: activeDays,
                 pomodoros: pomodoros, pomodorosAvailable: historyStartedAt.map { StatsSnapshot.dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
-                adjustedTotal: max(0, adjusted), dailyFocus: activityDaily, focusActivity: activityLayout.filling(annualDaily), buckets: buckets, distribution: distribution, weekdays: weekdays, hours: hours,
+                adjustedTotal: max(0, adjusted), dailyFocus: activityDaily, focusActivity: activityLayout.filling(annualDaily), buckets: stackedBuckets, distribution: distribution, weekdays: weekdays, hours: hours,
+                todayID: today, todayHours: todayHours.map { max(0, $0) },
                 tasksCompleted: summary.tasksCompleted, tasksTotal: summary.tasksTotal, habits: summary.habits, weeklyGoalSeconds: max(0, weeklyGoal),
                 currentStreak: streak.current, bestStreak: streak.best)
         }

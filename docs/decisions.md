@@ -2,11 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D080 — Original timer sound assets (2026-10-11)
-
-- [USER] Create three notification sounds matching Keep's atmosphere and put them in the existing sounds folder.
-- [CODE] Added original synthesized soft mallet cues in `docs/assets/sounds/`: `focus-complete.wav` (descending, 2.30 s), `break-complete.wav` (ascending, 1.95 s), and `flow-reminder.wav` (single quieter tone, 1.70 s). Masters are 48 kHz, stereo, 24-bit PCM with gentle attacks, short room tails and faded boundaries. Existing supplied recordings remain unchanged. These are standalone assets; timer playback, preferences and the optional one-hour Flow reminder are not implemented by this asset task.
-
 ### D081 — Active timer selection and menu bar progress (2026-10-11)
 
 - [USER] Show the single running timer in the menu bar regardless of the preferred timer, use the preference when both run, and include Pomodoro's progress outline.
@@ -66,3 +61,10 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [CODE] Focus and menu-bar target editors offer a separate optional extension with a combined-name preview, Return save, Escape cancel and a 200-character combined limit. Editing the extension settles existing recording, retains the habit reference and project, and leaves the habit definition and recurring task row unchanged. Clearing the extension restores the base name. Naming a different free-form task retains the existing unlink behavior.
 - [CODE] The latest extension is saved as optional metadata on the existing recent habit target and survives local reload and portable archives; older targets default to no extension. Recent selection composes the current habit name with its saved extension, including after a habit rename. Fresh recurring-task timer launches begin with the base name.
 - [TOOL] Ad hoc Xcode build and 736 focused/regression checks passed across habit extensions, task recording, menu-bar layouts, added Calendar entries, backup/restore and cached totals. Ten default/narrow light/dark layouts were inspected; native input verified Return save, Escape cancellation, clearing the detail and disabled Save for overlong names. macOS 15 execution and distribution signing were not validated.
+
+### D090 — Project-stacked trend and today’s hourly focus (2026-10-13)
+
+- [USER] Stack Your focus over time bars by project using the saved project colors, keep Focus by weekday unchanged, and make Focus by hour always show the current day independently of the selected week.
+- [CODE] Direct and cached Stats aggregation retain per-project seconds in every daily/weekly/monthly trend bucket. Segments use project identity and current catalog names/accents; a wrapping legend and hover/keyboard breakdown expose names, durations and shares. Date/project/task filters and recorded-session totals retain their existing scope.
+- [CODE] A separate today-only hour series follows the workspace’s current civil-day key, retains recorded local-hour attribution and project/task filters, clips unfinished records to now, and advances at midnight through the existing refresh/cache lifecycle. The hourly chart labels Today and its date and shows an explicit empty state without falling back to yesterday. Period hourly totals remain available to existing CSV exports.
+- [TOOL] Ad hoc Xcode build and 423 aggregation, cache, graph, export and native viewport checks passed. Eight default/narrow light/dark graph renders were inspected. Focused checks cover grouped buckets, same-name projects, filters, live corrections/removal, future clipping, DST and midnight/no-session days. Native keyboard/accessible selection, its focus ring and the visible per-project duration/share breakdown were inspected. macOS 15 execution and distribution signing were not validated.
