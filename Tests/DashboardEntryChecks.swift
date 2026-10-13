@@ -110,6 +110,21 @@ import Foundation
         let reopened = WorkspaceModel(persistence: persistence, calendar: calendar, date: date)
         defer { reopened.shutdown() }
         expect(reopened.readIndex.sessions[persisted.id]?.task == "Persisted entry", "Added work survives relaunch")
+        let duplicate = FocusTask(title: task.title, estimateMinutes: 45)
+        let searchTasks = DailyTaskStore(archive: TaskArchive(days: [day: [task, duplicate]]), calendar: calendar, habits: habitStore)
+        let searchWorkspace = WorkspaceModel(ledger: workspace.ledger, calendar: calendar, date: date, tasks: searchTasks, habits: habitStore)
+        defer { searchWorkspace.shutdown() }
+        let options = searchWorkspace.entryTaskSuggestions(on: date, projectID: FocusProject.defaults[1].id)
+        let readOptions = CalendarEntryTaskSuggestion.matching("  READ  ", in: options)
+        expect(readOptions.filter { $0.title == "Read" }.count == 2, "Autocomplete keeps duplicate-title tasks as distinct explicit choices")
+        expect(Set(readOptions.filter { $0.title == "Read" }.map(\.id)).count == 2, "Suggestion identities remain stable and unique")
+        expect(readOptions.first?.title == "Read", "Exact matches rank before partial matches")
+        expect(options.contains { $0.title == "Earlier work" && $0.reference == nil }, "Recorded manual names are available as unlinked recommendations")
+        expect(CalendarEntryTaskSuggestion.matching("A completely new name", in: options).isEmpty, "Unknown names stay free-form instead of attaching to another task")
+        expect(CalendarEntryTaskSuggestion.matching("", in: options).count == options.count, "Opening an empty search displays available recommendations")
+        let accented = CalendarEntryTaskSuggestion(id: "accent", title: "Hören", detail: "Recent task", reference: nil)
+        expect(CalendarEntryTaskSuggestion.matching("HOREN", in: [accented]).count == 1, "Autocomplete ignores case and diacritics")
+        expect(!searchWorkspace.entryTaskSuggestions(on: date, projectID: FocusProject.unassigned.id).contains { $0.title == "Earlier work" }, "Recorded name suggestions follow the entry's selected project")
         var spring = draft; spring.reference = nil; spring.date = calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)) ?? date; spring.startTime = "02:30"; spring.endTime = "03:30"
         rejects("Nonexistent DST times must be rejected") { _ = try spring.session(project: .unassigned, calendar: calendar, now: date) }
         print("Passed \(checks) added entry, attribution, Habits project, export and backup checks")

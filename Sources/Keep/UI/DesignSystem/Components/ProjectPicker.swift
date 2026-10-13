@@ -5,6 +5,7 @@ struct ProjectPicker: View {
     let selectedProject: FocusProject?
     let onSelect: (FocusProject?) -> Void
     let onCreate: (() -> Void)?
+    let showsCreation: Bool
     @Environment(\.self) private var environment
     @State private var search: String
     @State private var hoveredOption: String?
@@ -15,6 +16,7 @@ struct ProjectPicker: View {
         projects: [FocusProject],
         selectedProject: FocusProject?,
         initialSearch: String = "",
+        showsCreation: Bool = true,
         onCreate: (() -> Void)? = nil,
         onSelect: @escaping (FocusProject?) -> Void
     ) {
@@ -22,6 +24,7 @@ struct ProjectPicker: View {
         self.selectedProject = selectedProject
         self.onSelect = onSelect
         self.onCreate = onCreate
+        self.showsCreation = showsCreation
         _search = State(initialValue: initialSearch)
     }
 
@@ -94,25 +97,27 @@ struct ProjectPicker: View {
             }
             .frame(height: 276)
 
-            Rectangle().fill(KeepTheme.border).frame(height: 1)
+            if showsCreation {
+                Rectangle().fill(KeepTheme.border).frame(height: 1)
 
-            HStack {
-                Button { onCreate?() } label: {
-                    Label("Create a new project", systemImage: "plus")
-                        .font(.system(size: 13, weight: .medium))
+                HStack {
+                    Button { onCreate?() } label: {
+                        Label("Create a new project", systemImage: "plus")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(KeepTheme.accentStrong)
+                    .disabled(onCreate == nil)
+                    .focused($focusedOption, equals: "create-project")
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(focusedOption == "create-project" ? KeepTheme.focusRing : .clear, lineWidth: 2)
+                    }
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(KeepTheme.accentStrong)
-                .disabled(onCreate == nil)
-                .focused($focusedOption, equals: "create-project")
-                .overlay {
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(focusedOption == "create-project" ? KeepTheme.focusRing : .clear, lineWidth: 2)
-                }
-                Spacer()
+                .padding(.horizontal, 8)
+                .padding(.bottom, 2)
             }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 2)
         }
         .padding(16)
         .frame(width: 340)

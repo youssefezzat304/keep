@@ -2,11 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D078 — Saved Pomodoro presets (2026-10-10)
-
-- [USER] Add Settings/Presets choices to the timer popover, a name field below its subtitle, Save preset to the right of Save, and remove all increase/decrease controls.
-- [CODE] Named presets store all four Pomodoro settings in the workspace ledger and existing backups; older archives load with no presets. Names are trimmed, bounded and unique without case/diacritic distinctions. Save applies settings; Save preset stores the entered rhythm without applying it. Presets can be used or deleted. Applying uses the existing workspace settlement path and preserves running/paused interval durations.
-
 ### D079 — Growing Pomodoro perimeter progress (2026-10-10)
 
 - [USER] Implement the rectangular visual timer as no border → border.
@@ -62,3 +57,10 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [CODE] Added entries persist as manual-source sessions in the shared history, contributing to Calendar, Timesheet, Stats, annual activity, project targets, exports and backups. They record completed work in the workspace’s civil timezone, support an end at 24:00, and validate dates/times and 200-character names before mutation. Persistence precedes publication so failed additions can be retried without duplication. Running timers settle first and retain their target. Explicit saved-item selection preserves task identity and updates habit progress silently; changing its name/date unlinks the draft. Duplicate-name menu choices include estimates and short IDs.
 - [CODE] Habits is a built-in project using fern. Existing user-created Habits projects are reused without duplicate defaults; removed defaults reactivate when a habit is launched. Recent linked-habit selection follows the same assignment, while old history retains its original project. Timesheet marks today using the Calendar’s existing accent/ink treatment and exposes Today accessibly.
 - [TOOL] Ad hoc Xcode build and 633 added-entry, recording, task/habit, project, export, backup and cache checks passed. Twelve default/narrow light/dark layouts were inspected. Native Return created a 30-minute calendar block and increased Calendar/Timesheet totals equally; saved-task choices and project options were inspected. Updated the restore-preview test to include the new default project.
+
+### D088 — Styled entry selectors and searchable task names (2026-10-13)
+
+- [USER] Remove the entry-tracking helper text; match the provided project-card and Choose a day references; search recommended task names while accepting the typed name when nothing matches.
+- [CODE] Calendar entry’s project control now uses the existing warm folder-card treatment and ProjectPicker, restricted to existing projects/No project. Its date control reuses TaskDatePicker with an optional latest date; entries disable future dates while other task/habit/Stats pickers retain their previous behavior. Date selection is exposed accessibly.
+- [CODE] The task control opens a focused search popover covering saved tasks, habits, recent targets and recorded names for the selected date/project. Matching ignores case/diacritics and ranks exact/prefix results first. Explicit saved-item selection retains identity, including duplicate titles; using entered text stays unlinked. Query state remains separate from the chosen name so live filtering cannot dismiss the popover. Closing search retains entered text, and date changes retain the existing unlink rule.
+- [TOOL] Ad hoc Xcode build, 113 entry/search and daily-task checks, and twenty default/narrow light/dark selector layouts passed. Native input verified persistent filtering, saved-task linkage, Return for a new unmatched name, existing-project/No project selection, disabled future dates and a saved entry with the chosen past date and custom name.

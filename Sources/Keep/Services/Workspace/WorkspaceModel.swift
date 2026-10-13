@@ -387,6 +387,44 @@ final class WorkspaceModel {
         return tasks?.tasks(on: TaskDay.id(for: date, calendar: calendar)) ?? []
     }
 
+    func entryTaskSuggestions(on date: Date, projectID: String) -> [CalendarEntryTaskSuggestion] {
+        let day = TaskDay.id(for: date, calendar: calendar)
+        let saved = entryTasks(on: date)
+        var suggestions: [CalendarEntryTaskSuggestion] = saved.map { task in
+            let reference: TaskReference = task.habitID.map { .habit(id: $0) } ?? .task(id: task.id, dayID: day)
+            var detail = task.habitID == nil ? "Task" : "Habit"
+            if let minutes = task.estimateMinutes { detail += " · \(minutes) min" }
+            if saved.filter({ StatsQuery.taskKey($0.title) == StatsQuery.taskKey(task.title) }).count > 1 {
+                detail += " · " + String(task.id.uuidString.prefix(8))
+            }
+            return .init(id: reference.storageKey, title: task.title, detail: detail, reference: reference)
+        }
+        var references = Set(suggestions.compactMap(\.reference))
+        var names = Set(suggestions.map { StatsQuery.taskKey($0.title) })
+        for recent in taskSuggestions where recent.project.id == projectID {
+            let reference = validReference(recent.taskReference)
+            if let reference {
+                guard references.insert(reference).inserted else { continue }
+            } else {
+                guard names.insert(StatsQuery.taskKey(recent.title)).inserted else { continue }
+            }
+            let title = linkedTitle(reference) ?? recent.title
+            let detail: String
+            switch reference {
+            case .task(_, let plannedDay): detail = "Task · " + plannedDay
+            case .habit: detail = "Habit"
+            case nil: detail = "Recent task"
+            }
+            suggestions.append(.init(id: "recent/" + recent.id.uuidString, title: title, detail: detail, reference: reference))
+            names.insert(StatsQuery.taskKey(title))
+        }
+        for title in readIndex.names(projectID: projectID).values.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
+            guard !title.isEmpty, names.insert(StatsQuery.taskKey(title)).inserted else { continue }
+            suggestions.append(.init(id: "name/" + StatsQuery.taskKey(title), title: title, detail: "Recorded task", reference: nil))
+        }
+        return suggestions
+    }
+
     /// Added work shares the session ledger and all derived reports, without changing timer targets.
     @discardableResult
     func addCalendarEntry(_ draft: CalendarEntryDraft, at instant: ContinuousClock.Instant = .now, now: Date = .now) throws -> RecordedSession {

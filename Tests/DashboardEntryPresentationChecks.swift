@@ -27,6 +27,17 @@ import SwiftUI
                     size: size, to: output.appendingPathComponent("dialog-\(name)-\(appearance.rawValue).png"))
             }
         }
+        for appearance in [AppAppearance.light, .dark] {
+            try await render(ProjectPicker(projects: linked.projects, selectedProject: linked.selectedProject, showsCreation: false, onSelect: { _ in }).keepAppearance(appearance),
+                size: NSSize(width: 390, height: 410), to: output.appendingPathComponent("entry-project-picker-\(appearance.rawValue).png"))
+            try await render(TaskDatePicker(date: today, calendar: linked.calendar, confirmationTitle: "Use date", latestDate: today, onChoose: { _ in }).keepAppearance(appearance),
+                size: NSSize(width: 390, height: 500), to: output.appendingPathComponent("entry-date-picker-\(appearance.rawValue).png"))
+            let suggestions = linked.entryTaskSuggestions(on: today, projectID: FocusProject.defaults[0].id)
+            try await render(CalendarEntryTaskPicker(name: .constant("research"), suggestions: suggestions, onSelect: { _ in }, onUseName: {}, onClose: {}).keepAppearance(appearance),
+                size: NSSize(width: 400, height: 350), to: output.appendingPathComponent("entry-task-matches-\(appearance.rawValue).png"))
+            try await render(CalendarEntryTaskPicker(name: .constant("A completely new task"), suggestions: suggestions, onSelect: { _ in }, onUseName: {}, onClose: {}).keepAppearance(appearance),
+                size: NSSize(width: 400, height: 240), to: output.appendingPathComponent("entry-task-new-\(appearance.rawValue).png"))
+        }
         print("Rendered \(rendered) native added entry, Calendar and Timesheet layouts in \(output.path)")
         if ProcessInfo.processInfo.environment["KEEP_DASHBOARD_ENTRY_INTERACTIVE"] == "1" {
             NSApp.setActivationPolicy(.regular)

@@ -9,18 +9,24 @@ struct TaskDatePicker: View {
     let calendar: Calendar
     let onChoose: (Date) -> Void
     let confirmationTitle: String
+    let latestDate: Date?
 
-    init(date: Date, calendar: Calendar, confirmationTitle: String = "Show tasks", onChoose: @escaping (Date) -> Void) {
+    init(date: Date, calendar: Calendar, confirmationTitle: String = "Show tasks", latestDate: Date? = nil, onChoose: @escaping (Date) -> Void) {
         _date = State(initialValue: date)
         _month = State(initialValue: date)
         _typedDate = State(initialValue: TaskDay.id(for: date, calendar: calendar))
         self.calendar = calendar
         self.confirmationTitle = confirmationTitle
+        self.latestDate = latestDate
         self.onChoose = onChoose
     }
 
     private var grid: TaskMonthGrid { TaskMonthGrid(month: month, calendar: calendar) }
     private var enteredDate: Date? { TaskDay.date(for: typedDate, calendar: calendar) }
+    private func allowed(_ value: Date) -> Bool {
+        latestDate.map { calendar.startOfDay(for: value) <= calendar.startOfDay(for: $0) } ?? true
+    }
+    private var validDate: Bool { enteredDate.map(allowed) ?? false }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -56,23 +62,23 @@ struct TaskDatePicker: View {
                     .focused($typingDate)
                     .accessibilityLabel("Jump to date, year-month-day")
                     .onSubmit {
-                        if let enteredDate { select(enteredDate) }
+                        if let enteredDate, allowed(enteredDate) { select(enteredDate) }
                     }
             }
-            if enteredDate == nil {
-                Text("Enter a date as YYYY-MM-DD.")
+            if !validDate {
+                Text(enteredDate == nil ? "Enter a date as YYYY-MM-DD." : "Choose today or an earlier day.")
                     .font(.system(size: 11)).foregroundStyle(KeepTheme.accentStrong)
             }
             HStack {
                 Button("Today") { select(Date.now) }
-                    .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+                    .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!allowed(.now))
                 Spacer()
                 Button(confirmationTitle) {
-                    if let enteredDate { onChoose(enteredDate) }
+                    if let enteredDate, allowed(enteredDate) { onChoose(enteredDate) }
                 }
                 .buttonStyle(KeepButtonStyle(emphasis: .primary))
                 .keyboardShortcut(.defaultAction)
-                .disabled(enteredDate == nil)
+                .disabled(!validDate)
             }
         }
         .padding(22).frame(width: 336)
@@ -90,6 +96,7 @@ struct TaskDatePicker: View {
         }
         .buttonStyle(KeepButtonStyle(emphasis: .quiet))
         .accessibilityLabel(label).help(label)
+        .disabled(offset > 0 && !allowed(grid.moving(by: offset)))
     }
 
     private func dayButton(_ day: Date) -> some View {
@@ -106,6 +113,7 @@ struct TaskDatePicker: View {
             .frame(maxWidth: .infinity).frame(height: 34)
         }
         .buttonStyle(CalendarDayStyle(selected: selected, inMonth: grid.contains(day)))
+        .disabled(!allowed(day)).opacity(allowed(day) ? 1 : 0.45)
         .focusable().focusEffectDisabled()
         .focused($focusedDay, equals: id)
         .onMoveCommand { direction in moveFocus(from: day, direction: direction) }
@@ -129,7 +137,7 @@ struct TaskDatePicker: View {
         case .down: offset = 7
         @unknown default: return
         }
-        guard let next = calendar.date(byAdding: .day, value: offset, to: day) else { return }
+        guard let next = calendar.date(byAdding: .day, value: offset, to: day), allowed(next) else { return }
         if !grid.days.contains(where: { calendar.isDate($0, inSameDayAs: next) }) { month = next }
         focusedDay = TaskDay.id(for: next, calendar: calendar)
     }
