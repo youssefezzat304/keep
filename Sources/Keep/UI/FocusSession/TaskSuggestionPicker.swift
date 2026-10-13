@@ -12,12 +12,17 @@ struct TaskSuggestionPicker: View {
     private var matches: [TaskActivity] {
         let query = editor.text.trimmingCharacters(in: .whitespacesAndNewlines)
         return workspace.taskSuggestions.filter {
-            query.isEmpty || editor.text == workspace.taskName || $0.title.localizedStandardContains(query) || $0.project.name.localizedStandardContains(query)
+            query.isEmpty || editor.text == workspace.activeTaskName || $0.title.localizedStandardContains(query) || $0.project.name.localizedStandardContains(query)
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if editor.editsHabitExtension {
+                HabitTaskExtensionField(editor: editor, onSubmit: onSubmit)
+                    .disabled(!workspace.canTrack)
+                Divider().overlay(KeepTheme.border).padding(.vertical, 6)
+            }
             TextField("What are you working on?", text: $editor.text)
                 .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
                 .padding(12).background(KeepTheme.paper, in: RoundedRectangle(cornerRadius: 10))
@@ -38,7 +43,7 @@ struct TaskSuggestionPicker: View {
         }
         .padding(16).frame(width: 380)
         .foregroundStyle(KeepTheme.ink).background(KeepTheme.surface)
-        .onAppear { searchFocused = true }
+        .onAppear { searchFocused = !editor.editsHabitExtension }
         .onExitCommand(perform: onCancel)
     }
 

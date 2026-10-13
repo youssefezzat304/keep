@@ -18,6 +18,7 @@ nonisolated struct TaskActivity: Identifiable, Codable, Sendable {
     var lastUsed: Date
     var isPinned = false
     var taskReference: TaskReference? = nil
+    var habitNameExtension: String? = nil
 }
 
 nonisolated struct TimesheetEntry: Identifiable, Codable, Sendable {
@@ -99,15 +100,16 @@ nonisolated struct TimesheetLedger: Codable {
         changes.append(.completion(completion))
     }
 
-    mutating func rememberTask(_ name: String, project: FocusProject, date: Date, reference: TaskReference? = nil) {
+    mutating func rememberTask(_ name: String, project: FocusProject, date: Date, reference: TaskReference? = nil, habitNameExtension: String? = nil) {
         let title = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
         guard !title.isEmpty else { return }
         if let index = taskActivities.firstIndex(where: { $0.project.id == project.id && (reference != nil ? $0.taskReference == reference : $0.taskReference == nil && $0.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame) }) {
             taskActivities[index].title = title
             taskActivities[index].lastUsed = date
+            taskActivities[index].habitNameExtension = habitNameExtension
             changes.append(.activity(taskActivities[index]))
         } else {
-            let activity = TaskActivity(id: UUID(), title: title, project: project, lastUsed: date, taskReference: reference)
+            let activity = TaskActivity(id: UUID(), title: title, project: project, lastUsed: date, taskReference: reference, habitNameExtension: habitNameExtension)
             taskActivities.append(activity)
             changes.append(.activity(activity))
         }

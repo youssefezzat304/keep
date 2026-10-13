@@ -38,7 +38,7 @@ struct ActiveTargetHeader: View {
             if !editing { showsTaskPicker = false; focusedField = nil }
         }
         .onChange(of: showsTaskPicker) { _, presented in
-            if !presented { finishEditing() }
+            if !presented && !finishEditing() { editor.cancel() }
         }
         .onDisappear { finishEditing() }
         .sheet(isPresented: $showsProjectCreation, onDismiss: { focusedField = nil }) {
@@ -49,9 +49,11 @@ struct ActiveTargetHeader: View {
         }
     }
 
-    private func finishEditing() {
-        editor.commit(to: workspace)
+    @discardableResult
+    private func finishEditing() -> Bool {
+        guard editor.commit(to: workspace) else { return false }
         focusedField = nil
+        return true
     }
 
     private var heading: some View {
@@ -112,7 +114,7 @@ struct ActiveTargetHeader: View {
                     editor.begin(in: workspace)
                 } label: {
                     HStack {
-                        Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
+                        Text(workspace.activeTaskName.isEmpty ? "Your next good idea" : workspace.activeTaskName)
                             .font(.system(size: 14, weight: .medium)).lineLimit(1)
                         Spacer(minLength: 4)
                     }
@@ -125,11 +127,11 @@ struct ActiveTargetHeader: View {
                     RoundedRectangle(cornerRadius: 4).strokeBorder(focusedField == .task ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false)
                 }
                 .accessibilityLabel("Select or name a task")
-                .accessibilityValue(workspace.taskName.isEmpty ? "No task name" : workspace.taskName)
+                .accessibilityValue(workspace.activeTaskName.isEmpty ? "No task name" : workspace.activeTaskName)
                 .help("Choose a recent task or name a new one")
-                .popover(isPresented: $showsTaskPicker) {
+                .popover(isPresented: $showsTaskPicker, arrowEdge: .bottom) {
                     TaskSuggestionPicker(editor: editor, workspace: workspace, onSubmit: {
-                        finishEditing()
+                        guard finishEditing() else { return }
                         showsTaskPicker = false
                     }, onSelect: { activity in
                         editor.cancel()

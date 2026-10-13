@@ -95,7 +95,7 @@ struct MenuBarWorkspaceView: View {
                             .foregroundStyle(KeepTheme.mutedInk)
                         Text(project?.name ?? "No project").font(.system(size: 11, weight: .medium))
                             .foregroundStyle(projectColor).lineLimit(1)
-                        Text(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)
+                        Text(workspace.activeTaskName.isEmpty ? "Your next good idea" : workspace.activeTaskName)
                             .font(.system(size: 14, weight: .medium)).lineLimit(2)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }.contentShape(Rectangle())
@@ -109,7 +109,7 @@ struct MenuBarWorkspaceView: View {
                     .allowsHitTesting(false)
             }
             .accessibilityLabel("Choose project or task")
-            .accessibilityValue("\(project?.name ?? "No project"), \(workspace.taskName.isEmpty ? "Your next good idea" : workspace.taskName)")
+            .accessibilityValue("\(project?.name ?? "No project"), \(workspace.activeTaskName.isEmpty ? "Your next good idea" : workspace.activeTaskName)")
             .help("Choose a project, recent task, or name a new task")
             .disabled(!workspace.canTrack)
         }
@@ -339,7 +339,7 @@ struct MenuBarWorkspaceView: View {
 
     private func submitName() {
         guard workspace.canTrack else { return }
-        editor.commit(to: workspace)
+        guard editor.commit(to: workspace) else { return }
         page = .controls
     }
 

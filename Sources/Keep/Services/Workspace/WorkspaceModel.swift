@@ -10,6 +10,7 @@ final class WorkspaceModel {
     private(set) var selectedProject: FocusProject? = FocusProject.defaults.first
     private(set) var taskName = ""
     private(set) var taskReference: TaskReference?
+    private(set) var habitNameExtension: String?
     private(set) var ledger: TimesheetLedger
     private(set) var persistenceError: String?
     private(set) var loadFailed = false
@@ -22,7 +23,14 @@ final class WorkspaceModel {
     var projects: [FocusProject] { _ = readIndex.metadataRevision; return readIndex.activeProjects }
     var pomodoroSettings: PomodoroSettings { ledger.pomodoroSettings ?? .defaults }
     var pomodoroPresets: [PomodoroPreset] { ledger.pomodoroPresets }
-    var activeTaskName: String { linkedTitle(taskReference) ?? taskName }
+    var activeHabit: Habit? {
+        guard case .habit(let id) = taskReference else { return nil }
+        return habits?.habits.first { $0.id == id }
+    }
+    var activeTaskName: String {
+        if let habit = activeHabit { return String(HabitTaskName.title(habit.name, extension: habitNameExtension).prefix(200)) }
+        return linkedTitle(taskReference) ?? taskName
+    }
     var taskSuggestions: [TaskActivity] { _ = readIndex.metadataRevision; return readIndex.suggestions }
 
     func capturePersistentData(at instant: ContinuousClock.Instant = .now, date: Date = .now) throws -> TimesheetLedger {
@@ -39,6 +47,7 @@ final class WorkspaceModel {
         pomodoro = FocusTimer(mode: .pomodoro); flow = FocusTimer(mode: .flow)
         pomodoro.configure(value.pomodoroSettings ?? .defaults)
         selectedProject = nil; taskName = ""; taskReference = nil; lastTimesheetRemoval = nil
+        habitNameExtension = nil
         recordingContext = nil; recordingSessionID = UUID(); checkpoint = nil; checkpointDate = nil
         ledgerDirty = false; loadFailed = false; persistenceError = nil; lastSave = nil
         refreshHabitProgress()
@@ -48,9 +57,11 @@ final class WorkspaceModel {
         guard canTrack, let current = taskSuggestions.first(where: { $0.id == activity.id }) else { return }
         synchronize(at: instant, date: date)
         taskReference = validReference(current.taskReference)
+        habitNameExtension = activeHabit == nil ? nil : current.habitNameExtension
         if case .habit = taskReference { selectedProject = ledger.ensureHabitsProject(); ledgerDirty = true }
         else { selectedProject = projects.first { $0.id == current.project.id } }
         taskName = String((linkedTitle(taskReference) ?? current.title).prefix(200))
+        taskName = activeTaskName
         if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
     }
@@ -64,8 +75,8 @@ final class WorkspaceModel {
     }
 
     private func rememberCurrentTask(on date: Date) {
-        guard !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        ledger.rememberTask(taskName, project: selectedProject ?? .unassigned, date: date, reference: taskReference)
+        guard !activeTaskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        ledger.rememberTask(activeTaskName, project: selectedProject ?? .unassigned, date: date, reference: taskReference, habitNameExtension: habitNameExtension)
         ledgerDirty = true
     }
 
@@ -141,7 +152,22 @@ final class WorkspaceModel {
         synchronize(at: instant, date: date)
         taskName = String(name.prefix(200))
         taskReference = nil
+        habitNameExtension = nil
         if isRecording(at: instant) { rememberCurrentTask(on: date) }
+        save(at: instant)
+    }
+
+    func setHabitNameExtension(_ detail: String, habitID: UUID, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        guard canTrack, habits?.canEdit == true else { throw HabitTaskNameError.unavailable }
+        guard let habit = activeHabit, habit.id == habitID else { throw HabitTaskNameError.changedHabit }
+        let detail = HabitTaskName.normalizedExtension(detail)
+        let title = HabitTaskName.title(habit.name, extension: detail)
+        guard title.count <= 200 else { throw HabitTaskNameError.tooLong }
+        guard detail != habitNameExtension else { return }
+        synchronize(at: instant, date: date)
+        habitNameExtension = detail
+        taskName = title
+        rememberCurrentTask(on: date)
         save(at: instant)
     }
 
@@ -244,6 +270,7 @@ final class WorkspaceModel {
         guard canTrack, !title.isEmpty else { return }
         synchronize(at: instant, date: date)
         taskReference = validReference(reference)
+        habitNameExtension = nil
         if case .habit = taskReference { selectedProject = ledger.ensureHabitsProject(); ledgerDirty = true }
         taskName = String((linkedTitle(taskReference) ?? title).prefix(200))
         if timers == .focus || timers == .both { pomodoro.playFocus(at: instant) }

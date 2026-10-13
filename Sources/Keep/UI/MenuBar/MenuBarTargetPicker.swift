@@ -28,6 +28,10 @@ struct MenuBarTargetPicker: View {
                 Spacer()
                 Text("Working on").font(KeepTheme.headingFont(size: 20))
             }
+            if editor.editsHabitExtension {
+                HabitTaskExtensionField(editor: editor, onSubmit: submit)
+                    .disabled(!workspace.canTrack)
+            }
             TextField("Name a task…", text: $editor.text)
                 .modifier(KeepInputStyle()).focused($nameFocused)
                 .accessibilityLabel("Task name")
@@ -72,7 +76,7 @@ struct MenuBarTargetPicker: View {
         }
         .padding(20)
         .foregroundStyle(KeepTheme.ink)
-        .onChange(of: isVisible, initial: true) { _, visible in nameFocused = visible }
+        .onChange(of: isVisible, initial: true) { _, visible in nameFocused = visible && !editor.editsHabitExtension }
         .onExitCommand { if isVisible { onBack() } }
     }
 
@@ -107,7 +111,7 @@ struct MenuBarTargetPicker: View {
     }
 
     private func submit() {
-        guard workspace.canTrack, !editor.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard workspace.canTrack, editor.canCommit, !editor.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         onSubmit()
     }
 }

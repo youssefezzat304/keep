@@ -2,11 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D079 — Growing Pomodoro perimeter progress (2026-10-10)
-
-- [USER] Implement the rectangular visual timer as no border → border.
-- [CODE] Pomodoro cards trace a thin inset outline clockwise from the top center using the native continuous rounded-card shape. Progress derives from elapsed time and the current interval duration: idle/reset is empty, pause freezes it, completion is full, and each new focus/break starts a fresh outline. Preset changes retain the active interval's existing duration. The overlay uses shared readable ink, cannot intercept controls and adds no accessibility element; Reduce Motion disables interpolation and uses the existing one-second refresh. Flow and recording rules are unchanged.
-
 ### D080 — Original timer sound assets (2026-10-11)
 
 - [USER] Create three notification sounds matching Keep's atmosphere and put them in the existing sounds folder.
@@ -64,3 +59,10 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [CODE] Calendar entry’s project control now uses the existing warm folder-card treatment and ProjectPicker, restricted to existing projects/No project. Its date control reuses TaskDatePicker with an optional latest date; entries disable future dates while other task/habit/Stats pickers retain their previous behavior. Date selection is exposed accessibly.
 - [CODE] The task control opens a focused search popover covering saved tasks, habits, recent targets and recorded names for the selected date/project. Matching ignores case/diacritics and ranks exact/prefix results first. Explicit saved-item selection retains identity, including duplicate titles; using entered text stays unlinked. Query state remains separate from the chosen name so live filtering cannot dismiss the popover. Closing search retains entered text, and date changes retain the existing unlink rule.
 - [TOOL] Ad hoc Xcode build, 113 entry/search and daily-task checks, and twenty default/narrow light/dark selector layouts passed. Native input verified persistent filtering, saved-task linkage, Return for a new unmatched name, existing-project/No project selection, disabled future dates and a saved entry with the chosen past date and custom name.
+
+### D089 — Habit task name extensions (2026-10-13)
+
+- [USER] Allow a habit assigned as a task to have an optional name extension, such as `Reading - The Alchemist`, under Habits.
+- [CODE] Focus and menu-bar target editors offer a separate optional extension with a combined-name preview, Return save, Escape cancel and a 200-character combined limit. Editing the extension settles existing recording, retains the habit reference and project, and leaves the habit definition and recurring task row unchanged. Clearing the extension restores the base name. Naming a different free-form task retains the existing unlink behavior.
+- [CODE] The latest extension is saved as optional metadata on the existing recent habit target and survives local reload and portable archives; older targets default to no extension. Recent selection composes the current habit name with its saved extension, including after a habit rename. Fresh recurring-task timer launches begin with the base name.
+- [TOOL] Ad hoc Xcode build and 736 focused/regression checks passed across habit extensions, task recording, menu-bar layouts, added Calendar entries, backup/restore and cached totals. Ten default/narrow light/dark layouts were inspected; native input verified Return save, Escape cancellation, clearing the detail and disabled Save for overlong names. macOS 15 execution and distribution signing were not validated.

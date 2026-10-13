@@ -81,6 +81,10 @@ struct TimesheetPersistence {
         }) else { throw CocoaError(.coderReadCorrupt) }
         var activityKeys: [String: Set<String>] = [:]
         guard ledger.taskActivities.allSatisfy({ activity in
+            if let detail = activity.habitNameExtension {
+                guard case .habit = activity.taskReference,
+                      HabitTaskName.normalizedExtension(detail) == detail, detail.count <= 196 else { return false }
+            }
             let title = activity.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let key = activity.taskReference?.storageKey ?? "name/" + title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             return activity.taskReference?.isValid != false && !title.isEmpty && title == activity.title && title.count <= 200 && !activity.project.id.isEmpty && !activity.project.name.isEmpty &&
