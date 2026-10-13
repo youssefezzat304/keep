@@ -3,8 +3,10 @@ import Foundation
 /// Actual timer intervals, saved alongside daily totals. Manual totals have no timestamps.
 nonisolated struct RecordedSession: Identifiable, Codable, Sendable {
     enum Source: String, Codable, Sendable {
-        case pomodoro, flow
-        var title: String { self == .flow ? "Flow" : "Pomodoro focus" }
+        case pomodoro, flow, manual
+        var title: String {
+            switch self { case .flow: "Flow"; case .pomodoro: "Pomodoro focus"; case .manual: "Added entry" }
+        }
     }
 
     let id: String

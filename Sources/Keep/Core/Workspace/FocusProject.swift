@@ -26,11 +26,14 @@ nonisolated struct FocusProject: Identifiable, Equatable, Codable, Sendable {
 
     static let unassigned = FocusProject(id: "no-project", name: "No project", accent: .neutral, category: "Unassigned time")
 
+    static let habits = FocusProject(id: "habits", name: "Habits", accent: .fern, category: "Habit tracking")
+
     static let defaults = [
         FocusProject(id: "keep", name: "Keep", accent: .terracotta, category: "Personal project"),
         FocusProject(id: "german", name: "Learning German", accent: .sage, category: "Language learning"),
         FocusProject(id: "website", name: "Website refresh", accent: .mistBlue, category: "Design & development"),
-        FocusProject(id: "reading", name: "Reading & research", accent: .butter, category: "A little curiosity")
+        FocusProject(id: "reading", name: "Reading & research", accent: .butter, category: "A little curiosity"),
+        habits
     ]
 }
 

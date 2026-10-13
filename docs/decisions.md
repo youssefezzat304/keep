@@ -2,12 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D077 — Initial beta release version and archive name (2026-10-09)
-
-- [USER] Use version `0.1.0` for the initial beta and name the disk image `keep-0.1.0.dmg`.
-- [CODE] Debug and Release marketing versions are `0.1.0`; the first unpublished build remains `1`. Packaging uses lowercase `keep-VERSION.dmg`, with matching signed appcast URLs and checksums. Local packaging does not publish a GitHub release.
-- [CODE] Pre-release delivery remains UNCONFIRMED: the current Sparkle feed resolves through GitHub's stable `releases/latest` endpoint, and the website excludes pre-releases. This version/name change does not select or configure beta feed hosting.
-
 ### D078 — Saved Pomodoro presets (2026-10-10)
 
 - [USER] Add Settings/Presets choices to the timer popover, a name field below its subtitle, Save preset to the right of Save, and remove all increase/decrease controls.
@@ -61,3 +55,10 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [CODE] The existing session sheet now edits Task name alongside Start and End, with trimmed names, a 200-character limit and blank unnamed entries. Changes apply only to the selected historical entry; task/habit references, saved definitions and the active target remain intact. Unchanged time fields use the latest settled values, so name-only edits preserve live elapsed time. Recording resumes in a separate segment under the active target; time edits retain existing duration-delta behavior.
 - [CODE] Return saves, Escape cancels and Tab follows native field order. Long headings use two lines with a full-name tooltip, keeping fields and buttons visible at the minimum window size.
 - [TOOL] Ad hoc Xcode build, 342 focused and recording/cache regression checks, and eight light/dark editor renders passed. Inspected default/narrow and long-name layouts; native input verified Return save with unchanged totals, Escape cancellation, field focus and disabled Save for overlong names.
+
+### D087 — Added calendar work, today highlight and Habits project (2026-10-13)
+
+- [USER] Add Calendar’s Add entry dialog with existing project/No project, task name, date, start and end; count its time throughout tracking. Highlight today in Timesheet like Calendar. Automatically assign habit timer launches to a default Habits project with the habit’s name. Explicitly choose a matching saved task or habit for credit rather than inferring identity from a typed name.
+- [CODE] Added entries persist as manual-source sessions in the shared history, contributing to Calendar, Timesheet, Stats, annual activity, project targets, exports and backups. They record completed work in the workspace’s civil timezone, support an end at 24:00, and validate dates/times and 200-character names before mutation. Persistence precedes publication so failed additions can be retried without duplication. Running timers settle first and retain their target. Explicit saved-item selection preserves task identity and updates habit progress silently; changing its name/date unlinks the draft. Duplicate-name menu choices include estimates and short IDs.
+- [CODE] Habits is a built-in project using fern. Existing user-created Habits projects are reused without duplicate defaults; removed defaults reactivate when a habit is launched. Recent linked-habit selection follows the same assignment, while old history retains its original project. Timesheet marks today using the Calendar’s existing accent/ink treatment and exposes Today accessibly.
+- [TOOL] Ad hoc Xcode build and 633 added-entry, recording, task/habit, project, export, backup and cache checks passed. Twelve default/narrow light/dark layouts were inspected. Native Return created a 30-minute calendar block and increased Calendar/Timesheet totals equally; saved-task choices and project options were inspected. Updated the restore-preview test to include the new default project.

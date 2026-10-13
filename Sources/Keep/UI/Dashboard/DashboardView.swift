@@ -21,6 +21,7 @@ struct DashboardView: View {
     @State private var page: DashboardPage
     @State private var weekOffset = 0
     @State private var showsProjectCreation = false
+    @State private var showsEntryCreation = false
 
     init(workspace: WorkspaceModel, initialPage: DashboardPage = .timesheet, isVisible: Bool = true) {
         self.workspace = workspace
@@ -39,9 +40,9 @@ struct DashboardView: View {
                 HStack {
                     heading
                     Spacer(minLength: 12)
-                    status
+                    headerActions
                 }
-                VStack(alignment: .leading, spacing: 12) { heading; status }
+                VStack(alignment: .leading, spacing: 12) { heading; headerActions }
             }
             if page == .projects {
                 HStack(spacing: 12) {
@@ -102,6 +103,15 @@ struct DashboardView: View {
                 _ = try workspace.createProject(name: name, accent: accent)
             }
         }
+        .sheet(isPresented: $showsEntryCreation) {
+            CalendarEntryDialog(workspace: workspace, initialDate: week.days.contains(where: { workspace.calendar.isDate($0.date, inSameDayAs: workspace.today) }) ? workspace.today : min(week.days.first?.date ?? workspace.today, workspace.today)) { entry in
+                let targetWeek = TimesheetWeek(containing: entry.start, calendar: workspace.calendar)
+                let currentWeek = TimesheetWeek(containing: workspace.today, calendar: workspace.calendar)
+                if let current = currentWeek.days.first?.date, let target = targetWeek.days.first?.date {
+                    weekOffset = (workspace.calendar.dateComponents([.day], from: current, to: target).day ?? 0) / 7
+                }
+            }
+        }
         .task(id: isVisible) { refresh() }
         .onChange(of: week.dayIDs) { _, _ in refresh() }
         .onChange(of: workspace.readIndex.revision) { _, _ in refresh() }
@@ -116,6 +126,16 @@ struct DashboardView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(page == .projects ? "A place for each thing you’re working on." : page == .timesheet ? "Time spent across your projects, Monday to Sunday." : "A little room for everything you’re working on.")
                 .font(.system(size: 14)).foregroundStyle(KeepTheme.mutedInk)
+        }
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: 12) {
+            if page == .calendar {
+                Button { showsEntryCreation = true } label: { Label("Add entry", systemImage: "plus") }
+                    .buttonStyle(KeepButtonStyle(emphasis: .primary)).disabled(!workspace.canTrack)
+            }
+            status
         }
     }
 

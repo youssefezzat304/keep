@@ -142,7 +142,18 @@ nonisolated struct TimesheetLedger: Codable {
     }
 
     var catalogProjects: [FocusProject] {
-        FocusProject.defaults.map { original in projectOverrides.first { $0.id == original.id } ?? original } + customProjects
+        let builtIns = FocusProject.defaults.map { original in projectOverrides.first { $0.id == original.id } ?? original }
+        // Reuse an existing user-created Habits project rather than showing duplicate defaults.
+        let existingHabits = customProjects.contains { !deletedProjectIDs.contains($0.id) && $0.name.compare(FocusProject.habits.name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
+        return builtIns.filter { !($0.id == FocusProject.habits.id && $0.name == FocusProject.habits.name && existingHabits) } + customProjects
+    }
+
+    mutating func ensureHabitsProject() -> FocusProject {
+        if let existing = catalogProjects.first(where: {
+            !deletedProjectIDs.contains($0.id) && $0.name.compare(FocusProject.habits.name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }) { return existing }
+        if deletedProjectIDs.remove(FocusProject.habits.id) != nil { changes.append(.catalog) }
+        return projectMetadata(for: .habits)
     }
 
     func projectMetadata(for project: FocusProject) -> FocusProject {

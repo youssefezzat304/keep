@@ -66,6 +66,7 @@ struct TimesheetTable: View {
             .frame(width: projectWidth, alignment: .leading)
 
             ForEach(week.days) { day in
+                let isToday = workspace.calendar.isDate(day.date, inSameDayAs: workspace.today)
                 VStack(spacing: 5) {
                     Text(day.label)
                         .font(.system(size: 10, weight: .medium))
@@ -73,10 +74,14 @@ struct TimesheetTable: View {
                         .foregroundStyle(KeepTheme.mutedInk)
                     Text(day.number)
                         .font(KeepTheme.headingFont(size: 20, weight: .regular))
+                        .foregroundStyle(isToday ? KeepTheme.surface : KeepTheme.ink)
+                        .frame(width: 32, height: 32)
+                        .background(isToday ? KeepTheme.accentStrong : .clear, in: RoundedRectangle(cornerRadius: 10))
                 }
                 .frame(width: dayWidth, height: headerHeight)
                 .background { Rectangle().fill(day.isWeekend ? KeepTheme.paper : .clear) }
                 .accessibilityElement(children: .combine)
+                .accessibilityValue(isToday ? "Today" : "")
             }
 
             Text("TOTAL")

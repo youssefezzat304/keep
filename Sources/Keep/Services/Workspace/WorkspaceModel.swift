@@ -47,8 +47,9 @@ final class WorkspaceModel {
     func selectTask(_ activity: TaskActivity, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
         guard canTrack, let current = taskSuggestions.first(where: { $0.id == activity.id }) else { return }
         synchronize(at: instant, date: date)
-        selectedProject = projects.first { $0.id == current.project.id }
         taskReference = validReference(current.taskReference)
+        if case .habit = taskReference { selectedProject = ledger.ensureHabitsProject(); ledgerDirty = true }
+        else { selectedProject = projects.first { $0.id == current.project.id } }
         taskName = String((linkedTitle(taskReference) ?? current.title).prefix(200))
         if isRecording(at: instant) { ensureCurrentRow(on: date); rememberCurrentTask(on: date) }
         save(at: instant)
@@ -243,6 +244,7 @@ final class WorkspaceModel {
         guard canTrack, !title.isEmpty else { return }
         synchronize(at: instant, date: date)
         taskReference = validReference(reference)
+        if case .habit = taskReference { selectedProject = ledger.ensureHabitsProject(); ledgerDirty = true }
         taskName = String((linkedTitle(taskReference) ?? title).prefix(200))
         if timers == .focus || timers == .both { pomodoro.playFocus(at: instant) }
         if timers == .flow || timers == .both { flow.play(at: instant) }
@@ -378,6 +380,36 @@ final class WorkspaceModel {
         ledger.setSeconds(seconds, project: ledger.projectMetadata(for: project), dayID: dayID)
         ledgerDirty = true
         save(at: instant)
+    }
+
+    func entryTasks(on date: Date) -> [FocusTask] {
+        guard tasks?.canEdit == true else { return [] }
+        return tasks?.tasks(on: TaskDay.id(for: date, calendar: calendar)) ?? []
+    }
+
+    /// Added work shares the session ledger and all derived reports, without changing timer targets.
+    @discardableResult
+    func addCalendarEntry(_ draft: CalendarEntryDraft, at instant: ContinuousClock.Instant = .now, now: Date = .now) throws -> RecordedSession {
+        guard canTrack else { throw SessionEditError.unavailable }
+        let project: FocusProject
+        if draft.projectID == FocusProject.unassigned.id { project = .unassigned }
+        else if let existing = projects.first(where: { $0.id == draft.projectID }) { project = existing }
+        else { throw CalendarEntryError.missingProject }
+        if let reference = draft.reference, validReference(reference) == nil { throw CalendarEntryError.missingTask }
+        let entry = try draft.session(project: project, calendar: calendar, now: now)
+        synchronize(at: instant, date: now)
+        var candidate = ledger
+        candidate.record(project: project, from: entry.start, seconds: entry.seconds, calendar: calendar,
+            sessionID: entry.recordingID, task: entry.task, source: .manual, taskReference: entry.taskReference)
+        // Persist before publishing so retrying a failed addition cannot duplicate the entry.
+        do { try persistence?.save(candidate) }
+        catch { throw CalendarEntryError.saveFailed }
+        ledger = candidate
+        ledgerDirty = persistence == nil
+        persistenceError = nil
+        save(at: instant)
+        guard let saved = ledger.sessions.first(where: { $0.recordingID == entry.recordingID }) else { throw SessionEditError.missing }
+        return saved
     }
 
     func editSession(id: String, start: Date? = nil, end: Date? = nil, task: String? = nil, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {

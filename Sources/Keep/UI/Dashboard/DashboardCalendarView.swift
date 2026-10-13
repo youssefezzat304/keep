@@ -35,13 +35,13 @@ struct DashboardCalendarView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Weekly recorded sessions")
+            .accessibilityLabel("Weekly recorded entries")
 
             HStack(spacing: 12) {
-                Label("Timer sessions", systemImage: "clock")
+                Label("Recorded entries", systemImage: "clock")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(KeepTheme.accentStrong)
-                Text("Focus and Flow, as they happened. Manual totals stay in Timesheet.")
+                Text("Timer sessions and added entries. Daily total adjustments stay in Timesheet.")
                     .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
                 Spacer(minLength: 0)
                 zoomButton("minus", label: "Zoom out calendar", disabled: hourHeight <= 48) { hourHeight = max(48, hourHeight - 12) }
@@ -137,7 +137,7 @@ struct DashboardCalendarView: View {
             if !projection.hasSessions {
                 VStack(spacing: 8) {
                     Text("Your focus finds its place here.").font(KeepTheme.headingFont(size: 22))
-                    Text("Start a timer to record your first session.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
+                    Text("Start a timer or add an entry to fill your calendar.").font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 }
                 .frame(width: width - gutter, height: hourHeight * 2)
                 .offset(x: gutter, y: hourHeight * 8)

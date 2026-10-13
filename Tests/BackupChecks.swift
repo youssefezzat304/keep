@@ -337,7 +337,7 @@ private final class Fixture {
         let historyReload = try historyEnvelope.validatedPayload()
         expect(historyReload.workspace.completedPomodoros.first?.id == completion.id && historyReload.workspace.pomodoroHistoryStartedAt == ledger.pomodoroHistoryStartedAt, "Completion events and coverage round trip without inference")
         expect(historyReload.workspace.deletedProjectIDs.contains(custom.id) && historyReload.workspace.projectOverrides.first?.name == "Renamed Keep", "Catalog deletion and overrides survive backup")
-        expect(historyReload.summary.hasPrefix("4 projects"), "Restore preview counts only active projects")
+        expect(historyReload.summary.hasPrefix("\(FocusProject.defaults.count) projects"), "Restore preview counts only active projects")
         try await history.clean()
         let cancel = try Fixture()
         await cancel.backup.backUpNow(); cancel.cloud.holdRead = true
