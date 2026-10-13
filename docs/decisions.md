@@ -2,11 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D076 — Concise architecture and bounded documentation (2026-10-09)
-
-- [USER] Condense the architecture overview, stop automatic architecture/style edits, and retain only the ten most recent decisions. Put these working rules in `AGENTS.md`.
-- [CODE] Architecture is now a short source/state/integration/build overview. `AGENTS.md` permits automatic documentation edits only in this ledger; other documents require an explicit user request. Retained D067–D076 and removed older entries, snapshots and logs without creating an archive.
-
 ### D077 — Initial beta release version and archive name (2026-10-09)
 
 - [USER] Use version `0.1.0` for the initial beta and name the disk image `keep-0.1.0.dmg`.
@@ -59,3 +54,10 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [USER] Focus activity must show the whole year independently of the selected week.
 - [CODE] Both direct Stats aggregation and the incremental cache now populate every recorded day of the displayed year through today. Project/task filters still apply; period totals, charts, streaks and daily exports retain their date scope. The existing displayed-year selection remains tied to the range’s starting year. Annual tiles outside the selected period can be inspected, and the caption reports the year’s total without date-range qualifiers or numeric grouping in the year.
 - [TOOL] Ad hoc Xcode build and 382 Stats, weekly-target, cache, model and viewport checks passed; native renders inspected at 1000 × 900 and 680 × 650 in light/dark. Corrected a Monday-sensitive presentation check to accept an empty current week while verifying loaded annual history.
+
+### D086 — Calendar entry task-name editing (2026-10-12)
+
+- [USER] Let users edit Calendar entries and change their task names.
+- [CODE] The existing session sheet now edits Task name alongside Start and End, with trimmed names, a 200-character limit and blank unnamed entries. Changes apply only to the selected historical entry; task/habit references, saved definitions and the active target remain intact. Unchanged time fields use the latest settled values, so name-only edits preserve live elapsed time. Recording resumes in a separate segment under the active target; time edits retain existing duration-delta behavior.
+- [CODE] Return saves, Escape cancels and Tab follows native field order. Long headings use two lines with a full-name tooltip, keeping fields and buttons visible at the minimum window size.
+- [TOOL] Ad hoc Xcode build, 342 focused and recording/cache regression checks, and eight light/dark editor renders passed. Inspected default/narrow and long-name layouts; native input verified Return save with unchanged totals, Escape cancellation, field focus and disabled Save for overlong names.

@@ -43,13 +43,15 @@ nonisolated struct RecordedSession: Identifiable, Codable, Sendable {
         localCalendar.dateInterval(of: .day, for: start)?.end == end ? "24:00:00" : endTime
     }
 
-    func replacingTimes(start: Date, end: Date) throws -> RecordedSession {
+    func replacing(start: Date, end: Date, task: String? = nil) throws -> RecordedSession {
+        let title = task?.trimmingCharacters(in: .whitespacesAndNewlines) ?? self.task
+        guard title.count <= 200 else { throw SessionEditError.invalidTask }
         guard start.timeIntervalSince1970.isFinite, end.timeIntervalSince1970.isFinite,
               start >= .distantPast, end <= .distantFuture, end > start else { throw SessionEditError.invalidRange }
         guard let day = localCalendar.dateInterval(of: .day, for: self.start),
               start >= day.start, start < day.end, end <= day.end else { throw SessionEditError.outsideDay }
         return RecordedSession(id: id, recordingID: recordingID, dayID: dayID, project: project,
-            task: task, source: source, timeZoneID: timeZoneID, start: start, end: end, taskReference: taskReference)
+            task: title, source: source, timeZoneID: timeZoneID, start: start, end: end, taskReference: taskReference)
     }
 
     // Preserve the civil day/time in which the time was recorded, as Timesheet does.
@@ -82,11 +84,12 @@ nonisolated struct RecordedSession: Identifiable, Codable, Sendable {
 }
 
 enum SessionEditError: LocalizedError {
-    case unavailable, missing, invalidRange, outsideDay
+    case unavailable, missing, invalidRange, outsideDay, invalidTask
     var errorDescription: String? {
         switch self {
         case .unavailable: "Retry loading your workspace before changing sessions."
         case .missing: "This session was removed. Close this dialog and choose another entry."
+        case .invalidTask: "Use 200 characters or fewer for the task name. Leave it blank for an unnamed entry."
         case .invalidRange: "The end time must be later than the start time."
         case .outsideDay: "Keep both times within this recorded day. Use 24:00 for an end at midnight."
         }

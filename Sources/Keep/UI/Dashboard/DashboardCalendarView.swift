@@ -224,6 +224,7 @@ struct CalendarSessionDetail: View {
         calendar.timeZone = TimeZone(identifier: session.timeZoneID) ?? workspace.calendar.timeZone
         return calendar
     }
+    @State private var taskName: String
     @State private var startTime: String
     @State private var endTime: String
     @State private var error: String?
@@ -233,24 +234,35 @@ struct CalendarSessionDetail: View {
     init(workspace: WorkspaceModel, selectedSession: RecordedSession) {
         self.workspace = workspace
         self.selectedSession = selectedSession
+        _taskName = State(initialValue: selectedSession.task)
         _startTime = State(initialValue: selectedSession.startTime)
         _endTime = State(initialValue: selectedSession.editableEndTime)
     }
 
     private var editedStart: Date? { session.date(for: startTime, isEnd: false) }
     private var editedEnd: Date? { session.date(for: endTime, isEnd: true) }
-    private var hasChanges: Bool { startTime != selectedSession.startTime || endTime != selectedSession.editableEndTime }
+    private var hasChanges: Bool { taskName != selectedSession.task || startTime != selectedSession.startTime || endTime != selectedSession.editableEndTime }
+    private var validTaskName: Bool { taskName.trimmingCharacters(in: .whitespacesAndNewlines).count <= 200 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label(session.source.title.uppercased(), systemImage: "clock")
                 .font(.system(size: 10, weight: .medium)).tracking(1).foregroundStyle(KeepTheme.accentStrong)
-            Text(session.title).font(KeepTheme.headingFont(size: 27)).fixedSize(horizontal: false, vertical: true)
+            Text(session.title).font(KeepTheme.headingFont(size: 27)).lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true).help(session.title)
             Label(session.project.name, systemImage: "folder")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(session.project.labelColor(in: environment))
             Text(session.start, format: Date.FormatStyle(date: .complete, time: .omitted, calendar: calendar, timeZone: calendar.timeZone))
                 .font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
+            VStack(alignment: .leading, spacing: 7) {
+                Text("Task name").font(.system(size: 12, weight: .medium))
+                TextField("Unnamed task", text: $taskName).modifier(KeepInputStyle())
+                    .accessibilityLabel("Session task name").onSubmit(save)
+                Text(validTaskName ? "Changes this entry only. Leave blank for an unnamed task." : "Use 200 characters or fewer for the task name.")
+                    .font(.system(size: 12)).foregroundStyle(validTaskName ? KeepTheme.mutedInk : KeepTheme.accentStrong)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 14) {
                 timeField("Start", value: $startTime)
                 timeField("End", value: $endTime)
@@ -271,7 +283,7 @@ struct CalendarSessionDetail: View {
                 Button("Cancel") { dismiss() }.buttonStyle(KeepButtonStyle(emphasis: .quiet)).keyboardShortcut(.cancelAction)
                 Button(hasChanges ? "Save" : "Done") { save() }
                     .buttonStyle(KeepButtonStyle(emphasis: .primary)).keyboardShortcut(.defaultAction)
-                    .disabled(!workspace.canTrack)
+                    .disabled(!workspace.canTrack || !validTaskName)
             }
         }
         .padding(28).frame(width: 420)
@@ -291,18 +303,22 @@ struct CalendarSessionDetail: View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title).font(.system(size: 12, weight: .medium))
             TextField("HH:mm:ss", text: value).modifier(KeepInputStyle()).monospacedDigit()
-                .accessibilityLabel("Session \(title.lowercased()) time")
+                .accessibilityLabel("Session \(title.lowercased()) time").onSubmit(save)
         }
     }
 
     private func save() {
+        guard workspace.canTrack, validTaskName else { return }
         guard hasChanges else { dismiss(); return }
         guard let editedStart, let editedEnd else {
             error = "Enter valid times as HH:mm or HH:mm:ss for this day."
             return
         }
         do {
-            try workspace.editSession(id: session.id, start: editedStart, end: editedEnd)
+            try workspace.editSession(id: session.id,
+                start: startTime != selectedSession.startTime ? editedStart : nil,
+                end: endTime != selectedSession.editableEndTime ? editedEnd : nil,
+                task: taskName != selectedSession.task ? taskName : nil)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
