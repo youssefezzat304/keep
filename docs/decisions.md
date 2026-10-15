@@ -2,13 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D086 — Calendar entry task-name editing (2026-10-12)
-
-- [USER] Let users edit Calendar entries and change their task names.
-- [CODE] The existing session sheet now edits Task name alongside Start and End, with trimmed names, a 200-character limit and blank unnamed entries. Changes apply only to the selected historical entry; task/habit references, saved definitions and the active target remain intact. Unchanged time fields use the latest settled values, so name-only edits preserve live elapsed time. Recording resumes in a separate segment under the active target; time edits retain existing duration-delta behavior.
-- [CODE] Return saves, Escape cancels and Tab follows native field order. Long headings use two lines with a full-name tooltip, keeping fields and buttons visible at the minimum window size.
-- [TOOL] Ad hoc Xcode build, 342 focused and recording/cache regression checks, and eight light/dark editor renders passed. Inspected default/narrow and long-name layouts; native input verified Return save with unchanged totals, Escape cancellation, field focus and disabled Save for overlong names.
-
 ### D087 — Added calendar work, today highlight and Habits project (2026-10-13)
 
 - [USER] Add Calendar’s Add entry dialog with existing project/No project, task name, date, start and end; count its time throughout tracking. Highlight today in Timesheet like Calendar. Automatically assign habit timer launches to a default Habits project with the habit’s name. Explicitly choose a matching saved task or habit for credit rather than inferring identity from a typed name.
@@ -68,3 +61,9 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [USER] Only the break screen should appear automatically when focus ends; the break timer must wait for an explicit start. This corrects D094's automatic timer behavior.
 - [CODE] Focus remains completed while the optional screen displays the full upcoming short/long break duration and Start break. Start break begins that full countdown through WorkspaceModel and acknowledges completion audio. Dismiss/Escape acknowledges the notice without starting rest; dismissing an already running break retains its existing countdown. The screen replaces focus completion's expanded notch, works with both notch options off, and does not replay after dismissal or later setting changes. Waiting, late refreshes and wake cannot advance the break cycle, emit break-complete cues or add recorded Pomodoro time.
 - [TOOL] Ad hoc Xcode build and 347 checks passed across pending-break delivery, explicit starts, native panel/action routing, sound repetition, completion cycles, recording and reminders. Fifteen native layouts rendered; inspected waiting screens at default/narrow/wide sizes, running breaks and light/dark Settings. Live keyboard/click-through remains unverified because the computer-use service failed to start; macOS 15 execution and full-screen Spaces remain unverified.
+
+### D096 — Optional Flow readout beside the notch (2026-10-15)
+
+- [USER] Display Flow beside the notch like Pomodoro, with an option in Settings to turn it off.
+- [CODE] Timers settings now includes an independent Show Flow at the notch toggle, off by default and saved in local preferences/portable backups with compatible defaults for older data. The existing app-owned presenter observes Flow through the shared workspace refresh, showing elapsed time during running/paused sessions. Hiding the readout changes no timer or recording state. When both active readouts are enabled, Pomodoro and Flow occupy separate camera-safe wings of one compact strip; its height stays unchanged and width accommodates elapsed hours. Displays without a notch retain the top-center fallback. Pomodoro completion/break actions retain their existing behavior.
+- [TOOL] Ad hoc Xcode build and 335 checks passed across native panels/readouts, pause/reset, concurrent timers, independent toggles, Pomodoro completion, settings migration, backups, audio repetition and manual break starts. Twenty-three native layouts rendered; inspected Flow-only/combined/paused/long-hour readouts on notched/plain displays and default/narrow Settings in light/dark. Live keyboard/click-through remains unverified because the computer-use service failed to start; macOS 15 execution and full-screen Spaces remain unverified.

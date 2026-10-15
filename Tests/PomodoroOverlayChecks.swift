@@ -14,9 +14,9 @@ import SwiftUI
         guard let defaults = UserDefaults(suiteName: suite) else { throw CocoaError(.coderInvalidValue) }
         defer { defaults.removePersistentDomain(forName: suite) }
         let persistence = SettingsPersistence(defaults: defaults), options = AppPreferences(persistence: SettingsPersistence(defaults: defaults))
-        expect(!options.notchPomodoroTimer && !options.notchPomodoroCompletion && !options.blurPomodoroBreaks && !options.repeatPomodoroSound, "All new visual and repeating-audio features are opt-in")
+        expect(!options.notchFlowTimer && !options.notchPomodoroTimer && !options.notchPomodoroCompletion && !options.blurPomodoroBreaks && !options.repeatPomodoroSound, "All new visual and repeating-audio features are opt-in")
         expect(options.pomodoroSoundRepetition == .once, "Existing audio remains one play")
-        options.notchPomodoroCompletion = true; options.blurPomodoroBreaks = true; options.repeatPomodoroSound = true
+        options.notchFlowTimer = true; options.notchPomodoroCompletion = true; options.blurPomodoroBreaks = true; options.repeatPomodoroSound = true
         expect(!options.notchPomodoroTimer && options.notchPomodoroCompletion, "Completion display is independent of the ongoing timer")
         expect(options.pomodoroSoundRepetition == .untilDismissed, "Indefinite repetition is available")
         options.pomodoroSoundRepeatMode = .count; options.pomodoroSoundRepeatCount = 4
@@ -28,15 +28,15 @@ import SwiftUI
         let portable = try JSONDecoder().decode(PortableSettings.self, from: JSONEncoder().encode(PortableSettings(options.snapshot)))
         let portableSettings = portable.applying(to: SettingsArchive())
         expect(portableSettings == options.snapshot, "Portable backups retain independent settings and repeat mode/count")
-        let fields = ["notchPomodoroTimer", "notchPomodoroCompletion", "blurPomodoroBreaks", "repeatPomodoroSound", "pomodoroSoundRepeatMode", "pomodoroSoundRepeatCount"]
+        let fields = ["notchFlowTimer", "notchPomodoroTimer", "notchPomodoroCompletion", "blurPomodoroBreaks", "repeatPomodoroSound", "pomodoroSoundRepeatMode", "pomodoroSoundRepeatCount"]
         var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(options.snapshot)) as? [String: Any] ?? [:]
         for key in fields { legacy.removeValue(forKey: key) }
         let oldSettings = try JSONDecoder().decode(SettingsArchive.self, from: JSONSerialization.data(withJSONObject: legacy))
-        expect(oldSettings.isValid && oldSettings.notchPomodoroTimer == nil && oldSettings.repeatPomodoroSound == nil, "Old settings retain opt-in defaults")
+        expect(oldSettings.isValid && oldSettings.notchFlowTimer == nil && oldSettings.notchPomodoroTimer == nil && oldSettings.repeatPomodoroSound == nil, "Old settings retain opt-in defaults")
         var oldPortable = try JSONSerialization.jsonObject(with: JSONEncoder().encode(portable)) as? [String: Any] ?? [:]
         for key in fields { oldPortable.removeValue(forKey: key) }
         let restoredLegacy = try JSONDecoder().decode(PortableSettings.self, from: JSONSerialization.data(withJSONObject: oldPortable)).applying(to: options.snapshot)
-        expect(restoredLegacy.isValid && restoredLegacy.blurPomodoroBreaks == nil && restoredLegacy.pomodoroSoundRepeatMode == nil, "Old backups clear unsupported preferences to their compatible defaults")
+        expect(restoredLegacy.isValid && restoredLegacy.notchFlowTimer == nil && restoredLegacy.blurPomodoroBreaks == nil && restoredLegacy.pomodoroSoundRepeatMode == nil, "Old backups clear unsupported preferences to their compatible defaults")
         var corrupt = options.snapshot; corrupt.pomodoroSoundRepeatCount = -1
         expect(!corrupt.isValid, "Corrupt stored counts fail validation")
 
@@ -97,17 +97,17 @@ import SwiftUI
         func panels(_ title: String) -> [NSWindow] { NSApp.windows.filter { $0.title == title && $0.isVisible } }
         native.play(.pomodoro, at: at(0), date: day(0))
         try await Task.sleep(for: .milliseconds(120))
-        expect(panels("Keep Pomodoro").isEmpty, "Opt-out creates no overlay windows")
+        expect(panels("Keep timers").isEmpty, "Opt-out creates no overlay windows")
         nativeOptions.notchPomodoroTimer = true
         try await Task.sleep(for: .milliseconds(120))
-        expect(panels("Keep Pomodoro").count == 1 && panels("Keep Pomodoro").first?.ignoresMouseEvents == true, "Compact panel is click-through and independent of open workspace windows")
+        expect(panels("Keep timers").count == 1 && panels("Keep timers").first?.ignoresMouseEvents == true, "Compact panel is click-through and independent of open workspace windows")
         nativeOptions.notchPomodoroTimer = false; nativeOptions.notchPomodoroCompletion = true
         native.synchronize(at: at(10), date: day(10))
         try await Task.sleep(for: .milliseconds(400))
-        expect(panels("Keep Pomodoro").count == 1 && (panels("Keep Pomodoro").first?.frame.height ?? 0) > 100, "Completion-only mode opens its expanded native panel")
+        expect(panels("Keep timers").count == 1 && (panels("Keep timers").first?.frame.height ?? 0) > 100, "Completion-only mode opens its expanded native panel")
         native.dismissPomodoroCompletion()
         try await Task.sleep(for: .milliseconds(120))
-        expect(panels("Keep Pomodoro").isEmpty, "Acknowledgement closes completion-only panel")
+        expect(panels("Keep timers").isEmpty, "Acknowledgement closes completion-only panel")
         nativeOptions.blurPomodoroBreaks = true
         native.startBreak(at: at(10), date: day(10))
         try await Task.sleep(for: .milliseconds(150))
@@ -124,7 +124,7 @@ import SwiftUI
         nativeOptions.notchPomodoroCompletion = false
         native.synchronize(at: at(15), date: day(15))
         try await Task.sleep(for: .milliseconds(120))
-        expect(panels("Keep Pomodoro").isEmpty, "Disabled completion visuals stay off")
+        expect(panels("Keep timers").isEmpty, "Disabled completion visuals stay off")
 
         nativeOptions.repeatPomodoroSound = true
         sounds.play(.breakComplete, repetition: .untilDismissed)
@@ -155,11 +155,11 @@ import SwiftUI
         auto.synchronize()
         try await Task.sleep(for: .milliseconds(200))
         expect(panels("Keep Pomodoro break").count == NSScreen.screens.count && auto.pomodoro.interval == .focus && auto.pomodoro.phase() == .completed, "Focus completion immediately presents native break screens while the timer waits")
-        expect(panels("Keep Pomodoro").isEmpty, "The waiting break screen replaces the expanded notch completion")
+        expect(panels("Keep timers").isEmpty, "The waiting break screen replaces the expanded notch completion")
         expect(autoSounds.isRepeating && auto.pomodoroCompletion?.isBreak == false, "The waiting screen keeps the focus sound available until acknowledgement")
         autoOptions.notchPomodoroTimer = false
         try await Task.sleep(for: .milliseconds(120))
-        expect(panels("Keep Pomodoro").isEmpty && panels("Keep Pomodoro break").count == NSScreen.screens.count, "Completion-only notch settings cannot duplicate the break-screen notification")
+        expect(panels("Keep timers").isEmpty && panels("Keep Pomodoro break").count == NSScreen.screens.count, "Completion-only notch settings cannot duplicate the break-screen notification")
         guard let host = panels("Keep Pomodoro break").first?.contentView as? NSHostingView<PomodoroBreakView> else { throw CocoaError(.coderInvalidValue) }
         host.rootView.dismiss()
         try await Task.sleep(for: .milliseconds(120))
@@ -167,7 +167,7 @@ import SwiftUI
         expect(auto.pomodoro.interval == .focus && auto.pomodoro.phase() == .completed, "Dismissing the notifier never starts the break")
         auto.synchronize()
         try await Task.sleep(for: .milliseconds(120))
-        expect(panels("Keep Pomodoro break").isEmpty && panels("Keep Pomodoro").isEmpty, "A dismissed automatic notification cannot reopen on the next refresh")
+        expect(panels("Keep Pomodoro break").isEmpty && panels("Keep timers").isEmpty, "A dismissed automatic notification cannot reopen on the next refresh")
         auto.startBreak()
         try await Task.sleep(for: .milliseconds(120))
         expect(panels("Keep Pomodoro break").count == NSScreen.screens.count && auto.pomodoro.interval == .rest && auto.pomodoro.phase() == .running, "Explicit Start break still opens the running break screen after dismissing its notice")
@@ -185,6 +185,54 @@ import SwiftUI
         try await Task.sleep(for: .milliseconds(120))
         expect(panels("Keep Pomodoro break").isEmpty && auto.pomodoro.phase() == .running, "Dismissing a running screen keeps its manually started timer counting")
         autoController.shutdown(); auto.shutdown(); autoSounds.stop()
+
+        let flowOptions = AppPreferences(), flowSounds = TimerSoundPlayer(), flowController = PomodoroOverlayController()
+        let flowWorkspace = WorkspaceModel(focusDuration: 10, timerPreferences: flowOptions)
+        defer { flowController.shutdown(); flowWorkspace.shutdown(at: at(5020), date: day(5020)); flowSounds.stop() }
+        flowController.start(workspace: flowWorkspace, preferences: flowOptions, sounds: flowSounds)
+        flowOptions.notchFlowTimer = true
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep timers").isEmpty, "An idle Flow timer has no notch panel")
+        flowWorkspace.play(.flow, at: at(0), date: day(0))
+        flowWorkspace.synchronize(at: at(1234), date: day(1234))
+        try await Task.sleep(for: .milliseconds(120))
+        guard let flowHost = panels("Keep timers").first?.contentView as? NSHostingView<TimerNotchView> else { throw CocoaError(.coderInvalidValue) }
+        expect(flowHost.rootView.timers.count == 1 && flowHost.rootView.timers.first?.mode == .flow, "Flow alone displays beside the notch independently of Pomodoro")
+        expect(flowHost.rootView.timers.first?.display(at: flowHost.rootView.instant) == "00:20:34", "The Flow readout follows the shared elapsed clock")
+        expect(panels("Keep timers").first?.ignoresMouseEvents == true, "Flow uses the existing compact click-through panel")
+        let compactHeight = flowHost.rootView.layout.frame.height
+        flowWorkspace.stop(.flow, at: at(1234), date: day(1234))
+        flowWorkspace.synchronize(at: at(5000), date: day(5000))
+        flowOptions.showFlowTimer = false
+        try await Task.sleep(for: .milliseconds(120))
+        expect(flowHost.rootView.timers.first?.phase(at: flowHost.rootView.instant) == .stopped && flowHost.rootView.timers.first?.display(at: flowHost.rootView.instant) == "00:20:34", "Paused Flow retains its elapsed display even when the workspace readout is hidden")
+        flowOptions.notchPomodoroTimer = true
+        flowWorkspace.play(.pomodoro, at: at(5000), date: day(5000))
+        try await Task.sleep(for: .milliseconds(120))
+        expect(flowHost.rootView.timers.count == 2 && flowHost.rootView.timers[0].mode == .pomodoro && flowHost.rootView.timers[1].mode == .flow, "Concurrent Pomodoro and Flow share one panel with their own readouts")
+        expect(flowHost.rootView.layout.frame.height == compactHeight, "Showing both timers preserves compact notch height")
+        flowOptions.notchFlowTimer = false
+        try await Task.sleep(for: .milliseconds(120))
+        expect(flowHost.rootView.timers.count == 1 && flowHost.rootView.timers.first?.mode == .pomodoro && flowWorkspace.flow.phase(at: at(5000)) == .stopped, "Turning off Flow only hides its notch readout and preserves its state")
+        flowOptions.notchFlowTimer = true; flowOptions.notchPomodoroTimer = false
+        flowWorkspace.play(.flow, at: at(5000), date: day(5000))
+        try await Task.sleep(for: .milliseconds(120))
+        expect(flowHost.rootView.timers.count == 1 && flowHost.rootView.timers.first?.mode == .flow, "Flow can remain visible while Pomodoro is hidden")
+        flowOptions.notchFlowTimer = false
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep timers").isEmpty && flowWorkspace.flow.phase(at: at(5000)) == .running && flowWorkspace.pomodoro.phase(at: at(5000)) == .running, "Turning both notch readouts off leaves both timers running")
+        flowOptions.notchFlowTimer = true; flowOptions.notchPomodoroCompletion = true
+        flowWorkspace.synchronize(at: at(5010), date: day(5010))
+        try await Task.sleep(for: .milliseconds(400))
+        expect(panels("Keep timers").count == 1 && (panels("Keep timers").first?.frame.height ?? 0) > 100, "Pomodoro completion uses its existing single panel while Flow continues")
+        flowWorkspace.dismissPomodoroCompletion()
+        try await Task.sleep(for: .milliseconds(400))
+        guard let resumedHost = panels("Keep timers").first?.contentView as? NSHostingView<TimerNotchView> else { throw CocoaError(.coderInvalidValue) }
+        expect(resumedHost.rootView.timers.first?.mode == .flow && resumedHost.rootView.layout.frame.height == compactHeight && flowWorkspace.flow.phase(at: at(5010)) == .running, "Acknowledging Pomodoro completion restores the compact Flow display")
+        flowWorkspace.reset(.flow, at: at(5010), date: day(5010))
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep timers").isEmpty, "Resetting Flow removes its idle readout")
+        flowController.shutdown(); flowWorkspace.shutdown(at: at(5010), date: day(5010)); flowSounds.stop()
 
         // Real audio exercises finite completion, indefinite repetition, cancellation and failure.
         sounds.play(.focusComplete, repetition: .count(2))
@@ -222,9 +270,23 @@ import SwiftUI
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         var focus = FocusTimer(mode: .pomodoro, focusDuration: 180 * 60); focus.play(at: clock)
         for (name, layout) in [("notched", notched), ("plain", nonNotch)] {
-            try await render(PomodoroTopView(timer: focus, instant: at(120), layout: layout, notice: nil, dismiss: {}, next: {}), size: layout.frame.size, to: output.appendingPathComponent("timer-\(name).png"))
+            try await render(TimerNotchView(timers: [focus], instant: at(120), layout: layout, notice: nil, dismiss: {}, next: {}), size: layout.frame.size, to: output.appendingPathComponent("timer-\(name).png"))
         }
-        try await render(PomodoroTopView(timer: focus, instant: clock, layout: expanded, notice: .init(intervalID: UUID(), isBreak: false), dismiss: {}, next: {}), size: expanded.frame.size, to: output.appendingPathComponent("completion.png"))
+        try await render(TimerNotchView(timers: [focus], instant: clock, layout: expanded, notice: .init(intervalID: UUID(), isBreak: false), dismiss: {}, next: {}), size: expanded.frame.size, to: output.appendingPathComponent("completion.png"))
+        var flowing = FocusTimer(mode: .flow); flowing.play(at: clock)
+        var pausedFlow = flowing; pausedFlow.stop(at: at(36000))
+        for (label, screen, inset, left, right) in [
+            ("notched", CGRect(x: 0, y: 0, width: 1512, height: 982), CGFloat(32), CGRect(x: 0, y: 950, width: 666, height: 32), CGRect(x: 846, y: 950, width: 666, height: 32)),
+            ("plain", CGRect(x: -1920, y: 200, width: 1920, height: 1080), CGFloat(0), CGRect.zero, CGRect.zero)
+        ] {
+            for (state, timers, instant) in [("flow", [flowing], at(1234)), ("paused", [pausedFlow], at(40000)), ("both", [focus, flowing], at(1234)), ("long", [focus, flowing], at(360000))] {
+                let sideWidth = PomodoroOverlayLayout.compactSideWidth(for: timers, at: instant)
+                let layout = PomodoroOverlayLayout(screen: screen, topInset: inset, leftArea: left, rightArea: right, expanded: false, compactSideWidth: sideWidth)
+                expect(layout.frame.height == (inset > 0 ? inset : 28) && layout.frame.maxY == screen.maxY, "Flow and dual readouts stay compact and anchored to their display")
+                expect((layout.frame.width - layout.cameraWidth) / 2 >= sideWidth && layout.frame.minX >= screen.minX && layout.frame.maxX <= screen.maxX, "Readouts fit beside the camera and inside external display bounds")
+                try await render(TimerNotchView(timers: timers, instant: instant, layout: layout, notice: nil, dismiss: {}, next: {}), size: layout.frame.size, to: output.appendingPathComponent("timer-\(label)-\(state).png"))
+            }
+        }
         var waiting = FocusTimer(mode: .pomodoro, focusDuration: 10); waiting.play(at: clock); waiting.settleCompletion(at: at(10))
         var rest = FocusTimer(mode: .pomodoro, focusDuration: 10); rest.play(at: clock); rest.startBreak(at: at(10))
         for (label, size) in [("default", NSSize(width: 1000, height: 900)), ("narrow", NSSize(width: 680, height: 650)), ("wide", NSSize(width: 1710, height: 1080))] {

@@ -102,6 +102,7 @@ nonisolated struct SettingsArchive: Codable, Equatable {
     var showFlowTimer: Bool?
     var timerSoundsEnabled: Bool?
     var flowReminderMinutes: Int?
+    var notchFlowTimer: Bool?
     var notchPomodoroTimer: Bool?
     var notchPomodoroCompletion: Bool?
     var blurPomodoroBreaks: Bool?
@@ -256,6 +257,10 @@ final class AppPreferences {
     var timerSoundsEnabled: Bool {
         get { snapshot.timerSoundsEnabled ?? true }
         set { update { $0.timerSoundsEnabled = newValue } }
+    }
+    var notchFlowTimer: Bool {
+        get { snapshot.notchFlowTimer ?? false }
+        set { update { $0.notchFlowTimer = newValue } }
     }
     var notchPomodoroTimer: Bool {
         get { snapshot.notchPomodoroTimer ?? false }

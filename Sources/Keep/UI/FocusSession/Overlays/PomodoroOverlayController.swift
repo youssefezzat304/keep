@@ -27,12 +27,12 @@ final class PomodoroOverlayController: NSObject {
     private func observe() {
         guard started, let workspace, let preferences else { return }
         let input = withObservationTracking {
-            (workspace.pomodoro, workspace.pomodoroCompletion, workspace.displayInstant, preferences.snapshot,
+            (workspace.pomodoro, workspace.flow, workspace.pomodoroCompletion, workspace.displayInstant, preferences.snapshot,
              workspace.canTrack && preferences.canEdit)
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in self?.observe() }
         }
-        update(timer: input.0, notice: input.1, instant: input.2, settings: input.3, available: input.4)
+        update(timer: input.0, flow: input.1, notice: input.2, instant: input.3, settings: input.4, available: input.5)
     }
 
     @objc private func screensChanged() {
@@ -42,11 +42,11 @@ final class PomodoroOverlayController: NSObject {
 
     private func refresh() {
         guard let workspace, let preferences else { return }
-        update(timer: workspace.pomodoro, notice: workspace.pomodoroCompletion, instant: workspace.displayInstant,
+        update(timer: workspace.pomodoro, flow: workspace.flow, notice: workspace.pomodoroCompletion, instant: workspace.displayInstant,
                settings: preferences.snapshot, available: workspace.canTrack && preferences.canEdit)
     }
 
-    private func update(timer: FocusTimer, notice: PomodoroCompletionNotice?, instant: ContinuousClock.Instant,
+    private func update(timer: FocusTimer, flow: FocusTimer, notice: PomodoroCompletionNotice?, instant: ContinuousClock.Instant,
                         settings: SettingsArchive, available: Bool) {
         let repetition: SoundRepetition = settings.repeatPomodoroSound == true
             ? (settings.pomodoroSoundRepeatMode == .count ? .count(settings.pomodoroSoundRepeatCount ?? 3) : .untilDismissed) : .once
@@ -65,17 +65,19 @@ final class PomodoroOverlayController: NSObject {
         }
         let visibleNotice = notice.flatMap { $0.id == visibleNoticeID ? $0 : nil }
         let phase = timer.phase(at: instant)
-        let showsTimer = settings.notchPomodoroTimer == true && (phase == .running || phase == .stopped)
-        if available, visibleNotice != nil || showsTimer, let screen = preferredScreen {
+        let timers = [settings.notchPomodoroTimer == true ? timer : nil, settings.notchFlowTimer == true ? flow : nil]
+            .compactMap { $0 }.filter { $0.phase(at: instant) == .running || $0.phase(at: instant) == .stopped }
+        if available, visibleNotice != nil || !timers.isEmpty, let screen = preferredScreen {
             let layout = PomodoroOverlayLayout(screen: screen.frame, topInset: screen.safeAreaInsets.top,
-                leftArea: screen.auxiliaryTopLeftArea ?? .zero, rightArea: screen.auxiliaryTopRightArea ?? .zero, expanded: visibleNotice != nil)
+                leftArea: screen.auxiliaryTopLeftArea ?? .zero, rightArea: screen.auxiliaryTopRightArea ?? .zero, expanded: visibleNotice != nil,
+                compactSideWidth: PomodoroOverlayLayout.compactSideWidth(for: timers, at: instant))
             let isNew = topPanel == nil
             let panel = topPanel ?? makePanel(frame: layout.frame, level: NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 2))
             let changed = panel.frame != layout.frame
-            panel.title = "Keep Pomodoro"
+            panel.title = "Keep timers"
             panel.onEscape = { [weak self] in self?.dismissNotice() }
             panel.ignoresMouseEvents = visibleNotice == nil
-            install(PomodoroTopView(timer: timer, instant: instant, layout: layout, notice: visibleNotice,
+            install(TimerNotchView(timers: timers, instant: instant, layout: layout, notice: visibleNotice,
                 dismiss: { [weak self] in self?.dismissNotice() }, next: { [weak self] in self?.nextInterval() }), in: panel)
             if changed { panel.setFrame(layout.frame, display: true, animate: !isNew && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) }
             panel.orderFrontRegardless(); topPanel = panel
