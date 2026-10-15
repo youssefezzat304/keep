@@ -25,9 +25,8 @@ import SwiftUI
         workspace.stop(.flow, at: origin.advanced(by: .seconds(600)))
         for appearance in [AppAppearance.light, .dark] {
             for (label, size) in [("default", NSSize(width: 1000, height: 900)), ("narrow", NSSize(width: 680, height: 650))] {
-                let settings = VStack {
+                let settings = KeepScrollView {
                     settingsCard(preferences)
-                    Spacer(minLength: 0)
                 }.padding(24).frame(width: size.width, height: size.height)
                     .background(KeepTheme.paper).keepAppearance(appearance).environment(sounds)
                 try await render(settings, size: size, to: output.appendingPathComponent("settings-\(label)-\(appearance.rawValue).png"))

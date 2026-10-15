@@ -39,3 +39,20 @@ struct FlowReminderSchedule {
         return true
     }
 }
+
+nonisolated enum PomodoroSoundRepeatMode: String, Codable, CaseIterable, Identifiable {
+    case untilDismissed, count
+    var id: Self { self }
+    var title: String { self == .untilDismissed ? "Until dismissed" : "Fixed number of plays" }
+}
+
+nonisolated enum SoundRepetition: Equatable {
+    case once, untilDismissed, count(Int)
+}
+
+struct PomodoroCompletionNotice: Equatable, Identifiable {
+    let intervalID: UUID
+    let isBreak: Bool
+    var id: String { intervalID.uuidString + (isBreak ? "/break" : "/focus") }
+    var title: String { isBreak ? "Break complete" : "Focus complete" }
+}

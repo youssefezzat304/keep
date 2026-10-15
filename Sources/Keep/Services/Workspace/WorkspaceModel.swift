@@ -17,6 +17,7 @@ final class WorkspaceModel {
     private(set) var today: Date
     /// Lets the status item use the workspace refresh without owning another timeline.
     private(set) var displayInstant = ContinuousClock.now
+    private(set) var pomodoroCompletion: PomodoroCompletionNotice?
     private(set) var lastTimesheetRemoval: TimesheetRemoval?
     var canTrack: Bool { !loadFailed && persistence?.access?.isLocked != true }
     let readIndex: WorkspaceReadIndex
@@ -44,6 +45,7 @@ final class WorkspaceModel {
     func installBackup(_ value: TimesheetLedger) {
         ledger = value; _ = ledger.takeChanges()
         readIndex.rebuild(ledger)
+        pomodoroCompletion = nil
         pomodoro = FocusTimer(mode: .pomodoro); flow = FocusTimer(mode: .flow)
         pomodoro.configure(value.pomodoroSettings ?? .defaults)
         selectedProject = nil; taskName = ""; taskReference = nil; lastTimesheetRemoval = nil
@@ -365,6 +367,16 @@ final class WorkspaceModel {
         save(at: instant)
     }
 
+    func dismissPomodoroCompletion() { pomodoroCompletion = nil }
+
+    /// Leaving a break starts focus without resetting the completed-focus cycle or Flow.
+    func skipPomodoroBreak(at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, pomodoro.interval == .rest else { return }
+        synchronize(at: instant, date: date)
+        pomodoro.playFocus(at: instant)
+        save(at: instant)
+    }
+
     @discardableResult
     func updatePomodoroSettings(_ settings: PomodoroSettings, at instant: ContinuousClock.Instant = .now, date: Date = .now) -> Bool {
         guard canTrack, settings.isValid else { return false }
@@ -560,6 +572,9 @@ final class WorkspaceModel {
             checkpointDate.map { $0.addingTimeInterval(max(0, pomodoro.intervalDuration - pomodoro.elapsed(at: previous))) }
         } ?? date
         let completion = pomodoro.settleCompletion(at: instant)
+        if let completion {
+            pomodoroCompletion = .init(intervalID: completion.id, isBreak: completion.interval == .rest)
+        }
         let flowReminderDue = flowReminders.isDue(timer: flow, minutes: timerPreferences?.flowReminderMinutes, at: instant)
         if timerPreferences?.canEdit == true && timerPreferences?.timerSoundsEnabled == true {
             if let completion {
@@ -639,6 +654,10 @@ final class WorkspaceModel {
     }
 
     private func save(at instant: ContinuousClock.Instant = .now) {
+        if let notice = pomodoroCompletion,
+           pomodoro.phase(at: instant) != .completed || notice.intervalID != pomodoro.intervalID || notice.isBreak != (pomodoro.interval == .rest) {
+            pomodoroCompletion = nil
+        }
         updateRecordingContext(at: instant)
         publishChanges()
         guard canTrack, ledgerDirty, let persistence else { return }

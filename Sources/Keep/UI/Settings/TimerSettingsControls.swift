@@ -15,10 +15,33 @@ struct TimerSettingsControls: View {
                 .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             Divider().overlay(KeepTheme.border)
+            Toggle("Show Pomodoro at the notch", isOn: $preferences.notchPomodoroTimer)
+            Toggle("Animate interval completion at the notch", isOn: $preferences.notchPomodoroCompletion)
+            Text("These options work independently. Displays without a notch use a panel at the top center. The timer appears during running or paused intervals.")
+                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+            Toggle("Blur screens during Pomodoro breaks", isOn: $preferences.blurPomodoroBreaks)
+            Text("Covers connected screens during a running break. Dismiss with Escape to keep the break counting, or choose Skip break to start focus.")
+                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+            Divider().overlay(KeepTheme.border)
             Toggle("Play timer sounds", isOn: $preferences.timerSoundsEnabled)
                 .onChange(of: preferences.timerSoundsEnabled) { _, enabled in
                     if !enabled { sounds?.stop() }
                 }
+            Toggle("Repeat Pomodoro completion sound", isOn: $preferences.repeatPomodoroSound)
+                .disabled(!preferences.timerSoundsEnabled)
+            if preferences.repeatPomodoroSound {
+                KeepSelectionMenu(label: "Repeat sound", selection: $preferences.pomodoroSoundRepeatMode,
+                                  options: PomodoroSoundRepeatMode.allCases, title: { $0.title })
+                if preferences.pomodoroSoundRepeatMode == .count {
+                    Stepper("Play \(preferences.pomodoroSoundRepeatCount) times", value: $preferences.pomodoroSoundRepeatCount, in: 2...20)
+                }
+                Text("Applies to focus and break completion. Stops when dismissed, the next interval starts, or sounds are turned off. Fixed counts include the first play.")
+                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+            }
+            if sounds?.isRepeating == true {
+                Button("Stop completion sound") { sounds?.stopRepeating() }
+                    .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+            }
             ForEach(TimerSound.allCases, id: \.self) { sound in soundPreview(sound) }
             reminderControl
             if let error = sounds?.errorMessage {

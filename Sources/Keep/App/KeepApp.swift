@@ -8,6 +8,7 @@ struct keepApp: App {
     @State private var music: MusicPlayerModel
     @State private var preferences: AppPreferences
     @State private var timerSounds = TimerSoundPlayer()
+    @State private var pomodoroOverlays = PomodoroOverlayController()
     @State private var wallpapers: WallpaperLibrary
     @State private var tasks: DailyTaskStore
     @State private var habits: HabitStore
@@ -76,6 +77,7 @@ struct keepApp: App {
 
         MenuBarExtra(isInserted: Binding(get: { preferences.menuBarEnabled }, set: { preferences.menuBarEnabled = $0 })) {
             MenuBarWorkspaceView(workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers)
+                .environment(timerSounds)
                 .id(backup.gate.generation)
                 .disabled(backup.gate.isLocked)
                 .onAppear { connectRuntime() }
@@ -94,7 +96,12 @@ struct keepApp: App {
         appDelegate.music = music
         appDelegate.wallpapers = wallpapers
         appDelegate.timerSounds = timerSounds
-        workspace.onTimerReminder = { [weak timerSounds] sound in timerSounds?.play(sound) }
+        appDelegate.pomodoroOverlays = pomodoroOverlays
+        workspace.onTimerReminder = { [weak timerSounds, weak preferences] sound in
+            let isPomodoro = sound == .focusComplete || sound == .breakComplete
+            timerSounds?.play(sound, repetition: isPomodoro ? preferences?.pomodoroSoundRepetition ?? .once : .once)
+        }
+        pomodoroOverlays.start(workspace: workspace, preferences: preferences, sounds: timerSounds)
         workspace.startUpdating()
         if !backup.gate.isLocked { updater.start() }
         backup.start()

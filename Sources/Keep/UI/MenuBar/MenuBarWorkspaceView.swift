@@ -67,6 +67,7 @@ struct MenuBarWorkspaceView: View {
             if preferences.showPomodoroTimer || preferences.showFlowTimer {
                 timerControls.fixedSize(horizontal: false, vertical: true)
             }
+            StopPomodoroSoundButton(workspace: workspace)
             rule
             todayTasks.frame(maxHeight: .infinity, alignment: .top)
             rule

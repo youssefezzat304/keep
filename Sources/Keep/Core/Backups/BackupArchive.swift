@@ -25,6 +25,12 @@ nonisolated struct PortableSettings: Codable {
     let showFlowTimer: Bool?
     let timerSoundsEnabled: Bool?
     let flowReminderMinutes: Int?
+    let notchPomodoroTimer: Bool?
+    let notchPomodoroCompletion: Bool?
+    let blurPomodoroBreaks: Bool?
+    let repeatPomodoroSound: Bool?
+    let pomodoroSoundRepeatMode: PomodoroSoundRepeatMode?
+    let pomodoroSoundRepeatCount: Int?
 
     init(_ s: SettingsArchive) {
         appearance = s.appearance; wallpaperSource = s.wallpaperSource; wallpaperOrder = s.wallpaperOrder
@@ -37,6 +43,9 @@ nonisolated struct PortableSettings: Codable {
         showPomodoroTimer = s.showPomodoroTimer
         showPomodoroProgress = s.showPomodoroProgress; showFlowTimer = s.showFlowTimer
         timerSoundsEnabled = s.timerSoundsEnabled; flowReminderMinutes = s.flowReminderMinutes
+        notchPomodoroTimer = s.notchPomodoroTimer; notchPomodoroCompletion = s.notchPomodoroCompletion
+        blurPomodoroBreaks = s.blurPomodoroBreaks; repeatPomodoroSound = s.repeatPomodoroSound
+        pomodoroSoundRepeatMode = s.pomodoroSoundRepeatMode; pomodoroSoundRepeatCount = s.pomodoroSoundRepeatCount
     }
 
     func applying(to local: SettingsArchive) -> SettingsArchive {
@@ -51,6 +60,9 @@ nonisolated struct PortableSettings: Codable {
         s.showPomodoroTimer = showPomodoroTimer
         s.showPomodoroProgress = showPomodoroProgress; s.showFlowTimer = showFlowTimer
         s.timerSoundsEnabled = timerSoundsEnabled; s.flowReminderMinutes = flowReminderMinutes
+        s.notchPomodoroTimer = notchPomodoroTimer; s.notchPomodoroCompletion = notchPomodoroCompletion
+        s.blurPomodoroBreaks = blurPomodoroBreaks; s.repeatPomodoroSound = repeatPomodoroSound
+        s.pomodoroSoundRepeatMode = pomodoroSoundRepeatMode; s.pomodoroSoundRepeatCount = pomodoroSoundRepeatCount
         return s
     }
 }

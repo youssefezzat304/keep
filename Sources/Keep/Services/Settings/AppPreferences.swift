@@ -102,6 +102,12 @@ nonisolated struct SettingsArchive: Codable, Equatable {
     var showFlowTimer: Bool?
     var timerSoundsEnabled: Bool?
     var flowReminderMinutes: Int?
+    var notchPomodoroTimer: Bool?
+    var notchPomodoroCompletion: Bool?
+    var blurPomodoroBreaks: Bool?
+    var repeatPomodoroSound: Bool?
+    var pomodoroSoundRepeatMode: PomodoroSoundRepeatMode?
+    var pomodoroSoundRepeatCount: Int?
 
     static let rotationIntervals = [30, 60, 300, 900, 3600, 18000, 43200, 86400]
     var effectiveRotationSeconds: Int { customRotationMinutes.map { $0 * 60 } ?? rotationSeconds }
@@ -116,6 +122,7 @@ nonisolated struct SettingsArchive: Codable, Equatable {
         && (selectedChannelID == nil || channels.contains { $0.id == selectedChannelID })
         && (musicVolume == nil || musicVolume.map { $0.isFinite && (0...1).contains($0) } == true)
         && (weeklyFocusGoalMinutes == nil || weeklyFocusGoalMinutes.map { (1...10080).contains($0) } == true)
+        && (pomodoroSoundRepeatCount == nil || pomodoroSoundRepeatCount.map { (2...20).contains($0) } == true)
         && (flowReminderMinutes == nil || flowReminderMinutes.map { FlowReminderSchedule.minuteRange.contains($0) } == true)
     }
 }
@@ -249,6 +256,34 @@ final class AppPreferences {
     var timerSoundsEnabled: Bool {
         get { snapshot.timerSoundsEnabled ?? true }
         set { update { $0.timerSoundsEnabled = newValue } }
+    }
+    var notchPomodoroTimer: Bool {
+        get { snapshot.notchPomodoroTimer ?? false }
+        set { update { $0.notchPomodoroTimer = newValue } }
+    }
+    var notchPomodoroCompletion: Bool {
+        get { snapshot.notchPomodoroCompletion ?? false }
+        set { update { $0.notchPomodoroCompletion = newValue } }
+    }
+    var blurPomodoroBreaks: Bool {
+        get { snapshot.blurPomodoroBreaks ?? false }
+        set { update { $0.blurPomodoroBreaks = newValue } }
+    }
+    var repeatPomodoroSound: Bool {
+        get { snapshot.repeatPomodoroSound ?? false }
+        set { update { $0.repeatPomodoroSound = newValue } }
+    }
+    var pomodoroSoundRepeatMode: PomodoroSoundRepeatMode {
+        get { snapshot.pomodoroSoundRepeatMode ?? .untilDismissed }
+        set { update { $0.pomodoroSoundRepeatMode = newValue } }
+    }
+    var pomodoroSoundRepeatCount: Int {
+        get { snapshot.pomodoroSoundRepeatCount ?? 3 }
+        set { guard (2...20).contains(newValue) else { return }; update { $0.pomodoroSoundRepeatCount = newValue } }
+    }
+    var pomodoroSoundRepetition: SoundRepetition {
+        guard repeatPomodoroSound else { return .once }
+        return pomodoroSoundRepeatMode == .untilDismissed ? .untilDismissed : .count(pomodoroSoundRepeatCount)
     }
     var flowReminderMinutes: Int? { snapshot.flowReminderMinutes }
 
