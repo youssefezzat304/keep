@@ -64,8 +64,17 @@ struct PomodoroBreakView: View {
     let date: Date
     var screenTopInset: CGFloat = 0
     let dismiss: () -> Void
+    let start: () -> Void
     let skip: () -> Void
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var waitingToStart: Bool { timer.interval == .focus }
+    private var isLongBreak: Bool { waitingToStart ? timer.breakIsLong(at: instant) : timer.isLongBreak }
+    private var breakDisplay: String {
+        guard waitingToStart else { return timer.display(at: instant) }
+        let seconds = Int(ceil(timer.upcomingBreakDuration(at: instant)))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
 
     var body: some View {
         GeometryReader { bounds in
@@ -76,19 +85,23 @@ struct PomodoroBreakView: View {
                     .accessibilityValue(date.formatted(.dateTime.hour().minute()))
                 Spacer(minLength: 10)
                 Image(systemName: "cup.and.saucer").font(.system(size: 40, weight: .light)).accessibilityHidden(true)
-                Text(timer.isLongBreak ? "Take a longer rest." : "Catch a quick rest.")
+                Text(isLongBreak ? "Take a longer rest." : "Catch a quick rest.")
                     .font(KeepTheme.headingFont(size: bounds.size.width < 800 ? 38 : 64))
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                Text("Look away from the screen. Your next focus interval can wait.")
+                Text(waitingToStart ? "Focus complete. Start your break when you’re ready." : "Look away from the screen. Your next focus interval can wait.")
                     .font(.system(size: 18)).foregroundStyle(KeepTheme.secondaryInk).multilineTextAlignment(.center)
-                Text(timer.display(at: instant)).font(.system(size: 60, weight: .light)).monospacedDigit()
-                    .accessibilityLabel("Break remaining, \(timer.display(at: instant))")
+                Text(breakDisplay).font(.system(size: 60, weight: .light)).monospacedDigit()
+                    .accessibilityLabel("\(waitingToStart ? "Break duration" : "Break remaining"), \(breakDisplay)")
                 Spacer(minLength: 10)
                 HStack(spacing: 16) {
                     Button("Dismiss overlay", action: dismiss).keyboardShortcut(.cancelAction)
-                    Button("Skip break", action: skip)
+                    if waitingToStart {
+                        Button("Start break", action: start).keyboardShortcut(.defaultAction)
+                    } else {
+                        Button("Skip break", action: skip)
+                    }
                 }.buttonStyle(KeepButtonStyle(emphasis: .quiet))
-                Text("Escape dismisses this overlay. Your break keeps counting.")
+                Text(waitingToStart ? "Your break timer hasn’t started. Escape dismisses this screen." : "Escape dismisses this overlay. Your break keeps counting.")
                     .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
             }
             .padding(.horizontal, 40)

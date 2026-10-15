@@ -2,12 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D085 — Annual focus activity independent of Stats dates (2026-10-12)
-
-- [USER] Focus activity must show the whole year independently of the selected week.
-- [CODE] Both direct Stats aggregation and the incremental cache now populate every recorded day of the displayed year through today. Project/task filters still apply; period totals, charts, streaks and daily exports retain their date scope. The existing displayed-year selection remains tied to the range’s starting year. Annual tiles outside the selected period can be inspected, and the caption reports the year’s total without date-range qualifiers or numeric grouping in the year.
-- [TOOL] Ad hoc Xcode build and 382 Stats, weekly-target, cache, model and viewport checks passed; native renders inspected at 1000 × 900 and 680 × 650 in light/dark. Corrected a Monday-sensitive presentation check to accept an empty current week while verifying loaded annual history.
-
 ### D086 — Calendar entry task-name editing (2026-10-12)
 
 - [USER] Let users edit Calendar entries and change their task names.
@@ -68,3 +62,9 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [CODE] Enabling break blur now starts the configured short/long break in WorkspaceModel as focus completion is settled, independently of notch visibility and sound settings. A late refresh or wake starts one full break upon delivery while history retains the actual focus deadline. The existing cycle, single-recorder Flow priority and manual break behavior with blur off remain intact; completing a break still waits for the user to start focus.
 - [CODE] The focus notice remains pending during its automatic break so repetition can continue until acknowledged, but it cannot expand the notch. Dismiss/Escape closes the screen and acknowledges repeated audio while the break keeps counting; pause, skip, reset and explicit interval changes retain normal acknowledgement behavior. Enabling blur after a delivered completion cannot replay that transition. This supersedes D093's manual break-screen activation behavior.
 - [TOOL] Ad hoc Xcode build and 315 checks passed across automatic transitions, native overlay/action routing, completion cycles, recording and reminder audio. Checks cover notch-independent delivery, no expanded focus notice, acknowledgement without stopping rest, mute, long breaks, Flow priority, late delivery and restore gating. Twelve native layouts rendered in default/narrow/wide sizes and light/dark Settings; inspected the changed guidance. Native action closures were exercised; live keyboard/click-through, macOS 15 execution and full-screen Spaces remain unverified.
+
+### D095 — Break notification waits for manual timer start (2026-10-15)
+
+- [USER] Only the break screen should appear automatically when focus ends; the break timer must wait for an explicit start. This corrects D094's automatic timer behavior.
+- [CODE] Focus remains completed while the optional screen displays the full upcoming short/long break duration and Start break. Start break begins that full countdown through WorkspaceModel and acknowledges completion audio. Dismiss/Escape acknowledges the notice without starting rest; dismissing an already running break retains its existing countdown. The screen replaces focus completion's expanded notch, works with both notch options off, and does not replay after dismissal or later setting changes. Waiting, late refreshes and wake cannot advance the break cycle, emit break-complete cues or add recorded Pomodoro time.
+- [TOOL] Ad hoc Xcode build and 347 checks passed across pending-break delivery, explicit starts, native panel/action routing, sound repetition, completion cycles, recording and reminders. Fifteen native layouts rendered; inspected waiting screens at default/narrow/wide sizes, running breaks and light/dark Settings. Live keyboard/click-through remains unverified because the computer-use service failed to start; macOS 15 execution and full-screen Spaces remain unverified.

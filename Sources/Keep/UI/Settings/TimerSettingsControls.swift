@@ -20,7 +20,7 @@ struct TimerSettingsControls: View {
             Text("These options work independently. Displays without a notch use a panel at the top center. The timer appears during running or paused intervals.")
                 .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
             Toggle("Blur screens during Pomodoro breaks", isOn: $preferences.blurPomodoroBreaks)
-            Text("When focus ends, starts the break automatically and covers connected screens instead of expanding the notch. Dismiss with Escape to keep the break counting, or choose Skip break to start focus.")
+            Text("When focus ends, covers connected screens instead of expanding the notch. The break timer waits until you choose Start break. Escape dismisses the screen. During a running break, dismissing keeps it counting.")
                 .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
             Divider().overlay(KeepTheme.border)
             Toggle("Play timer sounds", isOn: $preferences.timerSoundsEnabled)
@@ -35,7 +35,7 @@ struct TimerSettingsControls: View {
                 if preferences.pomodoroSoundRepeatMode == .count {
                     Stepper("Play \(preferences.pomodoroSoundRepeatCount) times", value: $preferences.pomodoroSoundRepeatCount, in: 2...20)
                 }
-                Text("Applies to focus and break completion. Stops when dismissed, you manually start or stop a Pomodoro interval, or sounds are turned off. Automatic breaks do not interrupt repeats. Fixed counts include the first play.")
+                Text("Applies to focus and break completion. Stops when dismissed, you start or stop a Pomodoro interval, or sounds are turned off. Fixed counts include the first play.")
                     .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
             }
             if sounds?.isRepeating == true {

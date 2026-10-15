@@ -12,6 +12,7 @@ final class PomodoroOverlayController: NSObject {
     private var breakPanels: [NSPanel] = []
     private var seenNoticeID: String?
     private var visibleNoticeID: String?
+    private var visibleBreakNoticeID: String?
     private var dismissedBreakID: UUID?
     private var lastRepetition: SoundRepetition?
     private var lastScreenFrames: [CGRect] = []
@@ -55,9 +56,11 @@ final class PomodoroOverlayController: NSObject {
         lastRepetition = repetition
         if notice?.id != seenNoticeID {
             seenNoticeID = notice?.id
-            visibleNoticeID = available && settings.notchPomodoroCompletion == true ? notice?.id : nil
+            visibleBreakNoticeID = available && settings.blurPomodoroBreaks == true && notice?.isBreak == false ? notice?.id : nil
+            visibleNoticeID = available && settings.notchPomodoroCompletion == true && visibleBreakNoticeID == nil ? notice?.id : nil
         }
-        if settings.notchPomodoroCompletion != true || !available || notice?.usesBreakScreen(timer: timer) == true {
+        if settings.blurPomodoroBreaks != true || !available { visibleBreakNoticeID = nil }
+        if settings.notchPomodoroCompletion != true || !available {
             visibleNoticeID = nil
         }
         let visibleNotice = notice.flatMap { $0.id == visibleNoticeID ? $0 : nil }
@@ -79,7 +82,9 @@ final class PomodoroOverlayController: NSObject {
         } else { topPanel?.close(); topPanel = nil }
 
         if timer.interval != .rest { dismissedBreakID = nil }
-        let showBreak = available && settings.blurPomodoroBreaks == true && timer.interval == .rest && phase == .running && dismissedBreakID != timer.intervalID
+        let showsBreakNotice = notice != nil && notice?.id == visibleBreakNoticeID
+        let showsRunningBreak = timer.interval == .rest && phase == .running && dismissedBreakID != timer.intervalID
+        let showBreak = available && settings.blurPomodoroBreaks == true && (showsBreakNotice || showsRunningBreak)
         if showBreak {
             let screens = NSScreen.screens
             if breakPanels.count != screens.count || lastScreenFrames != screens.map(\.frame) {
@@ -95,7 +100,7 @@ final class PomodoroOverlayController: NSObject {
             for (panel, screen) in zip(breakPanels, screens) {
                 let isNew = !panel.isVisible
                 install(PomodoroBreakView(timer: timer, instant: instant, date: .now, screenTopInset: screen.safeAreaInsets.top,
-                    dismiss: { [weak self] in self?.dismissBreak() }, skip: { [weak self] in self?.workspace?.skipPomodoroBreak() }), in: panel)
+                    dismiss: { [weak self] in self?.dismissBreak() }, start: { [weak self] in self?.workspace?.startBreak() }, skip: { [weak self] in self?.workspace?.skipPomodoroBreak() }), in: panel)
                 if isNew {
                     let animate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
                     panel.alphaValue = animate ? 0 : 1
@@ -134,8 +139,9 @@ final class PomodoroOverlayController: NSObject {
         if workspace.pomodoro.interval == .focus { workspace.startBreak() } else { workspace.play(.pomodoro) }
     }
     private func dismissBreak() {
-        guard let workspace, workspace.pomodoro.interval == .rest else { return }
-        dismissedBreakID = workspace.pomodoro.intervalID
+        guard let workspace else { return }
+        if workspace.pomodoro.interval == .rest { dismissedBreakID = workspace.pomodoro.intervalID }
+        visibleBreakNoticeID = nil
         workspace.dismissPomodoroCompletion()
         sounds?.stopRepeating()
         closeBreakPanels()

@@ -154,9 +154,9 @@ import SwiftUI
         auto.play(.pomodoro, at: ContinuousClock.now - .seconds(10), date: Date.now.addingTimeInterval(-10))
         auto.synchronize()
         try await Task.sleep(for: .milliseconds(200))
-        expect(panels("Keep Pomodoro break").count == NSScreen.screens.count && auto.pomodoro.interval == .rest, "Focus completion immediately presents native break screens without a notch action")
-        expect(panels("Keep Pomodoro").count == 1 && (panels("Keep Pomodoro").first?.frame.height ?? 100) < 100, "Automatic breaks retain the compact notch instead of expanding its completion notice")
-        expect(autoSounds.isRepeating && auto.pomodoroCompletion?.usesBreakScreen(timer: auto.pomodoro) == true, "Automatic transition keeps the focus sound available until acknowledgement")
+        expect(panels("Keep Pomodoro break").count == NSScreen.screens.count && auto.pomodoro.interval == .focus && auto.pomodoro.phase() == .completed, "Focus completion immediately presents native break screens while the timer waits")
+        expect(panels("Keep Pomodoro").isEmpty, "The waiting break screen replaces the expanded notch completion")
+        expect(autoSounds.isRepeating && auto.pomodoroCompletion?.isBreak == false, "The waiting screen keeps the focus sound available until acknowledgement")
         autoOptions.notchPomodoroTimer = false
         try await Task.sleep(for: .milliseconds(120))
         expect(panels("Keep Pomodoro").isEmpty && panels("Keep Pomodoro break").count == NSScreen.screens.count, "Completion-only notch settings cannot duplicate the break-screen notification")
@@ -164,10 +164,26 @@ import SwiftUI
         host.rootView.dismiss()
         try await Task.sleep(for: .milliseconds(120))
         expect(panels("Keep Pomodoro break").isEmpty && !autoSounds.isRepeating && auto.pomodoroCompletion == nil, "The break view's dismiss action acknowledges audio and closes its screen panels")
-        expect(auto.pomodoro.interval == .rest && auto.pomodoro.phase() == .running, "Dismissing the notifier keeps the automatic break counting")
+        expect(auto.pomodoro.interval == .focus && auto.pomodoro.phase() == .completed, "Dismissing the notifier never starts the break")
         auto.synchronize()
         try await Task.sleep(for: .milliseconds(120))
         expect(panels("Keep Pomodoro break").isEmpty && panels("Keep Pomodoro").isEmpty, "A dismissed automatic notification cannot reopen on the next refresh")
+        auto.startBreak()
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep Pomodoro break").count == NSScreen.screens.count && auto.pomodoro.interval == .rest && auto.pomodoro.phase() == .running, "Explicit Start break still opens the running break screen after dismissing its notice")
+        auto.reset(.pomodoro)
+        autoOptions.notchPomodoroCompletion = false
+        auto.play(.pomodoro, at: ContinuousClock.now - .seconds(10), date: Date.now.addingTimeInterval(-10)); auto.synchronize()
+        try await Task.sleep(for: .milliseconds(120))
+        guard let waitingHost = panels("Keep Pomodoro break").first?.contentView as? NSHostingView<PomodoroBreakView> else { throw CocoaError(.coderInvalidValue) }
+        expect(auto.pomodoro.interval == .focus && auto.pomodoro.phase() == .completed, "The screen appears even with both notch options off")
+        waitingHost.rootView.start()
+        try await Task.sleep(for: .milliseconds(120))
+        expect(auto.pomodoro.interval == .rest && auto.pomodoro.phase() == .running && auto.pomodoro.seconds() == 5 && auto.pomodoroCompletion == nil && !autoSounds.isRepeating, "The screen's Start break action begins a full countdown and acknowledges sound")
+        guard let runningHost = panels("Keep Pomodoro break").first?.contentView as? NSHostingView<PomodoroBreakView> else { throw CocoaError(.coderInvalidValue) }
+        runningHost.rootView.dismiss()
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep Pomodoro break").isEmpty && auto.pomodoro.phase() == .running, "Dismissing a running screen keeps its manually started timer counting")
         autoController.shutdown(); auto.shutdown(); autoSounds.stop()
 
         // Real audio exercises finite completion, indefinite repetition, cancellation and failure.
@@ -209,9 +225,11 @@ import SwiftUI
             try await render(PomodoroTopView(timer: focus, instant: at(120), layout: layout, notice: nil, dismiss: {}, next: {}), size: layout.frame.size, to: output.appendingPathComponent("timer-\(name).png"))
         }
         try await render(PomodoroTopView(timer: focus, instant: clock, layout: expanded, notice: .init(intervalID: UUID(), isBreak: false), dismiss: {}, next: {}), size: expanded.frame.size, to: output.appendingPathComponent("completion.png"))
+        var waiting = FocusTimer(mode: .pomodoro, focusDuration: 10); waiting.play(at: clock); waiting.settleCompletion(at: at(10))
         var rest = FocusTimer(mode: .pomodoro, focusDuration: 10); rest.play(at: clock); rest.startBreak(at: at(10))
         for (label, size) in [("default", NSSize(width: 1000, height: 900)), ("narrow", NSSize(width: 680, height: 650)), ("wide", NSSize(width: 1710, height: 1080))] {
-            try await render(PomodoroBreakView(timer: rest, instant: at(30), date: date, screenTopInset: 38, dismiss: {}, skip: {}), size: size, to: output.appendingPathComponent("break-\(label).png"))
+            try await render(PomodoroBreakView(timer: rest, instant: at(30), date: date, screenTopInset: 38, dismiss: {}, start: {}, skip: {}), size: size, to: output.appendingPathComponent("break-\(label).png"))
+            try await render(PomodoroBreakView(timer: waiting, instant: at(300), date: date, screenTopInset: 38, dismiss: {}, start: {}, skip: {}), size: size, to: output.appendingPathComponent("break-ready-\(label).png"))
             for appearance in [AppAppearance.light, .dark] {
                 let settings = KeepScrollView { TimerSettingsControls(preferences: options).padding(24) }.frame(width: size.width, height: size.height).background(KeepTheme.paper).foregroundStyle(KeepTheme.ink).keepAppearance(appearance).environment(sounds)
                 try await render(settings, size: size, to: output.appendingPathComponent("settings-\(label)-\(appearance.rawValue).png"))
