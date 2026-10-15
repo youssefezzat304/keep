@@ -55,4 +55,14 @@ struct PomodoroCompletionNotice: Equatable, Identifiable {
     let isBreak: Bool
     var id: String { intervalID.uuidString + (isBreak ? "/break" : "/focus") }
     var title: String { isBreak ? "Break complete" : "Focus complete" }
+
+    func usesBreakScreen(timer: FocusTimer) -> Bool {
+        !isBreak && intervalID == timer.intervalID && timer.interval == .rest
+    }
+
+    func isCurrent(timer: FocusTimer, at instant: ContinuousClock.Instant) -> Bool {
+        guard intervalID == timer.intervalID else { return false }
+        if timer.phase(at: instant) == .completed { return isBreak == (timer.interval == .rest) }
+        return usesBreakScreen(timer: timer) && timer.phase(at: instant) == .running
+    }
 }

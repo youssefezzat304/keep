@@ -83,9 +83,9 @@ import SwiftUI
         expect(workspace.pomodoroCompletion == nil && workspace.pomodoro.phase(at: at(45)) == .idle, "Restore contains no live notice or overlay state")
 
         let nonNotch = PomodoroOverlayLayout(screen: CGRect(x: -1920, y: 200, width: 1920, height: 1080), topInset: 0, leftArea: .zero, rightArea: .zero, expanded: false)
-        expect(nonNotch.cameraWidth == 0 && nonNotch.frame.midX == -960 && nonNotch.frame.maxY == 1280, "Non-notched external displays use their own top center with negative screen coordinates")
+        expect(nonNotch.cameraWidth == 0 && nonNotch.frame.midX == -960 && nonNotch.frame.maxY == 1280 && nonNotch.frame.height == 28, "Non-notched external displays use a compact panel at their own top center with negative screen coordinates")
         let notched = PomodoroOverlayLayout(screen: CGRect(x: 0, y: 0, width: 1512, height: 982), topInset: 32, leftArea: CGRect(x: 0, y: 950, width: 666, height: 32), rightArea: CGRect(x: 846, y: 950, width: 666, height: 32), expanded: false)
-        expect(notched.cameraWidth == 180 && notched.frame.midX == 756 && notched.frame.maxY == 982, "Notch geometry reserves the physical camera housing")
+        expect(notched.cameraWidth == 180 && notched.frame.midX == 756 && notched.frame.maxY == 982 && notched.frame.height == 32, "Compact geometry reserves the camera housing without extending below its height")
         let expanded = PomodoroOverlayLayout(screen: CGRect(x: 0, y: 0, width: 1512, height: 982), topInset: 32, leftArea: CGRect(x: 0, y: 950, width: 666, height: 32), rightArea: CGRect(x: 846, y: 950, width: 666, height: 32), expanded: true)
         expect(expanded.frame.height > notched.frame.height && expanded.topPadding == 32 && expanded.frame.maxY == notched.frame.maxY, "Completion expands below the camera while keeping its top anchor")
 
@@ -144,10 +144,39 @@ import SwiftUI
         native.dismissPomodoroCompletion()
         controller.shutdown(); sounds.stop()
 
+        let autoOptions = AppPreferences(), autoSounds = TimerSoundPlayer(), autoController = PomodoroOverlayController()
+        autoOptions.blurPomodoroBreaks = true; autoOptions.notchPomodoroTimer = true
+        autoOptions.notchPomodoroCompletion = true; autoOptions.repeatPomodoroSound = true
+        let auto = WorkspaceModel(focusDuration: 10, breakDuration: 5, timerPreferences: autoOptions)
+        defer { autoController.shutdown(); auto.shutdown(); autoSounds.stop() }
+        auto.onTimerReminder = { autoSounds.play($0, repetition: autoOptions.pomodoroSoundRepetition) }
+        autoController.start(workspace: auto, preferences: autoOptions, sounds: autoSounds)
+        auto.play(.pomodoro, at: ContinuousClock.now - .seconds(10), date: Date.now.addingTimeInterval(-10))
+        auto.synchronize()
+        try await Task.sleep(for: .milliseconds(200))
+        expect(panels("Keep Pomodoro break").count == NSScreen.screens.count && auto.pomodoro.interval == .rest, "Focus completion immediately presents native break screens without a notch action")
+        expect(panels("Keep Pomodoro").count == 1 && (panels("Keep Pomodoro").first?.frame.height ?? 100) < 100, "Automatic breaks retain the compact notch instead of expanding its completion notice")
+        expect(autoSounds.isRepeating && auto.pomodoroCompletion?.usesBreakScreen(timer: auto.pomodoro) == true, "Automatic transition keeps the focus sound available until acknowledgement")
+        autoOptions.notchPomodoroTimer = false
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep Pomodoro").isEmpty && panels("Keep Pomodoro break").count == NSScreen.screens.count, "Completion-only notch settings cannot duplicate the break-screen notification")
+        guard let host = panels("Keep Pomodoro break").first?.contentView as? NSHostingView<PomodoroBreakView> else { throw CocoaError(.coderInvalidValue) }
+        host.rootView.dismiss()
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep Pomodoro break").isEmpty && !autoSounds.isRepeating && auto.pomodoroCompletion == nil, "The break view's dismiss action acknowledges audio and closes its screen panels")
+        expect(auto.pomodoro.interval == .rest && auto.pomodoro.phase() == .running, "Dismissing the notifier keeps the automatic break counting")
+        auto.synchronize()
+        try await Task.sleep(for: .milliseconds(120))
+        expect(panels("Keep Pomodoro break").isEmpty && panels("Keep Pomodoro").isEmpty, "A dismissed automatic notification cannot reopen on the next refresh")
+        autoController.shutdown(); auto.shutdown(); autoSounds.stop()
+
         // Real audio exercises finite completion, indefinite repetition, cancellation and failure.
         sounds.play(.focusComplete, repetition: .count(2))
         expect(sounds.isRepeating, "Fixed sound count arms repetition")
-        try await Task.sleep(for: .seconds(7))
+        let audioDeadline = ContinuousClock.now + .seconds(15)
+        while sounds.isPlaying && ContinuousClock.now < audioDeadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
         expect(!sounds.isRepeating && !sounds.isPlaying && sounds.errorMessage == nil, "Two plays stop automatically after the first and one repeat")
         sounds.play(.breakComplete, repetition: .untilDismissed)
         try await Task.sleep(for: .seconds(5))
@@ -175,7 +204,7 @@ import SwiftUI
 
         let output = URL(fileURLWithPath: "/tmp/keep-pomodoro-overlay-renders")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        var focus = FocusTimer(mode: .pomodoro); focus.play(at: clock)
+        var focus = FocusTimer(mode: .pomodoro, focusDuration: 180 * 60); focus.play(at: clock)
         for (name, layout) in [("notched", notched), ("plain", nonNotch)] {
             try await render(PomodoroTopView(timer: focus, instant: at(120), layout: layout, notice: nil, dismiss: {}, next: {}), size: layout.frame.size, to: output.appendingPathComponent("timer-\(name).png"))
         }

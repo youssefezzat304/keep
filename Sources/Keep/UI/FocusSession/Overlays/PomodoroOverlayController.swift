@@ -57,7 +57,9 @@ final class PomodoroOverlayController: NSObject {
             seenNoticeID = notice?.id
             visibleNoticeID = available && settings.notchPomodoroCompletion == true ? notice?.id : nil
         }
-        if settings.notchPomodoroCompletion != true || !available { visibleNoticeID = nil }
+        if settings.notchPomodoroCompletion != true || !available || notice?.usesBreakScreen(timer: timer) == true {
+            visibleNoticeID = nil
+        }
         let visibleNotice = notice.flatMap { $0.id == visibleNoticeID ? $0 : nil }
         let phase = timer.phase(at: instant)
         let showsTimer = settings.notchPomodoroTimer == true && (phase == .running || phase == .stopped)
@@ -131,7 +133,13 @@ final class PomodoroOverlayController: NSObject {
         guard let workspace else { return }
         if workspace.pomodoro.interval == .focus { workspace.startBreak() } else { workspace.play(.pomodoro) }
     }
-    private func dismissBreak() { dismissedBreakID = workspace?.pomodoro.intervalID; closeBreakPanels() }
+    private func dismissBreak() {
+        guard let workspace, workspace.pomodoro.interval == .rest else { return }
+        dismissedBreakID = workspace.pomodoro.intervalID
+        workspace.dismissPomodoroCompletion()
+        sounds?.stopRepeating()
+        closeBreakPanels()
+    }
     private func closeBreakPanels() { breakPanels.forEach { $0.close() }; breakPanels = [] }
 
     func shutdown() {

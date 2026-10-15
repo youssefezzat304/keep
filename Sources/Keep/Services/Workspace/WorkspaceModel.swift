@@ -364,6 +364,7 @@ final class WorkspaceModel {
         guard canTrack else { return }
         synchronize(at: instant, date: date)
         pomodoro.startBreak(at: instant)
+        pomodoroCompletion = nil
         save(at: instant)
     }
 
@@ -574,6 +575,12 @@ final class WorkspaceModel {
         let completion = pomodoro.settleCompletion(at: instant)
         if let completion {
             pomodoroCompletion = .init(intervalID: completion.id, isBreak: completion.interval == .rest)
+            if completion.interval == .focus, timerPreferences?.canEdit == true,
+               timerPreferences?.blurPomodoroBreaks == true {
+                // Start a full rest when completion is delivered, including after a late refresh or wake.
+                // Keep its notice pending so automatic presentation does not acknowledge repeated audio.
+                pomodoro.startBreak(at: instant)
+            }
         }
         let flowReminderDue = flowReminders.isDue(timer: flow, minutes: timerPreferences?.flowReminderMinutes, at: instant)
         if timerPreferences?.canEdit == true && timerPreferences?.timerSoundsEnabled == true {
@@ -654,8 +661,7 @@ final class WorkspaceModel {
     }
 
     private func save(at instant: ContinuousClock.Instant = .now) {
-        if let notice = pomodoroCompletion,
-           pomodoro.phase(at: instant) != .completed || notice.intervalID != pomodoro.intervalID || notice.isBreak != (pomodoro.interval == .rest) {
+        if let notice = pomodoroCompletion, !notice.isCurrent(timer: pomodoro, at: instant) {
             pomodoroCompletion = nil
         }
         updateRecordingContext(at: instant)

@@ -20,21 +20,15 @@ struct PomodoroTopView: View {
                         .keyboardShortcut(.defaultAction)
                 }.buttonStyle(KeepButtonStyle(emphasis: .quiet))
             } else {
-                HStack {
+                let sideWidth = (layout.frame.width - layout.cameraWidth) / 2
+                HStack(spacing: 0) {
                     Image(systemName: timer.phase(at: instant) == .stopped ? "pause.fill" : timer.interval == .rest ? "cup.and.saucer" : "timer")
-                        .font(.system(size: 19, weight: .medium))
-                    Spacer(minLength: layout.cameraWidth + 20)
-                    Text(timer.display(at: instant)).font(.system(size: 19, weight: .medium)).monospacedDigit()
-                }
-                .padding(.horizontal, 18)
-                .overlay(alignment: .bottomLeading) {
-                    GeometryReader { bounds in
-                        ZStack(alignment: .leading) {
-                            Rectangle().fill(KeepTheme.mutedInk.opacity(0.3))
-                            Rectangle().fill(KeepTheme.accentStrong)
-                                .frame(width: bounds.size.width * min(1, timer.elapsed(at: instant) / timer.intervalDuration))
-                        }.frame(height: 2).frame(maxHeight: .infinity, alignment: .bottom)
-                    }.padding(.bottom, -5).accessibilityHidden(true)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: sideWidth)
+                    Color.clear.frame(width: layout.cameraWidth)
+                    Text(timer.display(at: instant))
+                        .font(.system(size: 14, weight: .medium)).monospacedDigit()
+                        .lineLimit(1).fixedSize().frame(width: sideWidth)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Pomodoro \(timer.interval == .rest ? "break" : "focus"), \(timer.phase(at: instant) == .stopped ? "paused" : "running"), \(timer.display(at: instant)) remaining")
@@ -43,7 +37,7 @@ struct PomodoroTopView: View {
         .padding(.top, notice == nil ? 0 : layout.topPadding + 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .foregroundStyle(KeepTheme.accentStrong)
-        .background(.black, in: UnevenRoundedRectangle(bottomLeadingRadius: 16, bottomTrailingRadius: 16))
+        .background(.black, in: UnevenRoundedRectangle(bottomLeadingRadius: notice == nil ? 10 : 16, bottomTrailingRadius: notice == nil ? 10 : 16))
         .keepAppearance(.dark)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: notice?.id)
     }
