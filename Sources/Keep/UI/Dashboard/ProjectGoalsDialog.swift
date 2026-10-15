@@ -22,7 +22,7 @@ struct ProjectGoalsDialog: View {
             Text("Weekly project targets").font(KeepTheme.headingFont(size: 26))
             Text(project.name).font(.system(size: 15, weight: .medium))
             WeeklyTargetsFields(enabled: $enabled, goal: $goal, minimum: $minimum, unit: "hours", maximum: "168")
-            Text("Progress uses recorded focus, Monday to Sunday. Manual Timesheet adjustments stay separate.")
+            Text("Progress uses your Timesheet totals, Monday to Sunday, including time corrections.")
                 .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong).fixedSize(horizontal: false, vertical: true) }
             HStack {

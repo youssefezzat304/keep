@@ -215,7 +215,6 @@ nonisolated struct StatsSnapshot: Sendable {
         var todayHours = Array(repeating: 0.0, count: 24)
         let week = StatsQuery().range(now: now, calendar: calendar)
         let weekStart = dayID(week.start, calendar: calendar), weekEnd = dayID(week.endDay(calendar: calendar), calendar: calendar)
-        var weeklyGoalSeconds = 0.0
         let previous = comparisonRange(query: query, range: range, now: now, calendar: calendar)
         let previousStart = dayID(previous.range.start, calendar: calendar)
         let previousEnd = dayID(previous.range.endDay(calendar: calendar), calendar: calendar)
@@ -224,7 +223,6 @@ nonisolated struct StatsSnapshot: Sendable {
             try Task.checkCancellation()
             let end = min(session.end, now)
             let seconds = max(0, end.timeIntervalSince(session.start))
-            if session.dayID >= weekStart && session.dayID <= min(weekEnd, todayID) { weeklyGoalSeconds += seconds }
             guard matches(session.projectID, session.task) else { continue }
             if session.dayID >= previousStart && session.dayID <= previousEnd {
                 var previousSeconds = session.end.timeIntervalSince(session.start)
@@ -280,6 +278,7 @@ nonisolated struct StatsSnapshot: Sendable {
         }
         let completed = input.completions.filter { $0.dayID >= startID && $0.dayID <= effectiveEnd && $0.date <= now && matches($0.projectID, $0.task) }.count
         let adjusted = input.entries.filter { $0.dayID >= startID && $0.dayID <= effectiveEnd && (query.projectID == nil || $0.projectID == query.projectID) }.reduce(0) { $0 + $1.seconds }
+        let weeklyGoalSeconds = input.entries.filter { $0.dayID >= weekStart && $0.dayID <= min(weekEnd, todayID) }.reduce(0) { $0 + $1.seconds }
         let taskDays = input.tasks.filter { $0.dayID >= startID && $0.dayID <= effectiveEnd }
         let streak = try focusStreak(daily: daily, startID: startID, endID: effectiveEnd, todayID: todayID, calendar: calendar)
         var habitRows: [Habit] = []

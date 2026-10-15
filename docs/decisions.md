@@ -2,18 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D081 — Active timer selection and menu bar progress (2026-10-11)
-
-- [USER] Show the single running timer in the menu bar regardless of the preferred timer, use the preference when both run, and include Pomodoro's progress outline.
-- [CODE] Status selection uses current timer phases, including Pomodoro breaks; when neither runs it retains the preferred readout. Icon only remains an explicit opt-out. The compact readout is a native template image containing the shared perimeter outline, refreshed by the existing workspace clock. The menu panel reuses the outline on its Pomodoro row, with smooth refreshes disabled under Reduce Motion. Pause freezes progress, reset clears it, and a new focus/break gets a fresh outline. Settings explains automatic selection and exposes Flow seconds whenever timer readouts are enabled. No timer or recording semantics changed.
-
-### D082 — Timer visibility and sound reminders (2026-10-11)
-
-- [USER] Add timer controls in Settings for Pomodoro progress and Flow visibility, integrate the three original cues, and make Flow’s top-right icon configure recurring reminders.
-- [CODE] Validated preferences and portable backups retain visibility, sound enablement and optional 1–1,440-minute Flow intervals; older archives keep timers visible, completion sounds enabled and Flow reminders off. Progress visibility covers Focus and menu-bar readouts; Flow visibility covers Focus and Zen without stopping recording or removing menu controls.
-- [CODE] The existing app-owned timer refresh emits one focus/break completion cue and recurring Flow cues using accumulated running time. Pauses preserve cadence; reset or interval changes start a fresh countdown; late refreshes coalesce missed Flow reminders into one cue, and muted events never replay. Recording priority and completion history remain unchanged.
-- [CODE] Bundled WAVs reuse D080’s original bytes. One app-owned native audio player queues concurrent cues and supplies Settings previews/mute controls. These are sound reminders while Keep runs (including with windows closed), without notification banners, OS permissions or scheduling after quitting.
-
 ### D083 — Shared timer visibility across surfaces (2026-10-11)
 
 - [USER] Add a Show Pomodoro timer setting and hide every hidden timer from the menu bar.
@@ -68,3 +56,14 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [CODE] Direct and cached Stats aggregation retain per-project seconds in every daily/weekly/monthly trend bucket. Segments use project identity and current catalog names/accents; a wrapping legend and hover/keyboard breakdown expose names, durations and shares. Date/project/task filters and recorded-session totals retain their existing scope.
 - [CODE] A separate today-only hour series follows the workspace’s current civil-day key, retains recorded local-hour attribution and project/task filters, clips unfinished records to now, and advances at midnight through the existing refresh/cache lifecycle. The hourly chart labels Today and its date and shows an explicit empty state without falling back to yesterday. Period hourly totals remain available to existing CSV exports.
 - [TOOL] Ad hoc Xcode build and 423 aggregation, cache, graph, export and native viewport checks passed. Eight default/narrow light/dark graph renders were inspected. Focused checks cover grouped buckets, same-name projects, filters, live corrections/removal, future clipping, DST and midnight/no-session days. Native keyboard/accessible selection, its focus ring and the visible per-project duration/share breakdown were inspected. macOS 15 execution and distribution signing were not validated.
+
+### D091 — Calendar project blocks and shaded gaps (2026-10-15)
+
+- [USER] Display consecutive entries from the same project in one Calendar block, shade gaps grey, and keep different projects separate.
+- [CODE] Calendar groups chronological runs by project identity within a recorded day/timezone. Another project interrupts the run; overlaps between different projects retain separate lanes, limited to their overlap cluster. Grey hatching marks unrecorded gaps without changing stored sessions or totals. A grouped block opens an entry chooser leading to the existing individual edit/delete sheet; single entries open it directly.
+
+### D092 — Corrected goal progress and aligned dashboard actions (2026-10-15)
+
+- [USER] Keep project goal progress synchronized after correcting accidental Flow time; align Projects with Timesheet/Calendar and move Add project to Add entry's position.
+- [CODE] Project and global weekly goals, including target CSV exports, now use corrected current-week Timesheet totals through today. Existing saved corrections, live recording, edits, removal, Undo and reload share this source; historical session charts and task/habit attribution retain recorded-session semantics. This supersedes the recorded-only goal policy. Dashboard pages share responsive header/control geometry, with Add project beside the status badge; Timesheet retains its existing-project picker and create option. This user-requested position supersedes style.md's earlier beside-switch placement without editing that read-only guide.
+- [TOOL] Ad hoc Xcode build and 690 behavior/regression checks passed across corrections, weekly targets, Calendar grouping, Stats/cache, recording, added entries and exports. Twenty native layouts with viewport assertions covered default/narrow/wide and light/dark; inspected tab alignment, actions, grouped blocks and entry chooser. Native click-through verification was unavailable because the computer-use service failed to start. macOS 15 execution and distribution signing remain unverified.

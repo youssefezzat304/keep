@@ -26,7 +26,6 @@ nonisolated struct WorkspaceMutation: Sendable {
     @ObservationIgnored private(set) var entries: [String: TimesheetEntry] = [:]
     @ObservationIgnored private var completions: [UUID: CompletedPomodoro] = [:]
     @ObservationIgnored private var sessionDays: [String: Set<String>] = [:]
-    @ObservationIgnored private var recordedByProject: [String: [String: Double]] = [:]
     @ObservationIgnored private var entryDays: [String: Set<String>] = [:]
     @ObservationIgnored private var projectReferences: [String: Int] = [:]
     @ObservationIgnored private var historicalProjects: [String: FocusProject] = [:]
@@ -68,7 +67,7 @@ nonisolated struct WorkspaceMutation: Sendable {
 
     func rebuild(_ ledger: TimesheetLedger) {
         epoch = UUID(); journal = []; retainedMutationCount = 0; journalFloor = revision; sessions = [:]; entries = [:]; completions = [:]
-        sessionDays = [:]; recordedByProject = [:]; entryDays = [:]; projectReferences = [:]; historicalProjects = [:]
+        sessionDays = [:]; entryDays = [:]; projectReferences = [:]; historicalProjects = [:]
         sessionOrder = [:]; entryOrder = [:]; completionOrder = [:]; nextOrder = 0; dayRevisions = [:]; taskNames = [:]
         taskTimes = TaskTimeTotals()
         activities = [:]; activityOrder = [:]; labels = [:]; normalizedTasks = [:]
@@ -97,8 +96,6 @@ nonisolated struct WorkspaceMutation: Sendable {
                 let old = sessions.updateValue(session, forKey: session.id)
                 if let old { taskTimes.adjust(old, multiplier: -1) }
                 taskTimes.adjust(session, multiplier: 1)
-                if let old { recordedByProject[old.project.id, default: [:]][old.dayID, default: 0] -= old.seconds }
-                recordedByProject[session.project.id, default: [:]][session.dayID, default: 0] += session.seconds
                 if old == nil {
                     retain(session.project); sessionDays[session.dayID, default: []].insert(session.id)
                     sessionOrder[session.id] = nextOrder; nextOrder += 1
@@ -113,7 +110,6 @@ nonisolated struct WorkspaceMutation: Sendable {
             case .removeSession(let session):
                 if let old = sessions.removeValue(forKey: session.id) {
                     taskTimes.adjust(old, multiplier: -1)
-                    recordedByProject[old.project.id, default: [:]][old.dayID, default: 0] -= old.seconds
                     release(old.project); metadataChanged = true
                 }
                 sessionDays[session.dayID]?.remove(session.id); sessionOrder.removeValue(forKey: session.id)
@@ -175,10 +171,6 @@ nonisolated struct WorkspaceMutation: Sendable {
         }
         return WorkspaceReadBatch(epoch: epoch, revision: revision, reset: reset, updates: updates,
                                   projects: statsProjects, historyStartedAt: historyStartedAt)
-    }
-
-    func recordedSeconds(projectID: String, days: [String]) -> Double {
-        days.reduce(0) { $0 + max(0, recordedByProject[projectID]?[$1] ?? 0) }
     }
 
     func focusedSeconds(_ reference: TaskReference, on day: String) -> Double {

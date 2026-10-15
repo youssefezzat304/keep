@@ -8,7 +8,11 @@ struct DashboardCalendarView: View {
     private var calendar: Calendar { workspace.calendar }
     private func total(on dayID: String) -> TimeInterval { projection.sessionDayTotals[dayID, default: 0] }
     @State private var hourHeight: CGFloat = 72
-    @State private var selectedSession: RecordedSession?
+    @State private var selection: Selection?
+    private enum Selection: Identifiable {
+        case session(RecordedSession), block(CalendarProjectBlock)
+        var id: String { switch self { case .session(let value): "session/" + value.id; case .block(let value): "block/" + value.id } }
+    }
     private let gutter: CGFloat = 62
 
     var body: some View {
@@ -55,8 +59,11 @@ struct DashboardCalendarView: View {
             }
             .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
         }
-        .sheet(item: $selectedSession) { session in
-            CalendarSessionDetail(workspace: workspace, selectedSession: session)
+        .sheet(item: $selection) { selected in
+            switch selected {
+            case .session(let session): CalendarSessionDetail(workspace: workspace, selectedSession: session)
+            case .block(let block): CalendarBlockEntries(block: block, workspace: workspace) { selection = .session($0) }
+            }
         }
     }
 
@@ -117,21 +124,23 @@ struct DashboardCalendarView: View {
             }
             .accessibilityHidden(true)
             ForEach(week.days.indices, id: \.self) { dayIndex in
-                let placements = placements(on: week.days[dayIndex].id)
-                let lanes = max(1, (placements.map(\.lane).max() ?? 0) + 1)
-                let laneWidth = (columnWidth - 10) / CGFloat(lanes)
+                let placements = CalendarProjectBlock.placements(projection.calendarBlocksByDay[week.days[dayIndex].id, default: []], hourHeight: Double(hourHeight))
                 ForEach(placements) { placement in
-                    let session = placement.session
-                    Button { selectedSession = session } label: {
-                        CalendarSessionBlock(session: session)
-                            .frame(width: max(1, laneWidth - 2), height: max(30, CGFloat(session.endMinute - session.startMinute) / 60 * hourHeight - 4))
+                    let laneWidth = (columnWidth - 10) / CGFloat(placement.laneCount)
+                    let block = placement.block
+                    Button {
+                        if block.sessions.count == 1, let session = block.sessions.first { selection = .session(session) }
+                        else { selection = .block(block) }
+                    } label: {
+                        CalendarProjectBlockView(block: block, hourHeight: hourHeight)
+                            .frame(width: max(1, laneWidth - 2), height: max(30, CGFloat(block.endMinute - block.startMinute) / 60 * hourHeight - 4))
                     }
                     .buttonStyle(CalendarBlockStyle())
                     .offset(x: gutter + CGFloat(dayIndex) * columnWidth + 5 + CGFloat(placement.lane) * laneWidth,
-                            y: min(hourHeight * 24 - 30, CGFloat(session.startMinute) / 60 * hourHeight + 2))
-                    .accessibilityLabel("\(session.source.title): \(session.title), \(session.project.name)")
-                    .accessibilityValue("\(week.days[dayIndex].label), \(session.startTime) to \(session.endTime), \(TimesheetDuration.clock(session.seconds))")
-                    .help("Edit or delete this recorded session")
+                            y: min(hourHeight * 24 - 30, CGFloat(block.startMinute) / 60 * hourHeight + 2))
+                    .accessibilityLabel("\(block.project.name): \(block.titles.joined(separator: ", "))")
+                    .accessibilityValue("\(week.days[dayIndex].label), \(block.startTime) to \(block.endTime), \(block.sessions.count) entries, \(TimesheetDuration.clock(block.seconds)) recorded, \(block.gaps.count) gaps")
+                    .help(block.sessions.count == 1 ? "Edit or delete this recorded session" : "Choose a recorded entry to edit or delete. Shaded gaps contain no recorded time.")
                 }
             }
             if !projection.hasSessions {
@@ -147,57 +156,10 @@ struct DashboardCalendarView: View {
         .frame(width: width, height: hourHeight * 24)
     }
 
-    private struct Placement: Identifiable {
-        let session: RecordedSession
-        let lane: Int
-        var id: String { session.id }
-    }
-    private func placements(on dayID: String) -> [Placement] {
-        var ends: [Double] = []
-        return projection.sessionsByDay[dayID, default: []].map { session in
-            let lane = ends.firstIndex { $0 <= session.startMinute } ?? ends.count
-            let end = max(session.endMinute, session.startMinute + 34 / Double(hourHeight) * 60)
-            if lane == ends.count { ends.append(end) } else { ends[lane] = end }
-            return Placement(session: session, lane: lane)
-        }
-    }
-
     private func zoomButton(_ symbol: String, label: String, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: symbol).font(.system(size: 10, weight: .medium)) }
             .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(disabled)
             .accessibilityLabel(label).help(label)
-    }
-}
-
-private struct CalendarSessionBlock: View {
-    let session: RecordedSession
-    var body: some View {
-        GeometryReader { bounds in
-            HStack(spacing: 0) {
-                Rectangle().fill(session.project.accentColor).frame(width: 4)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.title).font(.system(size: 11, weight: .medium))
-                        .lineLimit(bounds.size.height >= 90 ? 2 : 1)
-                    if bounds.size.height >= 74 {
-                        Text(session.project.name).font(.system(size: 10)).lineLimit(1)
-                    }
-                    if bounds.size.height >= 48 {
-                        Spacer(minLength: 0)
-                        HStack {
-                            Text(calendarTime(session.startMinute)).font(.system(size: 9))
-                            Spacer(minLength: 2)
-                            Text(TimesheetDuration.clock(session.seconds)).font(.system(size: 10, weight: .medium))
-                        }
-                        .monospacedDigit()
-                    }
-                }
-                .padding(bounds.size.height < 48 ? 6 : 8).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .foregroundStyle(KeepTheme.ink)
-            .background(session.project.accentColor.opacity(0.3))
-            .clipShape(RoundedRectangle(cornerRadius: 9))
-            .overlay { RoundedRectangle(cornerRadius: 9).strokeBorder(session.project.accentColor.opacity(0.7), lineWidth: 1) }
-        }
     }
 }
 
@@ -322,11 +284,6 @@ struct CalendarSessionDetail: View {
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
-}
-
-private func calendarTime(_ minute: Double) -> String {
-    let value = Int(minute)
-    return String(format: "%02d:%02d", value / 60, value % 60)
 }
 
 #Preview {

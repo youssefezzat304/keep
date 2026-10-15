@@ -31,7 +31,7 @@ import Foundation
         expect(close(week.hours.reduce(0, +), week.total) && close(week.weekdays.reduce(0, +), week.total), "Hourly and weekday distributions reconcile")
         expect(week.buckets.allSatisfy { close($0.projects.reduce(0) { $0 + $1.seconds }, $0.seconds) }, "Each project stack reconciles with its bucket total")
         expect(close(week.adjustedTotal, 50000) && week.pomodoros == 1, "Adjusted totals and completion events remain separate")
-        expect(week.distribution.count == 2 && close(week.weeklyGoalSeconds, week.total), "All-project distribution and weekly goal")
+        expect(week.distribution.count == 2 && close(week.weeklyGoalSeconds, 50000), "All-project distribution and weekly goal")
         expect(close(week.focusActivity.seconds, 23400), "Annual activity includes sessions outside the selected week")
         var earlierWeek = StatsQuery(); earlierWeek.anchor = date(28, month: 9)
         let earlier = try StatsSnapshot.make(input(earlierWeek))
@@ -46,7 +46,7 @@ import Foundation
         let task = try StatsSnapshot.make(input(query))
         expect(close(task.total, 7200) && task.pomodoros == 0, "Case/diacritic-insensitive task grouping remains project scoped")
         expect(close(task.focusActivity.seconds, 18000), "Annual activity retains project and normalized task filters")
-        expect(task.distribution.count == 1 && close(task.weeklyGoalSeconds, week.total), "Goal ignores task/project filters")
+        expect(task.distribution.count == 1 && close(task.weeklyGoalSeconds, 50000), "Goal ignores task/project filters")
         query.taskKeys = ["horen", ""]
         let multiple = try StatsSnapshot.make(input(query))
         expect(close(multiple.total, 9000) && multiple.distribution.count == 2, "Multiple task names combine without crossing projects")

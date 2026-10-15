@@ -243,7 +243,7 @@ struct StatsView: View {
         }
         card {
             Text("Project targets").font(KeepTheme.headingFont(size: 23))
-                .accessibilityHint("This week, recorded focus across all tasks, Monday to Sunday.")
+                .accessibilityHint("This week, corrected Timesheet totals across all tasks, Monday to Sunday.")
             ForEach(workspace.projects.filter { model.query.projectID == nil || $0.id == model.query.projectID }) { project in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {

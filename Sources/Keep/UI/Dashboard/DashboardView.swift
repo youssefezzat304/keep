@@ -21,6 +21,7 @@ struct DashboardView: View {
     @State private var page: DashboardPage
     @State private var weekOffset = 0
     @State private var showsProjectCreation = false
+    @State private var showsProjectPicker = false
     @State private var showsEntryCreation = false
 
     init(workspace: WorkspaceModel, initialPage: DashboardPage = .timesheet, isVisible: Bool = true) {
@@ -35,39 +36,31 @@ struct DashboardView: View {
     }
 
     var body: some View {
+        GeometryReader { viewport in
+            dashboard(compact: viewport.size.width < 820)
+        }
+    }
+
+    private func dashboard(compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 20) {
-            ViewThatFits(in: .horizontal) {
+            if compact {
+                VStack(alignment: .leading, spacing: 12) { heading; headerActions }
+            } else {
                 HStack {
                     heading
                     Spacer(minLength: 12)
                     headerActions
                 }
-                VStack(alignment: .leading, spacing: 12) { heading; headerActions }
             }
-            if page == .projects {
-                HStack(spacing: 12) {
-                    Button { showsProjectCreation = true } label: { Label("Add project", systemImage: "plus") }
-                        .buttonStyle(KeepButtonStyle(emphasis: .primary))
-                        .disabled(!workspace.canTrack)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 20) {
+                    weekControls
                     Spacer(minLength: 0)
                     pagePicker
                 }
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 20) {
-                        weekPicker
-                        weekSummary
-                        Spacer(minLength: 0)
-                        pagePicker
-                    }
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            weekPicker
-                            Spacer(minLength: 8)
-                            weekSummary
-                        }
-                        pagePicker
-                    }
+                VStack(alignment: .leading, spacing: 14) {
+                    weekControls
+                    pagePicker
                 }
             }
             ZStack(alignment: .topLeading) {
@@ -100,7 +93,8 @@ struct DashboardView: View {
         .tint(KeepTheme.accentStrong)
         .sheet(isPresented: $showsProjectCreation) {
             ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
-                _ = try workspace.createProject(name: name, accent: accent)
+                let project = try workspace.createProject(name: name, accent: accent)
+                if page == .timesheet { workspace.addProject(project, on: week.days.first?.date ?? workspace.today) }
             }
         }
         .sheet(isPresented: $showsEntryCreation) {
@@ -135,8 +129,31 @@ struct DashboardView: View {
                 Button { showsEntryCreation = true } label: { Label("Add entry", systemImage: "plus") }
                     .buttonStyle(KeepButtonStyle(emphasis: .primary)).disabled(!workspace.canTrack)
             }
+            if page != .calendar {
+                Button { if page == .timesheet { showsProjectPicker = true } else { showsProjectCreation = true } } label: {
+                    Label("Add project", systemImage: "plus")
+                }
+                .buttonStyle(KeepButtonStyle(emphasis: .primary)).disabled(!workspace.canTrack)
+                .popover(isPresented: $showsProjectPicker, arrowEdge: .bottom) {
+                    ProjectPicker(projects: workspace.projects, selectedProject: nil, onCreate: {
+                        showsProjectPicker = false
+                        showsProjectCreation = true
+                    }) { project in
+                        workspace.addProject(project ?? .unassigned, on: week.days.first?.date ?? workspace.today)
+                        showsProjectPicker = false
+                    }
+                }
+            }
             status
-        }
+        }.frame(minHeight: 36)
+    }
+
+    private var weekControls: some View {
+        HStack(spacing: 20) { weekPicker; weekSummary }
+            .opacity(page == .projects ? 0 : 1)
+            .allowsHitTesting(page != .projects)
+            .disabled(page == .projects)
+            .accessibilityHidden(page == .projects)
     }
 
     private var status: some View {

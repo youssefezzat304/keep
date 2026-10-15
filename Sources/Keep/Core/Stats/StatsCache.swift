@@ -271,7 +271,6 @@ actor StatsCache {
         private func apply(_ session: Session, factor: Double, now: Date) {
             let record = session.record
             let end = min(record.end, now), seconds = max(0, end.timeIntervalSince(record.start))
-            if record.dayID >= weekStart && record.dayID <= weekEnd { weeklyGoal += seconds * factor }
             guard matches(record.project.id, record.task) else { return }
             if record.dayID >= previousStart && record.dayID <= previousEnd {
                 var previousSeconds = record.seconds
@@ -323,6 +322,8 @@ actor StatsCache {
         }
 
         func replaceEntry(old: TimesheetEntry?, new: TimesheetEntry?) {
+            if let old, old.dayID >= weekStart && old.dayID <= weekEnd { weeklyGoal -= old.seconds }
+            if let new, new.dayID >= weekStart && new.dayID <= weekEnd { weeklyGoal += new.seconds }
             if let old, selected(old.dayID), query.projectID == nil || query.projectID == old.project.id { adjusted -= old.seconds }
             if let new, selected(new.dayID), query.projectID == nil || query.projectID == new.project.id { adjusted += new.seconds }
         }

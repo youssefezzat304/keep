@@ -68,7 +68,7 @@ nonisolated enum ExportReports {
             ("habit_scope", "all habits; date scope only"),
             ("task_estimates_scope", "ordinary task planned dates with all linked focus time; timed habits by recorded civil day; manual minutes excluded from focused minutes"),
             ("adjusted_totals_scope", "project and date scope only; independent of task filters; differences from recorded focus are not known manual adjustments"),
-            ("weekly_targets_scope", "current week; all tasks; independent of export range and filters"),
+            ("weekly_targets_scope", "current week; all tasks; independent of export range and filters; project/global progress includes Timesheet corrections"),
             ("comparison_from", StatsSnapshot.dayID(previous.range.start, calendar: calendar)),
             ("comparison_through", StatsSnapshot.dayID(previous.range.endDay(calendar: calendar), calendar: calendar)),
             ("comparison_cutoff", previous.wallCutoff == nil ? "full preceding equivalent range" : "same local wall time on last comparison day"),
@@ -133,8 +133,8 @@ nonisolated enum ExportReports {
         var rows: [[CSVField]] = []
         if let goal = s.settings?.weeklyFocusGoalMinutes { rows.append(row("global", "all", "All projects", Double(goal * 60), nil, stats.weeklyGoalSeconds, "seconds")) }
         var progress: [String: Double] = [:]
-        for session in s.workspace.sessions where session.dayID >= start && session.dayID <= today {
-            progress[session.project.id, default: 0] += max(0, min(session.end, s.capturedAt).timeIntervalSince(session.start))
+        for entry in s.workspace.entries where entry.dayID >= start && entry.dayID <= min(end, today) {
+            progress[entry.project.id, default: 0] += entry.seconds
         }
         for project in s.projects.sorted(by: { $0.id < $1.id }) where !project.deleted {
             if let target = s.workspace.projectTargets[project.id] {

@@ -3,7 +3,7 @@ import Foundation
 /// Prepared once per affected week. Manual totals never become Calendar sessions.
 struct WeeklyProjection {
     var projects: [FocusProject] = []
-    var sessionsByDay: [String: [RecordedSession]] = [:]
+    var calendarBlocksByDay: [String: [CalendarProjectBlock]] = [:]
     var sessionDayTotals: [String: Double] = [:]
     var cells: [String: Double] = [:]
     var rowTotals: [String: Double] = [:]
@@ -19,7 +19,7 @@ struct WeeklyProjection {
         var catalog: [String: FocusProject] = [:], sessionProjects: Set<String> = []
         for day in days {
             let sessions = index.sessions(on: day)
-            sessionsByDay[day] = sessions
+            calendarBlocksByDay[day] = CalendarProjectBlock.grouping(sessions)
             let recorded = TimesheetProjectionRules.recordedSeconds(sessions)
             sessionDayTotals[day] = recorded; sessionTotal += recorded
             sessionProjects.formUnion(sessions.map { $0.project.id })

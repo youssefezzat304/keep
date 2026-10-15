@@ -225,7 +225,7 @@ final class WorkspaceModel {
     func weeklyProjectSeconds(projectID: String, today: Date = .now) -> Double {
         _ = readIndex.revision
         let days = TimesheetWeek(containing: today, calendar: calendar).days.filter { $0.date <= today }.map(\.id)
-        return readIndex.recordedSeconds(projectID: projectID, days: days)
+        return readIndex.entries(on: days).filter { $0.project.id == projectID }.reduce(0) { $0 + $1.seconds }
     }
 
     /// Removing a catalog project never erases time. Running timers continue unassigned.
