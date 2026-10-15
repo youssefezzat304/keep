@@ -164,7 +164,7 @@ struct SettingsView: View {
             }
 
             section("Menu bar", symbol: "menubar.rectangle") {
-                Toggle("Show Keep in the menu bar", isOn: $preferences.menuBarEnabled)
+                settingToggle("Show Keep in the menu bar", isOn: $preferences.menuBarEnabled)
                     .toggleStyle(.switch).controlSize(.small)
                     .font(.system(size: 13))
                 settingRow("Timer beside the leaf") {
@@ -179,7 +179,7 @@ struct SettingsView: View {
                     .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
                 if preferences.menuBarTimer != .none && preferences.showFlowTimer {
-                    Toggle("Show Flow seconds", isOn: $preferences.menuBarShowSeconds)
+                    settingToggle("Show Flow seconds", isOn: $preferences.menuBarShowSeconds)
                         .toggleStyle(.switch).controlSize(.small)
                         .font(.system(size: 13))
                         .disabled(!preferences.menuBarEnabled)
@@ -188,7 +188,7 @@ struct SettingsView: View {
             .disabled(!preferences.canEdit)
 
             section("Startup", symbol: "power") {
-                Toggle("Start on login", isOn: Binding(get: { loginItem.isEnabled }, set: { enabled in
+                settingToggle("Start on login", isOn: Binding(get: { loginItem.isEnabled }, set: { enabled in
                     Task { await loginItem.setEnabled(enabled) }
                 }))
                 .toggleStyle(.switch).controlSize(.small).font(.system(size: 13))
@@ -201,6 +201,7 @@ struct SettingsView: View {
                 if let error = loginItem.errorMessage { helper(error) }
                 if loginItem.status == .requiresApproval || loginItem.errorMessage != nil {
                     Button("Open Login Items…") { loginItem.openSettings() }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
 
@@ -243,7 +244,7 @@ struct SettingsView: View {
                         .disabled(!updater.isStarted || !updater.canCheckForUpdates)
                 }
             }
-            Toggle("Check for updates automatically", isOn: Binding(
+            settingToggle("Check for updates automatically", isOn: Binding(
                 get: { updater.automaticallyChecksForUpdates },
                 set: { updater.setAutomaticallyChecksForUpdates($0) }
             ))
@@ -285,7 +286,7 @@ struct SettingsView: View {
                     else { player.openMusicAutomationSettings() }
                 }
                 .help(player.appleMusicAccess == .denied ? "Check Music access again" : "Open Privacy & Security → Automation")
-            }
+            }.frame(maxWidth: .infinity, alignment: .trailing)
             if player.appleMusicAccess == .denied {
                 helper("Enable Music under Keep in System Settings → Privacy & Security → Automation, then return here.")
             } else if player.appleMusicAccess == .failed {
@@ -342,8 +343,13 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading, spacing: 12) {
                 Text(title).font(.system(size: 13, weight: .medium))
-                content()
+                content().frame(maxWidth: .infinity, alignment: .trailing)
             }
+        }
+    }
+    private func settingToggle(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title).frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     private func helper(_ text: String) -> some View {

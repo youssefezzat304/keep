@@ -18,6 +18,7 @@ struct WallpaperIntervalEditor: View {
             HStack(alignment: .bottom, spacing: 12) {
                 field("Hours", text: $hours)
                 field("Minutes", text: $minutes)
+                Spacer(minLength: 12)
                 Button("Apply") { apply() }
                     .buttonStyle(KeepButtonStyle(emphasis: .primary))
                     .disabled(value == nil || value == preferences.customRotationMinutes || !preferences.canEdit)

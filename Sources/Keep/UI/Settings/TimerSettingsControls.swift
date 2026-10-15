@@ -7,41 +7,37 @@ struct TimerSettingsControls: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Toggle("Show Pomodoro timer", isOn: $preferences.showPomodoroTimer)
-            Toggle("Show Pomodoro progress outline", isOn: $preferences.showPomodoroProgress)
+            timerToggle("Show Pomodoro timer", isOn: $preferences.showPomodoroTimer)
+            timerToggle("Show Pomodoro progress outline", isOn: $preferences.showPomodoroProgress)
                 .disabled(!preferences.showPomodoroTimer)
-            Toggle("Show Flow timer", isOn: $preferences.showFlowTimer)
-            Text("Hidden timers disappear from Focus, Zen and the menu bar. Running sessions keep counting, and their sound reminders stay enabled.")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
+            timerToggle("Show Flow timer", isOn: $preferences.showFlowTimer)
             Divider().overlay(KeepTheme.border)
-            Toggle("Show Flow at the notch", isOn: $preferences.notchFlowTimer)
-            Toggle("Show Pomodoro at the notch", isOn: $preferences.notchPomodoroTimer)
-            Toggle("Animate interval completion at the notch", isOn: $preferences.notchPomodoroCompletion)
-            Text("These options work independently. Displays without a notch use a panel at the top center. Timers appear during running or paused intervals. When both are enabled and active, both times appear beside the notch.")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
-            Toggle("Blur screens during Pomodoro breaks", isOn: $preferences.blurPomodoroBreaks)
-            Text("When focus ends, covers connected screens instead of expanding the notch. The break timer waits until you choose Start break. Escape dismisses the screen. During a running break, dismissing keeps it counting.")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+            timerToggle("Show Flow at the notch", isOn: $preferences.notchFlowTimer)
+            timerToggle("Show Pomodoro at the notch", isOn: $preferences.notchPomodoroTimer)
+            timerToggle("Animate interval completion at the notch", isOn: $preferences.notchPomodoroCompletion)
+            timerToggle("Blur screens during Pomodoro breaks", isOn: $preferences.blurPomodoroBreaks)
             Divider().overlay(KeepTheme.border)
-            Toggle("Play timer sounds", isOn: $preferences.timerSoundsEnabled)
+            timerToggle("Play timer sounds", isOn: $preferences.timerSoundsEnabled)
                 .onChange(of: preferences.timerSoundsEnabled) { _, enabled in
                     if !enabled { sounds?.stop() }
                 }
-            Toggle("Repeat Pomodoro completion sound", isOn: $preferences.repeatPomodoroSound)
+            timerToggle("Repeat Pomodoro completion sound", isOn: $preferences.repeatPomodoroSound)
                 .disabled(!preferences.timerSoundsEnabled)
             if preferences.repeatPomodoroSound {
                 KeepSelectionMenu(label: "Repeat sound", selection: $preferences.pomodoroSoundRepeatMode,
                                   options: PomodoroSoundRepeatMode.allCases, title: { $0.title })
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 if preferences.pomodoroSoundRepeatMode == .count {
-                    Stepper("Play \(preferences.pomodoroSoundRepeatCount) times", value: $preferences.pomodoroSoundRepeatCount, in: 2...20)
+                    Stepper(value: $preferences.pomodoroSoundRepeatCount, in: 2...20) {
+                        Text("Play \(preferences.pomodoroSoundRepeatCount) times")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
-                Text("Applies to focus and break completion. Stops when dismissed, you start or stop a Pomodoro interval, or sounds are turned off. Fixed counts include the first play.")
-                    .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
             }
             if sounds?.isRepeating == true {
                 Button("Stop completion sound") { sounds?.stopRepeating() }
                     .buttonStyle(KeepButtonStyle(emphasis: .quiet))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
             ForEach(TimerSound.allCases, id: \.self) { sound in soundPreview(sound) }
             reminderControl
@@ -49,12 +45,15 @@ struct TimerSettingsControls: View {
                 Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text("Sounds play while Keep is open, including when its windows are closed. Flow reminders are off until you choose an interval.")
-                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .font(.system(size: 13)).toggleStyle(.switch).controlSize(.small)
         .disabled(!preferences.canEdit)
+    }
+
+    private func timerToggle(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title).frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private func soundPreview(_ sound: TimerSound) -> some View {

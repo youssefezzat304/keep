@@ -20,10 +20,8 @@ struct ExportSettingsView: View {
                 row("Data") {
                     KeepSelectionMenu(label: "Export data", selection: $model.data, options: ExportData.allCases, title: { $0.rawValue }).frame(width: 180)
                 }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 16) { dateField("From", date: $model.from); dateField("Through", date: $model.through) }
-                    VStack(alignment: .leading, spacing: 12) { dateField("From", date: $model.from); dateField("Through", date: $model.through) }
-                }
+                dateField("From", date: $model.from)
+                dateField("Through", date: $model.through)
                 if model.data != .taskEstimates {
                 row("Project") {
                     Button { showingProjects = true } label: {
@@ -59,7 +57,10 @@ struct ExportSettingsView: View {
             if !model.valid { Text(ExportFailure.invalidRequest.localizedDescription).font(.system(size: 13)).foregroundStyle(KeepTheme.accentStrong) }
             if let message = model.status.message {
                 Text(message).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("exportStatus")
-                if case .error = model.status { Button("Retry") { model.retry() }.accessibilityLabel("Retry export data") }
+                if case .error = model.status {
+                    Button("Retry") { model.retry() }.accessibilityLabel("Retry export data")
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
@@ -74,9 +75,8 @@ struct ExportSettingsView: View {
         HStack(spacing: 16) { Text(title); Spacer(minLength: 12); content() }
     }
     private func dateField(_ title: String, date: Binding<Date>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: 13))
-            HabitDateField(label: "Export \(title.lowercased()) date", date: date, calendar: model.calendar).frame(minWidth: 180)
+        row(title) {
+            HabitDateField(label: "Export \(title.lowercased()) date", date: date, calendar: model.calendar).frame(width: 180)
         }
     }
 }

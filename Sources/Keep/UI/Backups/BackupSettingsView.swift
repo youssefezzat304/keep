@@ -8,22 +8,25 @@ struct BackupSettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Label("iCloud Backup", systemImage: "icloud.and.arrow.up")
                 .font(KeepTheme.headingFont(size: 24))
-            Toggle("Automatic iCloud backup", isOn: Binding(get: { backup.automatic }, set: { enabled in
+            Toggle(isOn: Binding(get: { backup.automatic }, set: { enabled in
                 Task { await backup.setAutomatic(enabled) }
-            }))
+            })) {
+                Text("Automatic iCloud backup").frame(maxWidth: .infinity, alignment: .leading)
+            }
             .toggleStyle(.switch).controlSize(.small)
             .disabled(backup.busy || backup.configurationError != nil || backup.gate.isLocked)
             Text("Hourly when your data changes, while Keep is open. Backups replace saved data only when you choose Restore.")
                 .font(.system(size: 13)).foregroundStyle(KeepTheme.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 12) {
+                Spacer(minLength: 12)
+                if backup.busy { ProgressView().controlSize(.small) }
                 Button("Back up now") { Task { await backup.backUpNow() } }
                     .disabled(backup.busy || backup.configurationError != nil || backup.gate.isLocked)
                 Button("Restore backup…") {
                     showingRestore = true
                     Task { await backup.refreshVersions() }
                 }.disabled(backup.busy || backup.gate.isLocked)
-                if backup.busy { ProgressView().controlSize(.small) }
             }
             if let date = backup.lastUploadConfirmed {
                 Text("Last upload confirmed: \(date.formatted(date: .abbreviated, time: .shortened))")
@@ -36,9 +39,11 @@ struct BackupSettingsView: View {
                 .accessibilityIdentifier("backupStatus")
             if case .error = backup.status, !backup.gate.isLocked, backup.canRetryUpload {
                 Button("Retry upload") { Task { await backup.retryPending() } }.disabled(backup.busy)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
             if backup.status == .offline, backup.canRetryUpload {
                 Button("Retry") { Task { await backup.retryPending() } }.disabled(backup.busy)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
@@ -107,9 +112,9 @@ struct BackupRestoreView: View {
             if let warning = backup.recoveryWarning { Text(warning).font(.system(size: 13)) }
             Text(backup.restoreActivity ?? backup.status.message).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button("Refresh") { Task { await backup.refreshVersions() } }.disabled(backup.busy)
                 Spacer()
                 if backup.busy { ProgressView().controlSize(.small) }
+                Button("Refresh") { Task { await backup.refreshVersions() } }.disabled(backup.busy)
                 Button("Cancel") { selection?.cancel(); backup.cancelPreview(); dismiss() }.keyboardShortcut(.cancelAction).disabled(backup.gate.isLocked)
                 Button("Restore…") { confirming = true }.disabled(backup.preview == nil || backup.busy)
             }
