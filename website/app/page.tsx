@@ -55,7 +55,7 @@ export default function Home() {
         <Reveal><span className="music-label"><Headphones size={22} aria-hidden="true" />The built-in music player</span><h2 id="music-heading">Find your<br /><span>focus soundtrack.</span></h2><p className="section-description">Settle into lo-fi beats or an ambient playlist. Play, pause, skip, and adjust the volume without leaving your workspace.</p></Reveal>
         <Reveal><dl className="music-sources">
           <div><dt>Discover on Audius.</dt><dd>Start with Keep’s lo-fi selection, or add public Audius artists and playlists to make the music your own.</dd></div>
-          <div><dt>Bring your Music library.</dt><dd>Browse your Mac’s Music library and playlists in Keep, then control playback from Focus, Zen, or the menu bar.</dd></div>
+          <div><dt>Your music, close at hand.</dt><dd>Control your Audius listening from Focus, Zen, or the menu bar, with saved artists and playlists ready when you need them.</dd></div>
         </dl></Reveal>
       </section>
 

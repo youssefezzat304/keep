@@ -47,10 +47,6 @@ struct SettingsView: View {
                 }
 
                 section("Music player", symbol: "photo.on.rectangle") {
-                    settingRow("Apple Music") {
-                        Button("Open Music…") { player.openAppleMusic() }
-                    }
-                    Divider().overlay(KeepTheme.border).allowsHitTesting(false)
                     settingRow("Wallpaper") {
                         KeepSelectionMenu(label: "Wallpaper source", selection: $preferences.wallpaperSource,
                                           options: WallpaperSource.allCases, title: { $0.title }).frame(width: 190)
@@ -157,8 +153,6 @@ struct SettingsView: View {
             }
             .disabled(!preferences.canEdit)
 
-            musicPermissions
-
             section("Timers", symbol: "timer") {
                 TimerSettingsControls(preferences: preferences)
             }
@@ -224,10 +218,10 @@ struct SettingsView: View {
         }
         .onDisappear { channelRequest?.cancel() }
         .task(id: isVisible) {
-            if isVisible { loginItem.refresh(); await player.checkAppleMusicAccess() }
+            if isVisible { loginItem.refresh() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if isVisible, phase == .active { loginItem.refresh(); Task { await player.checkAppleMusicAccess() } }
+            if isVisible, phase == .active { loginItem.refresh() }
         }
     }
 
@@ -255,42 +249,6 @@ struct SettingsView: View {
             }
             if let date = updater.lastChecked {
                 helper("Last checked \(date.formatted(date: .abbreviated, time: .shortened))")
-            }
-        }
-    }
-
-    private var musicPermissions: some View {
-        section("Permissions", symbol: "lock.shield") {
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Apple Music").font(.system(size: 14, weight: .medium))
-                    helper("Read your Music library and control playback.")
-                }
-                Spacer(minLength: 0)
-                Text(player.appleMusicAccess.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(player.appleMusicAccess == .allowed ? KeepTheme.ink : KeepTheme.secondaryInk)
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(KeepTheme.mutedWarm, in: Capsule())
-                    .accessibilityLabel("Music permission: \(player.appleMusicAccess.title)")
-            }
-            HStack(spacing: 10) {
-                Button(player.appleMusicAccess == .denied ? "Open System Settings…" : player.appleMusicAccess == .allowed ? "Check access" : "Allow Music access…") {
-                    if player.appleMusicAccess == .denied { player.openMusicAutomationSettings() }
-                    else { Task { await player.checkAppleMusicAccess(requestPermission: player.appleMusicAccess != .allowed) } }
-                }
-                .buttonStyle(KeepButtonStyle(emphasis: player.appleMusicAccess == .allowed ? .quiet : .primary))
-                .disabled(player.appleMusicAccess == .checking)
-                Button(player.appleMusicAccess == .denied ? "Check access" : "System Settings…") {
-                    if player.appleMusicAccess == .denied { Task { await player.checkAppleMusicAccess() } }
-                    else { player.openMusicAutomationSettings() }
-                }
-                .help(player.appleMusicAccess == .denied ? "Check Music access again" : "Open Privacy & Security → Automation")
-            }.frame(maxWidth: .infinity, alignment: .trailing)
-            if player.appleMusicAccess == .denied {
-                helper("Enable Music under Keep in System Settings → Privacy & Security → Automation, then return here.")
-            } else if player.appleMusicAccess == .failed {
-                helper("Open Music and try again. You can also check access in System Settings → Privacy & Security → Automation.")
             }
         }
     }
@@ -356,7 +314,6 @@ struct SettingsView: View {
         Text(text).font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
     }
     private func select(_ channel: MusicChannel, autoplay: Bool) {
-        player.selectProvider(.audius)
         preferences.selectChannel(channel)
         if player.selectedChannel?.id == channel.id {
             if autoplay && !player.wantsPlayback { player.togglePlayback() }

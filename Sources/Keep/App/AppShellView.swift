@@ -98,7 +98,7 @@ struct AppShellView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .environment(\.musicLibraryViewport, geometry.size)
+                .environment(\.musicArtworkViewport, geometry.size)
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .background(KeepTheme.artworkSurface(KeepTheme.paper,
@@ -136,10 +136,7 @@ struct AppShellView: View {
             wallpapers.configure(configuration, preferences: preferences)
         }
         .onChange(of: music.track?.artworkURL, initial: true) { _, url in
-            wallpapers.setArtwork(url: url, data: music.appleArtwork)
-        }
-        .onChange(of: music.appleArtwork) { _, data in
-            wallpapers.setArtwork(url: music.track?.artworkURL, data: data)
+            wallpapers.setArtworkURL(url)
         }
         .onAppear { workspace.startUpdating() }
     }

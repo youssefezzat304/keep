@@ -33,7 +33,7 @@ struct ZenModeView: View {
                 .padding(28)
             }
             .coordinateSpace(name: "zenArtwork")
-            .environment(\.musicLibraryViewport, geometry.size)
+            .environment(\.musicArtworkViewport, geometry.size)
         }
         .foregroundStyle(.white)
         .onExitCommand(perform: onExit)

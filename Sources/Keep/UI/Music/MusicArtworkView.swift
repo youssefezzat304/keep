@@ -1,5 +1,9 @@
 import SwiftUI
 
+extension EnvironmentValues {
+    @Entry var musicArtworkViewport = CGSize(width: 1000, height: 900)
+}
+
 /// Shares selected media and its prepared poster/fallback; native video never owns selection.
 struct MusicArtworkView: View {
     var preferences: AppPreferences

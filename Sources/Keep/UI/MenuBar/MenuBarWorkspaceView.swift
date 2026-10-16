@@ -246,7 +246,7 @@ struct MenuBarWorkspaceView: View {
             HStack {
                 Text("Music").font(KeepTheme.headingFont(size: 18))
                 Spacer()
-                Text(music.provider.title).font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
+                Text("Audius").font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
             }
             if let track = music.track {
                 VStack(alignment: .leading, spacing: 2) {

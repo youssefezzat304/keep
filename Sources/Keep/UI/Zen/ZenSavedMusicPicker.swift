@@ -23,7 +23,7 @@ struct ZenSavedMusicPicker: View {
     }
 
     private func sourceRow(_ channel: MusicChannel?) -> some View {
-        let selected = player.provider == .audius && player.selectedChannel?.id == channel?.id
+        let selected = player.selectedChannel?.id == channel?.id
         return Button { player.playAudiusSource(channel) } label: {
             HStack(spacing: 10) {
                 Image(systemName: channel?.symbol ?? "waveform").frame(width: 22)

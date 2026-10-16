@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Native offscreen views with isolated data and silent Music fakes. Never touches live archives.
+/// Native offscreen views with isolated data and silent Audius playback fixtures. Never touches live archives.
 @main enum WallpaperPresentationChecks {
     static func main() async throws {
         _ = NSApplication.shared
@@ -9,8 +9,7 @@ import SwiftUI
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         let preferences = AppPreferences(); preferences.wallpaperSource = .folder
         preferences.wallpaperIntervalChoice = .custom; preferences.customRotationMinutes = 750
-        let music = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), preferences: preferences,
-                                     appleMusic: SilentLibrary(), launchAppleMusic: {}, isMusicRunning: { false })
+        let music = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), preferences: preferences)
         let wallpapers = WallpaperLibrary()
         let folder = try makeWallpaperFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -43,12 +42,16 @@ import SwiftUI
                     .keepAppearance(appearance), size: size,
                                  url: output.appendingPathComponent("settings-full-\(name)-\(appearance.rawValue).png"))
             }
+            for (name, size) in [("default", NSSize(width: 1000, height: 900)), ("narrow", NSSize(width: 680, height: 650))] {
+                try await render(AppShellView(initialTab: .focus, workspace: workspace, music: music, tasks: tasks, preferences: preferences, wallpapers: wallpapers),
+                                 size: size, url: output.appendingPathComponent("focus-audius-\(name)-\(appearance.rawValue).png"))
+                try await render(ZenModeView(workspace: workspace, music: music, preferences: preferences, wallpapers: wallpapers, onExit: {}),
+                                 size: size, url: output.appendingPathComponent("zen-audius-\(name)-\(appearance.rawValue).png"))
+            }
             try await render(KeepOptionList(label: "Wallpaper interval", options: WallpaperIntervalChoice.all, selection: .custom, title: { $0.title }, onSelect: { _ in })
                 .keepAppearance(appearance), size: NSSize(width: 260, height: 296), url: output.appendingPathComponent("interval-list-\(appearance.rawValue).png"))
             try await render(HabitCreationDialog(store: HabitStore(), goal: .amount(target: 20, unit: .minutes)).keepAppearance(appearance),
                              size: NSSize(width: 460, height: 720), url: output.appendingPathComponent("habit-choices-\(appearance.rawValue).png"))
-            try await render(AppleMusicLibraryView(player: music, preferences: preferences, wallpapers: wallpapers).keepAppearance(appearance),
-                             size: NSSize(width: 620, height: 720), url: output.appendingPathComponent("music-choices-\(appearance.rawValue).png"))
             editor.text = "A completely new task"
             try await render(MenuBarTargetPicker(editor: editor, workspace: workspace, isVisible: false,
                 onBack: {}, onSubmit: { editor.commit(to: workspace) }, onSelectProject: { _ in }, onSelectTask: { _ in })
@@ -79,9 +82,9 @@ import SwiftUI
             preferences.wallpaperIntervalChoice = .custom
         }
         workspace.shutdown()
-        await music.shutdown()?.value
+        music.shutdown()
         wallpapers.shutdown()
-        print("Rendered 32 native wallpaper/settings/menu/choice layouts in \(output.path)")
+        print("Rendered native wallpaper/settings/menu/choice layouts in \(output.path)")
     }
     static func settle(_ wallpapers: WallpaperLibrary) async throws {
         for _ in 0..<300 {
@@ -143,13 +146,6 @@ private final class SilentPlayback: MusicPlayback {
     func pause() {}
     func stop() {}
 }
-private actor SilentLibrary: AppleMusicControlling {
-    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot { .init(state: .stopped, title: nil, artist: nil) }
-    func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage {
-        .init(items: (0..<8).map { .init(nativeID: Int32($0), kind: .songs, title: $0 == 0 ? "A longer song name that should remain readable in the narrow library sheet" : "A little music \($0)", artist: "An artist") }, hasMore: false)
-    }
-}
-
 private struct SilentCatalog: MusicCatalog {
     func lofiTracks() async throws -> [MusicTrack] {
         [MusicTrack(id: "one", title: "A longer track title for the compact music section", artist: "An artist", permalink: nil),

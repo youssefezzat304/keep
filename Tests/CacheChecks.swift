@@ -44,7 +44,6 @@ import Foundation
     static func main() async throws {
         try await annualActivityChecks()
         try await historyChecks()
-        try await musicChecks()
         print("Passed \(checks) cache correctness, invalidation, lifecycle and retention checks")
     }
 
@@ -286,72 +285,6 @@ import Foundation
         try await StatsPresentationChecksWait.wait(model)
         expect(model.snapshot != nil, "Hidden page catches up when visible again")
     }
-
-    static func musicChecks() async throws {
-        let clock = TestClock(), reads = Reads()
-        var cache = AppleMusicLibraryCache(clock: { clock.value })
-        func request(_ query: String = "song", _ offset: Int = 0, playlist: AppleMusicItem? = nil) -> AppleMusicLibraryRequest {
-            AppleMusicLibraryRequest(query: query, playlist: playlist, offset: offset)
-        }
-        func load(_ request: AppleMusicLibraryRequest, pid: Int32? = 42, denied: Bool = false, rows: Int = 101) throws -> AppleMusicLibraryPage {
-            try cache.load(request, processID: pid, verifyAccess: {
-                reads.access += 1; if denied { throw MusicFailure.appleMusicPermission }
-            }, readPage: { _ in reads.pages += 1; return .init(items: [], hasMore: false) }, readMetadata: { request in
-                reads.metadata += 1
-                return (0..<rows).map { .init(item: .init(nativeID: Int32($0), kind: .songs, title: "Song \($0)", artist: "Artist", playlistID: request.playlist?.nativeID), album: "Album") }
-            })
-        }
-        let first = try load(request())
-        expect(first.items.count == 50 && first.hasMore, "Search returns the existing page size")
-        expect(try load(request()).items == first.items && reads.metadata == 1, "Warm page avoids native metadata reads")
-        expect(try load(request("song", 50)).items.first?.nativeID == 50 && reads.metadata == 1, "Search paging shares bulk metadata")
-        _ = try load(request("artist")); _ = try load(request("album"))
-        expect(reads.metadata == 1 && reads.access == 5, "Different searches share metadata but every request verifies access")
-        clock.value = 59; _ = try load(request("Song 10"))
-        clock.value = 60; _ = try load(request("Song 10"))
-        expect(reads.metadata == 2, "Derived pages expire at original metadata expiry")
-        let before = reads.metadata; cache.removeAll(); _ = try load(request())
-        expect(reads.metadata == before + 1, "Refresh bypasses successful cached results")
-        _ = try load(request(), pid: 43)
-        expect(reads.metadata == before + 2, "Music process replacement invalidates native object IDs")
-        do { _ = try load(request(), pid: 43, denied: true); preconditionFailure("Access denial must surface") }
-        catch MusicFailure.appleMusicPermission { checks += 1 }
-        expect(cache.pageCount == 0 && cache.metadataCount == 0, "Access denial clears cached content")
-        for index in 0..<30 { _ = try load(request("song \(index)"), pid: 43) }
-        expect(cache.pageCount == 24, "Music page LRU is bounded")
-        let pageReads = reads.pages; _ = try load(request(""), pid: 43); _ = try load(request(""), pid: 43)
-        expect(reads.pages == pageReads + 1, "Ordinary browsing caches pages without bulk prefetch")
-        cache.removeAll(); let largeReads = reads.metadata
-        _ = try load(request("Song 0"), rows: 20_001); _ = try load(request("Song 1"), rows: 20_001)
-        expect(cache.metadataCount == 0 && reads.metadata == largeReads + 2, "Oversized collections remain fully searchable without retention")
-        var large = AppleMusicLibraryCache(clock: { 0 })
-        _ = try large.load(request(), processID: 1, verifyAccess: {}, readPage: { _ in .init(items: [], hasMore: false) }, readMetadata: { _ in
-            [.init(item: .init(nativeID: 1, kind: .songs, title: "Song", artist: String(repeating: "x", count: 8 * 1024 * 1024)), album: "")]
-        })
-        expect(large.metadataCount == 0, "Metadata byte limit applies independently of item count")
-        let canceled = Task { () -> Bool in
-            var local = AppleMusicLibraryCache(clock: { 0 })
-            do {
-                _ = try local.load(request(), processID: 1, verifyAccess: {}, readPage: { _ in .init(items: [], hasMore: false) }, readMetadata: { _ in
-                    withUnsafeCurrentTask { $0?.cancel() }
-                    return [.init(item: .init(nativeID: 1, kind: .songs, title: "Song", artist: ""), album: "")]
-                })
-                return false
-            } catch is CancellationError { return local.pageCount == 0 && local.metadataCount == 0 }
-            catch { return false }
-        }
-        expect(await canceled.value, "Canceled fetches cannot populate the cache")
-        var deniedRead = AppleMusicLibraryCache(clock: { 0 })
-        do {
-            _ = try deniedRead.load(request(), processID: 1, verifyAccess: {}, readPage: { _ in throw MusicFailure.appleMusicPermission }, readMetadata: { _ in throw MusicFailure.appleMusicPermission })
-            preconditionFailure("A denied read must surface")
-        } catch MusicFailure.appleMusicPermission { expect(deniedRead.pageCount == 0 && deniedRead.metadataCount == 0, "Read-time access failures are never cached") }
-        let fake = CachedMusicFake(), model = AppleMusicLibraryModel(controller: fake, launch: {})
-        await model.load(request()); await model.load(request(), refreshID: 1)
-        expect(await fake.invalidations == 1, "The browser's explicit Refresh reaches the shared controller")
-        await model.load(request("album"), refreshID: 1)
-        expect(await fake.invalidations == 1, "Typing after Refresh does not repeatedly clear the cache")
-    }
 }
 
 private enum StatsPresentationChecksWait {
@@ -359,16 +292,4 @@ private enum StatsPresentationChecksWait {
         for _ in 0..<100 { if model.snapshot != nil { return }; try await Task.sleep(for: .milliseconds(20)) }
         preconditionFailure("Snapshot did not publish")
     }
-}
-nonisolated private final class TestClock: @unchecked Sendable {
-    private let lock = NSLock()
-    private var stored = 0.0
-    var value: Double { get { lock.withLock { stored } } set { lock.withLock { stored = newValue } } }
-}
-nonisolated private final class Reads { var access = 0, pages = 0, metadata = 0 }
-private actor CachedMusicFake: AppleMusicControlling {
-    private(set) var invalidations = 0
-    func invalidateLibraryCache() { invalidations += 1 }
-    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot { .init(state: .stopped, title: nil, artist: nil) }
-    func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage { .init(items: [], hasMore: false) }
 }

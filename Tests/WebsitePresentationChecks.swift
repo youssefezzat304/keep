@@ -57,8 +57,7 @@ import SwiftUI
         workspace.startTask("Bring the homepage to life", timers: .focus)
         let preferences = AppPreferences()
         preferences.weeklyFocusGoalMinutes = 600
-        let music = MusicPlayerModel(catalog: WebsiteCatalog(), playback: WebsitePlayback(), preferences: preferences,
-                                     appleMusic: WebsiteMusic(), launchAppleMusic: {}, isMusicRunning: { false })
+        let music = MusicPlayerModel(catalog: WebsiteCatalog(), playback: WebsitePlayback(), preferences: preferences)
         music.togglePlayback()
         for _ in 0..<100 {
             if music.state == .playing { break }
@@ -89,7 +88,7 @@ import SwiftUI
         try await render(ZenModeView(workspace: workspace, music: music, preferences: preferences,
             wallpapers: wallpapers, onExit: {}).keepAppearance(.light), size: NSSize(width: 1440, height: 900),
             to: output.appendingPathComponent("zen.png"))
-        workspace.shutdown(); wallpapers.shutdown(); await music.shutdown()?.value
+        workspace.shutdown(); wallpapers.shutdown(); music.shutdown()
         print("Captured eight light native Keep screenshots with isolated example data in \(output.path)")
     }
 
@@ -115,10 +114,6 @@ private final class WebsitePlayback: MusicPlayback {
     func play() {}
     func pause() {}
     func stop() {}
-}
-
-private actor WebsiteMusic: AppleMusicControlling {
-    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot { .init(state: .stopped, title: nil, artist: nil) }
 }
 
 private struct WebsiteCatalog: MusicCatalog {

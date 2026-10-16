@@ -7,10 +7,6 @@ struct MusicPlayerCard: View {
     var onEnterZen: (() -> Void)? = nil
     var wallpaperIsActive = true
     @State private var showsSavedChannels = false
-    @State private var showsAppleLibrary = false
-    @State private var providerMenuHovered = false
-    @State private var showsProvider = false
-    @FocusState private var providerMenuFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var favoriteTarget: MusicChannel? { player.selectedChannel ?? player.track?.artistChannel }
@@ -68,21 +64,14 @@ struct MusicPlayerCard: View {
         })
         .accessibilityAction(named: "Previous wallpaper") { wallpapers.previous() }
         .accessibilityAction(named: "Next wallpaper") { wallpapers.next() }
-        .onChange(of: player.provider) { _, provider in
-            if provider != .audius { showsSavedChannels = false }
-            if provider != .appleMusic { showsAppleLibrary = false }
-        }
-        .sheet(isPresented: $showsAppleLibrary) {
-            AppleMusicLibraryView(player: player, preferences: preferences, wallpapers: wallpapers)
-        }
     }
 
     private var artworkHeader: some View {
         HStack {
-            if let url = player.provider == .appleMusic ? URL(string: "music://") : player.track?.permalink ?? player.selectedChannel?.url ?? URL(string: "https://audius.co") {
+            if let url = player.track?.permalink ?? player.selectedChannel?.url ?? URL(string: "https://audius.co") {
                 Link(destination: url) {
                     HStack(spacing: 5) {
-                        Text(player.provider.title)
+                        Text("Audius")
                         Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .medium))
                     }
                     .font(.system(size: 12, weight: .medium))
@@ -90,9 +79,8 @@ struct MusicPlayerCard: View {
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background(KeepTheme.paper.opacity(0.95), in: Capsule())
                 }
-                .buttonStyle(.plain).accessibilityLabel("Open \(player.provider.title)").help("Open \(player.provider.title)")
+                .buttonStyle(.plain).accessibilityLabel("Open Audius").help("Open Audius")
             }
-            providerMenu
             Spacer(minLength: 4)
             Button { onEnterZen?() } label: {
                 Image(systemName: "chevron.up.chevron.right.chevron.down.chevron.left")
@@ -111,11 +99,11 @@ struct MusicPlayerCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(player.track?.title ?? (player.provider == .audius ? "Slow afternoons" : "Your Apple Music"))
+                    Text(player.track?.title ?? "Slow afternoons")
                         .font(KeepTheme.headingFont(size: 23))
                         .lineLimit(1)
-                        .help(player.track?.title ?? player.provider.title)
-                    Text(player.track?.artist ?? (player.provider == .audius ? "Lofi for a little focus" : "Browse your songs and playlists"))
+                        .help(player.track?.title ?? "Audius")
+                    Text(player.track?.artist ?? "Lofi for a little focus")
                         .font(.system(size: 12))
                         .foregroundStyle(KeepTheme.secondaryInk)
                         .lineLimit(1)
@@ -153,9 +141,7 @@ struct MusicPlayerCard: View {
     }
 
     @ViewBuilder private var favoriteActions: some View {
-        if player.provider == .appleMusic {
-            musicControl("music.note.list", label: "Browse Apple Music library") { showsAppleLibrary = true }
-        } else { HStack(spacing: 2) {
+        HStack(spacing: 2) {
             musicControl(isFavorite ? "heart.fill" : "heart", label: isFavorite ? "Unsave current artist or playlist" : "Save current artist or playlist", disabled: favoriteTarget == nil || !preferences.canEdit) {
                 guard let target = favoriteTarget else { return }
                 if isFavorite { preferences.removeChannel(target) }
@@ -169,7 +155,6 @@ struct MusicPlayerCard: View {
             .foregroundStyle(showsSavedChannels ? KeepTheme.accentStrong : KeepTheme.ink)
             .background(KeepTheme.mutedWarm.opacity(showsSavedChannels ? 0.5 : 0), in: Circle())
             .accessibilityValue(showsSavedChannels ? "Expanded" : "Collapsed")
-        }
         }
     }
 
@@ -198,7 +183,7 @@ struct MusicPlayerCard: View {
     }
 
     private func savedSourceRow(_ channel: MusicChannel?) -> some View {
-        let selected = player.provider == .audius && player.selectedChannel?.id == channel?.id
+        let selected = player.selectedChannel?.id == channel?.id
         return Button { player.playAudiusSource(channel) } label: {
             HStack(spacing: 10) {
                 Image(systemName: channel?.symbol ?? "waveform").font(.system(size: 17)).frame(width: 22)
@@ -219,44 +204,6 @@ struct MusicPlayerCard: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private var providerMenu: some View {
-        Button { showsProvider.toggle() } label: {
-            Label("Choose music provider", systemImage: "waveform.mid")
-                .labelStyle(.iconOnly)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(KeepTheme.ink)
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .frame(width: 28, height: 28)
-        .background(KeepTheme.paper.opacity(providerMenuHovered ? 0.98 : 0.85), in: Circle())
-        .contentShape(Circle())
-        .onHover { providerMenuHovered = $0 }
-        .focused($providerMenuFocused)
-        .overlay { Circle().strokeBorder(providerMenuFocused ? KeepTheme.focusRing : .clear, lineWidth: 2).allowsHitTesting(false) }
-        .disabled(!preferences.canEdit)
-        .accessibilityLabel("Choose music provider")
-        .accessibilityValue(player.provider.title)
-        .help("Music provider: \(player.provider.title)")
-        .popover(isPresented: $showsProvider) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Music provider").font(KeepTheme.headingFont(size: 20))
-                KeepSegmentedPicker(label: "Music provider", selection: Binding(get: { player.provider }, set: {
-                    player.selectProvider($0); showsProvider = false
-                }), options: MusicProvider.allCases, title: { $0.title })
-                if player.provider == .appleMusic {
-                    Button("Browse Music library…") { showsProvider = false; showsAppleLibrary = true }
-                        .buttonStyle(KeepButtonStyle())
-                    Button("Open Music…") { showsProvider = false; player.openAppleMusic() }
-                        .buttonStyle(KeepButtonStyle())
-                }
-            }
-            .padding(16).background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
-            .onExitCommand { showsProvider = false }
-        }
-    }
-
     @ViewBuilder private var status: some View {
         switch player.state {
         case .failed(let failure):
@@ -273,7 +220,7 @@ struct MusicPlayerCard: View {
         case .loading:
             HStack(spacing: 7) {
                 ProgressView().controlSize(.small)
-                Text(player.provider == .appleMusic ? "Connecting to Music…" : player.track == nil ? "Finding your next listen…" : "Connecting to the stream…")
+                Text(player.track == nil ? "Finding your next listen…" : "Connecting to the stream…")
             }
             .font(.system(size: 12))
             .foregroundStyle(KeepTheme.secondaryInk)
@@ -281,7 +228,7 @@ struct MusicPlayerCard: View {
         case .idle:
             EmptyView()
         case .paused, .playing:
-            Text(player.state == .playing ? "Playing · \(player.provider.title)" : player.provider == .appleMusic && player.track == nil ? "Browse your library or resume Music with Play" : "Paused · Take your time")
+            Text(player.state == .playing ? "Playing · Audius" : "Paused · Take your time")
                 .font(.system(size: 12))
                 .foregroundStyle(KeepTheme.secondaryInk)
         }

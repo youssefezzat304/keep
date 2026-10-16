@@ -65,7 +65,7 @@ import SwiftUI
             precondition(NSApp.mainMenu.map(allItems)?.contains { $0.title == "Mute / Unmute Music" } == true, "Menu keeps the toggle discoverable in both states")
             precondition(menu.performKeyEquivalent(with: key) && player.volume == 0.37, "Command-M restores the previous volume")
             precondition(!window.isMiniaturized, "Unmute does not minimize")
-            await player.shutdown()?.value
+            player.shutdown()
             print("Passed 10 native shortcut checks")
             NSApp.terminate(nil)
         } catch {

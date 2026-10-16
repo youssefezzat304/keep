@@ -35,7 +35,7 @@ struct keepApp: App {
         _workspace = State(initialValue: workspace)
         let music = MusicPlayerModel(preferences: preferences, systemControls: MusicSystemController())
         let wallpapers = WallpaperLibrary()
-        music.onTrackChange = { [weak wallpapers] provider, id in wallpapers?.songChanged(provider: provider, trackID: id) }
+        music.onTrackChange = { [weak wallpapers] id in wallpapers?.songChanged(trackID: id) }
         _wallpapers = State(initialValue: wallpapers)
         music.selectChannel(preferences.selectedChannel)
         _preferences = State(initialValue: preferences)

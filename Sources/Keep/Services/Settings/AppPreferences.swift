@@ -87,8 +87,7 @@ nonisolated struct SettingsArchive: Codable, Equatable {
     var glassiness: Double = 0.45
     var channels: [MusicChannel] = []
     var selectedChannelID: String?
-    // Optional additions preserve archives written before provider/volume preferences existed.
-    var musicProvider: MusicProvider?
+    // Optional additions preserve archives written before volume preferences existed.
     var musicVolume: Double?
     // Missing menu-bar fields in older archives use the current defaults.
     var menuBarEnabled: Bool?
@@ -217,10 +216,6 @@ final class AppPreferences {
         set { update { $0.glassiness = newValue.isFinite ? min(1, max(0, newValue)) : 0.45 } }
     }
     var selectedChannel: MusicChannel? { snapshot.channels.first { $0.id == snapshot.selectedChannelID } }
-    var musicProvider: MusicProvider {
-        get { snapshot.musicProvider ?? .audius }
-        set { update { $0.musicProvider = newValue } }
-    }
     var musicVolume: Double {
         get { snapshot.musicVolume ?? 0.5 }
         set { update { $0.musicVolume = newValue.isFinite ? min(1, max(0, newValue)) : 0.5 } }

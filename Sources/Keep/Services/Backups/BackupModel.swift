@@ -309,9 +309,8 @@ struct BackupLocalState: Codable {
             let recovery: BackupPayload?
             if workspace.canTrack && tasks.canEdit && habits.canEdit && preferences.canEdit { recovery = try capture() }
             else { recovery = nil }
-            let release = music.shutdown()
+            music.shutdown()
             gate.isLocked = true
-            await release?.value
             var restoredWorkspace = candidate.workspace
             // Match normal legacy loading: start coverage now, without inventing completions.
             if restoredWorkspace.pomodoroHistoryStartedAt == nil { restoredWorkspace.beginPomodoroHistory(at: now()) }

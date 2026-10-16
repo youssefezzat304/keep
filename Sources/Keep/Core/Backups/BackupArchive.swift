@@ -12,7 +12,6 @@ nonisolated struct PortableSettings: Codable {
     let glassiness: Double
     let channels: [MusicChannel]
     let selectedChannelID: String?
-    let musicProvider: MusicProvider?
     let musicVolume: Double?
     let menuBarEnabled: Bool?
     let menuBarTimer: MenuBarTimer?
@@ -37,7 +36,7 @@ nonisolated struct PortableSettings: Codable {
         appearance = s.appearance; wallpaperSource = s.wallpaperSource; wallpaperOrder = s.wallpaperOrder
         rotationSeconds = s.rotationSeconds; automaticallyRotate = s.automaticallyRotate
         glassStyle = s.glassStyle; glassiness = s.glassiness; channels = s.channels
-        selectedChannelID = s.selectedChannelID; musicProvider = s.musicProvider; musicVolume = s.musicVolume
+        selectedChannelID = s.selectedChannelID; musicVolume = s.musicVolume
         menuBarEnabled = s.menuBarEnabled; menuBarTimer = s.menuBarTimer; menuBarShowSeconds = s.menuBarShowSeconds
         weeklyFocusGoalMinutes = s.weeklyFocusGoalMinutes; wallpaperRotationTrigger = s.wallpaperRotationTrigger
         customRotationMinutes = s.customRotationMinutes
@@ -55,7 +54,7 @@ nonisolated struct PortableSettings: Codable {
         s.appearance = appearance; s.wallpaperSource = wallpaperSource; s.wallpaperOrder = wallpaperOrder
         s.rotationSeconds = rotationSeconds; s.automaticallyRotate = automaticallyRotate
         s.glassStyle = glassStyle; s.glassiness = glassiness; s.channels = channels
-        s.selectedChannelID = selectedChannelID; s.musicProvider = musicProvider; s.musicVolume = musicVolume
+        s.selectedChannelID = selectedChannelID; s.musicVolume = musicVolume
         s.menuBarEnabled = menuBarEnabled; s.menuBarTimer = menuBarTimer; s.menuBarShowSeconds = menuBarShowSeconds
         s.weeklyFocusGoalMinutes = weeklyFocusGoalMinutes; s.wallpaperRotationTrigger = wallpaperRotationTrigger
         s.customRotationMinutes = customRotationMinutes

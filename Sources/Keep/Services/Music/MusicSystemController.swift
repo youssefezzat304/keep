@@ -4,13 +4,12 @@ import MediaPlayer
 nonisolated enum MusicRemoteAction: Sendable { case play, pause, toggle, next, previous }
 
 struct MusicSystemSnapshot: Equatable {
-    let provider: MusicProvider
     let track: MusicTrack?
     let state: MusicPlaybackState
     let wantsPlayback: Bool
     let canSkip: Bool
     var ownsRemoteControls: Bool {
-        provider == .audius && track != nil && (wantsPlayback || state == .paused || state == .playing || state == .loading)
+        track != nil && (wantsPlayback || state == .paused || state == .playing || state == .loading)
     }
 }
 
@@ -26,7 +25,7 @@ struct MusicSystemSnapshot: Equatable {
     func deactivate()
 }
 
-/// One app-owned bridge. Music.app owns its own Now Playing integration when selected.
+/// One app-owned bridge for Audius playback and output-device changes.
 final class MusicSystemController: MusicSystemControlling {
     private let remote: any MusicRemoteControlling
     private let output: any AudioOutputObserving

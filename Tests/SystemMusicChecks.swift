@@ -48,17 +48,6 @@ private final class TestPlayback: MusicPlayback {
     func pause() { pauses += 1 }
     func stop() {}
 }
-private actor TestApple: AppleMusicControlling {
-    var commands: [AppleMusicCommand] = []
-    private var playing = false
-    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot {
-        commands.append(command)
-        if command == .play { playing = true }
-        if command == .pause { playing = false }
-        return AppleMusicSnapshot(state: playing ? .playing : .paused, title: "Native song", artist: "Silent fixture", trackID: "native")
-    }
-}
-
 @main enum SystemMusicChecks {
     static var checks = 0
     static func expect(_ value: Bool, _ message: String) { checks += 1; precondition(value, message) }
@@ -75,9 +64,8 @@ private actor TestApple: AppleMusicControlling {
         let remote = TestRemote(), output = TestOutput()
         let system = MusicSystemController(remote: remote, output: output)
         let preferences = AppPreferences()
-        let playback = TestPlayback(), apple = TestApple()
-        let player = MusicPlayerModel(catalog: TestCatalog(), playback: playback, preferences: preferences,
-            appleMusic: apple, launchAppleMusic: {}, appleRefreshInterval: .seconds(3600), isMusicRunning: { false }, systemControls: system)
+        let playback = TestPlayback()
+        let player = MusicPlayerModel(catalog: TestCatalog(), playback: playback, preferences: preferences, systemControls: system)
         expect(remote.activations == 0 && output.counts.0 == 0, "Restoring an idle player never claims media keys or monitors output")
         expect(!player.handleRemoteAction(.play), "Unengaged player cannot autoplay through remote keys")
         player.togglePlayback(); try await ready(player)
@@ -109,21 +97,12 @@ private actor TestApple: AppleMusicControlling {
         remote.handler?(.toggle); try await drain()
         expect(player.state == .paused, "Native Toggle handles both directions")
         let staleCommand = remote.handler
-        player.selectProvider(.appleMusic)
-        expect(remote.releases == 1 && remote.handler == nil, "Apple Music selection relinquishes Keep media keys to Music.app")
+        player.selectChannel(nil)
+        expect(remote.releases == 1 && remote.handler == nil, "Changing Audius sources relinquishes the previous media-key generation")
         staleCommand?(.next); try await drain()
-        expect(player.track == nil && !player.wantsPlayback, "Queued media commands cannot cross provider changes")
-        expect(await apple.commands.isEmpty, "Passive provider selection never launches or contacts Music")
+        expect(player.track == nil && !player.wantsPlayback, "Queued media commands cannot cross source changes")
         player.togglePlayback(); try await ready(player)
-        expect(remote.activations == 1 && remote.handler == nil, "Native Music retains sole remote command ownership")
-        let staleAppleOutput = output.handler
-        output.handler?(); try await drain()
-        expect(!player.wantsPlayback && player.state == .paused, "Keep pauses engaged Apple Music on output changes too")
-        expect(await apple.commands.filter { $0 == .pause }.count == 1, "One route change sends one native Music pause")
-        player.selectProvider(.audius); player.togglePlayback(); try await ready(player)
-        expect(remote.activations == 2 && remote.snapshots.last?.provider == .audius, "Returning to Audius registers a fresh command generation")
-        staleAppleOutput?(); try await drain()
-        expect(player.wantsPlayback, "Stale native-provider observer cannot pause Audius")
+        expect(remote.activations == 2 && remote.snapshots.last?.track?.id == "one", "New Audius playback registers a fresh command generation")
         let shutdownCommand = remote.handler, shutdownOutput = output.handler
         player.shutdown()
         shutdownCommand?(.play); shutdownOutput?(); try await drain()
@@ -131,8 +110,7 @@ private actor TestApple: AppleMusicControlling {
         expect(remote.releases == 2 && output.handler == nil, "Shutdown releases the active native bridge")
         let pendingCatalog = DeferredCatalog(), pendingOutput = TestOutput(), pendingRemote = TestRemote()
         let pendingSystem = MusicSystemController(remote: pendingRemote, output: pendingOutput)
-        let pendingPlayer = MusicPlayerModel(catalog: pendingCatalog, playback: TestPlayback(), preferences: preferences,
-            appleMusic: TestApple(), launchAppleMusic: {}, isMusicRunning: { false }, systemControls: pendingSystem)
+        let pendingPlayer = MusicPlayerModel(catalog: pendingCatalog, playback: TestPlayback(), preferences: preferences, systemControls: pendingSystem)
         pendingPlayer.togglePlayback(); try await drain()
         expect(pendingPlayer.state == .loading && pendingOutput.counts.0 == 1, "Monitor the route while a stream is still loading")
         pendingOutput.handler?(); try await drain()

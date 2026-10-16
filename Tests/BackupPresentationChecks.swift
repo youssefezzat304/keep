@@ -11,7 +11,7 @@ import SwiftUI
         guard let defaults = UserDefaults(suiteName: suite) else { throw BackupFailure.writeFailed }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(suite)
         let workspace = WorkspaceModel(), habits = HabitStore(), tasks = DailyTaskStore(habits: habits), preferences = AppPreferences()
-        let music = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), preferences: preferences, appleMusic: SilentMusic(), launchAppleMusic: {}, isMusicRunning: { false })
+        let music = MusicPlayerModel(catalog: SilentCatalog(), playback: SilentPlayback(), preferences: preferences)
         let cloud = SilentCloud()
         let transaction = BackupRestoreTransaction(defaults: defaults, domain: suite, root: root)
         let backup = BackupModel(workspace: workspace, tasks: tasks, habits: habits, preferences: preferences, music: music, gate: BackupRestoreGate(), cloud: cloud, transaction: transaction, defaults: defaults)
@@ -39,7 +39,7 @@ import SwiftUI
         backup.cancelPreview(); cloud.isOffline = false; cloud.account = nil; cloud.onChange?()
         try await Task.sleep(for: .milliseconds(100))
         try await render(BackupSettingsView(backup: backup).padding(16).background(KeepTheme.paper).keepAppearance(.light), size: NSSize(width: 600, height: 420), url: output.appendingPathComponent("account-changed-light.png"))
-        workspace.shutdown(); await music.shutdown()?.value
+        workspace.shutdown(); music.shutdown()
         defaults.removePersistentDomain(forName: suite)
         if FileManager.default.fileExists(atPath: root.path) { try FileManager.default.removeItem(at: root) }
         print("Rendered \(count) native backup layouts in \(output.path)")
@@ -71,10 +71,6 @@ private struct SilentCatalog: MusicCatalog {
     func lofiTracks() async throws -> [MusicTrack] { throw MusicFailure.noTracks }
     func tracks(for channel: MusicChannel) async throws -> [MusicTrack] { throw MusicFailure.noTracks }
     func streamURL(for track: MusicTrack) async throws -> URL { throw MusicFailure.unavailable }
-}
-private actor SilentMusic: AppleMusicControlling {
-    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot { .init(state: .stopped, title: nil, artist: nil) }
-    func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage { .init(items: [], hasMore: false) }
 }
 private final class SilentCloud: BackupCloudStorage {
     var account: Data? = Data("presentation-only".utf8)

@@ -14,10 +14,6 @@ private struct SilentCatalog: MusicCatalog {
     func tracks(for channel: MusicChannel) async throws -> [MusicTrack] { throw MusicFailure.noTracks }
     func streamURL(for track: MusicTrack) async throws -> URL { throw MusicFailure.unavailable }
 }
-private actor SilentAppleMusic: AppleMusicControlling {
-    func perform(_ command: AppleMusicCommand) async throws -> AppleMusicSnapshot { .init(state: .stopped, title: nil, artist: nil) }
-    func library(_ request: AppleMusicLibraryRequest) async throws -> AppleMusicLibraryPage { .init(items: [], hasMore: false) }
-}
 private final class FakeCloud: BackupCloudStorage {
     var account: Data? = Data("account-a".utf8)
     var versions: [BackupVersion] = []
@@ -83,12 +79,12 @@ private final class Fixture {
         workspace = WorkspaceModel(persistence: wp)
         habits = HabitStore(persistence: hp); tasks = DailyTaskStore(persistence: tp, habits: habits)
         preferences = AppPreferences(persistence: sp)
-        music = MusicPlayerModel(catalog: SilentCatalog(), playback: playback, preferences: preferences, appleMusic: SilentAppleMusic(), launchAppleMusic: {}, isMusicRunning: { false })
+        music = MusicPlayerModel(catalog: SilentCatalog(), playback: playback, preferences: preferences)
         backup = BackupModel(workspace: workspace, tasks: tasks, habits: habits, preferences: preferences, music: music,
                              gate: gate, cloud: cloud, transaction: transaction, defaults: defaults, now: { [clock] in clock.date })
     }
     func clean() async throws {
-        backup.stop(); workspace.shutdown(); await music.shutdown()?.value
+        backup.stop(); workspace.shutdown(); music.shutdown()
         defaults.removePersistentDomain(forName: suite)
         if FileManager.default.fileExists(atPath: root.path) { try FileManager.default.removeItem(at: root) }
     }
