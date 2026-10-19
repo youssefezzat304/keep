@@ -103,6 +103,7 @@ import SwiftUI
         expect(!library.isLoading && library.image?.tiffRepresentation == first, "First track establishes baseline without jumping")
         library.songChanged(trackID: "two"); try await settle(library)
         expect(library.image?.tiffRepresentation == second, "A different song advances once")
+        expect(settings.snapshot.selectedWallpaperName == "1.png", "Song rotation remembers the displayed wallpaper")
         library.songChanged(trackID: nil)
         library.songChanged(trackID: "two")
         expect(!library.isLoading && library.image?.tiffRepresentation == second, "Nil reads and repeated identity never double-advance")
@@ -122,6 +123,7 @@ import SwiftUI
         library.configure(fast, preferences: settings)
         try await Task.sleep(for: .milliseconds(1200)); try await settle(library)
         expect(library.image?.tiffRepresentation != third, "Timed rotation still advances through its single task")
+        expect(settings.snapshot.selectedWallpaperName == "0.png", "Timed rotation remembers the displayed wallpaper")
         let beforeNever = library.image?.tiffRepresentation
         settings.wallpaperRotationTrigger = .never
         library.configure(settings.snapshot.wallpaperConfiguration, preferences: settings)
@@ -131,8 +133,71 @@ import SwiftUI
         library.next(); try await settle(library)
         expect(library.image?.tiffRepresentation != beforeNever, "Manual Next remains available with Never")
         library.shutdown()
+        try await persistenceChecks(root: root, persistence: persistence)
         try shortcutChecks()
         print("Passed \(checks) wallpaper control checks")
+    }
+
+    static func persistenceChecks(root: URL, persistence: SettingsPersistence) async throws {
+        // Replace the intentionally invalid archive used by the migration checks above.
+        try persistence.save(SettingsArchive())
+        let settings = AppPreferences(persistence: persistence)
+        settings.wallpaperRotationTrigger = .never
+        let library = WallpaperLibrary()
+        library.chooseFolder(root, preferences: settings)
+        try await settle(library)
+        library.next(); try await settle(library)
+        let selected = library.image?.tiffRepresentation
+        expect(settings.snapshot.selectedWallpaperName == "1.png", "Successful manual selection saves its filename")
+        library.shutdown()
+
+        let reopened = AppPreferences(persistence: persistence)
+        let restored = WallpaperLibrary()
+        restored.configure(reopened.snapshot.wallpaperConfiguration, preferences: reopened)
+        try await settle(restored)
+        expect(restored.image?.tiffRepresentation == selected, "Relaunch restores the last displayed image")
+        restored.next(); try await settle(restored)
+        expect(reopened.snapshot.selectedWallpaperName == "2.png", "Restored cycle continues from the selected file")
+        reopened.wallpaperOrder = .shuffle
+        restored.configure(reopened.snapshot.wallpaperConfiguration, preferences: reopened)
+        let shuffledSelection = restored.image?.tiffRepresentation
+        restored.shutdown()
+        let shuffled = WallpaperLibrary()
+        shuffled.configure(reopened.snapshot.wallpaperConfiguration, preferences: reopened)
+        try await settle(shuffled)
+        expect(shuffled.image?.tiffRepresentation == shuffledSelection, "Shuffle restores the selected file instead of drawing a new first file")
+        reopened.wallpaperSource = .cozy
+        shuffled.configure(reopened.snapshot.wallpaperConfiguration, preferences: reopened)
+        reopened.wallpaperSource = .folder
+        shuffled.configure(reopened.snapshot.wallpaperConfiguration, preferences: reopened)
+        try await settle(shuffled)
+        expect(shuffled.image?.tiffRepresentation == shuffledSelection, "Returning from another source retains the folder selection")
+        shuffled.shutdown()
+
+        reopened.wallpaperOrder = .sequential
+        try FileManager.default.removeItem(at: root.appendingPathComponent("2.png"))
+        let missing = WallpaperLibrary()
+        missing.configure(reopened.snapshot.wallpaperConfiguration, preferences: reopened)
+        try await settle(missing)
+        expect(missing.image != nil && missing.error == nil && reopened.snapshot.selectedWallpaperName == "0.png", "Missing selection falls back and saves the actual displayed file")
+        missing.shutdown()
+        try Data([0, 1]).write(to: root.appendingPathComponent("0.png"))
+        let corrupt = WallpaperLibrary()
+        corrupt.configure(reopened.snapshot.wallpaperConfiguration, preferences: reopened)
+        try await settle(corrupt)
+        expect(corrupt.image != nil && corrupt.error == nil && reopened.snapshot.selectedWallpaperName == "1.png", "Unreadable selection skips to a readable file and saves it")
+        corrupt.shutdown()
+        let other = root.appendingPathComponent("other", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: root.appendingPathComponent("1.png"), to: other.appendingPathComponent("other.png"))
+        let changed = WallpaperLibrary()
+        changed.chooseFolder(other, preferences: reopened)
+        expect(reopened.snapshot.selectedWallpaperName == nil, "Choosing another folder clears the former selection")
+        try await settle(changed)
+        expect(reopened.snapshot.selectedWallpaperName == "other.png", "New folder remembers its own selected file")
+        changed.shutdown()
+        reopened.clearFolder()
+        expect(reopened.snapshot.selectedWallpaperName == nil, "Removing folder access clears its selection")
     }
 
     static func shortcutChecks() throws {

@@ -80,6 +80,7 @@ nonisolated struct SettingsArchive: Codable, Equatable {
     var wallpaperSource: WallpaperSource = .cozy
     var folderBookmark: Data?
     var folderName: String?
+    var selectedWallpaperName: String?
     var wallpaperOrder: WallpaperOrder = .sequential
     var rotationSeconds: Int = 60
     var automaticallyRotate = true
@@ -307,12 +308,20 @@ final class AppPreferences {
         }
     }
     func selectChannel(_ channel: MusicChannel?) { update { $0.selectedChannelID = channel?.id } }
-    func setFolder(bookmark: Data, name: String) {
-        update { $0.folderBookmark = bookmark; $0.folderName = name; $0.wallpaperSource = .folder }
+    func setFolder(bookmark: Data, name: String, preservingSelection: Bool = false) {
+        update {
+            $0.folderBookmark = bookmark; $0.folderName = name; $0.wallpaperSource = .folder
+            if !preservingSelection { $0.selectedWallpaperName = nil }
+        }
+    }
+    func rememberWallpaper(named name: String, bookmark: Data?) {
+        guard snapshot.wallpaperSource == .folder, snapshot.folderBookmark == bookmark,
+              snapshot.selectedWallpaperName != name else { return }
+        update { $0.selectedWallpaperName = name }
     }
     func clearFolder() {
         update {
-            $0.folderBookmark = nil; $0.folderName = nil
+            $0.folderBookmark = nil; $0.folderName = nil; $0.selectedWallpaperName = nil
             if $0.wallpaperSource == .folder { $0.wallpaperSource = .cozy }
         }
     }

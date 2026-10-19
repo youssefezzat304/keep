@@ -5,6 +5,8 @@ struct HabitStatisticsView: View {
     let habit: Habit?
     let today: Date
     let onLogAmount: (HabitLogSelection) -> Void
+    var canDelete = true
+    let onDelete: (Habit) -> Void
     @Environment(\.self) private var environment
     @State private var editingHabit: Habit?
     @State private var monthOffset = 0
@@ -13,19 +15,9 @@ struct HabitStatisticsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if let habit {
-                HStack(spacing: 10) {
-                    Image(systemName: habit.icon.rawValue).font(.system(size: 21)).foregroundStyle(habit.icon.ink(in: environment))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(habit.name).font(KeepTheme.headingFont(size: 22)).fixedSize(horizontal: false, vertical: true)
-                        Text(habit.goal.summary + " · " + habit.frequencySummary(calendar: store.calendar))
-                            .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 8)
-                    Button { editingHabit = habit } label: { Label("Edit", systemImage: "pencil") }
-                        .buttonStyle(KeepButtonStyle(emphasis: .quiet))
-                        .disabled(!store.canEdit)
-                        .accessibilityLabel("Edit \(habit.name)")
-                        .help("Edit habit name, icon, days and weekly targets")
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { heading(for: habit); Spacer(minLength: 8); actions(for: habit) }
+                    VStack(alignment: .leading, spacing: 12) { heading(for: habit); actions(for: habit) }
                 }
                 if let targets = habit.weeklyTargets {
                     WeeklyTargetsProgress(targets: targets, amount: Double(store.weeklyAmount(for: habit, today: today)), color: habit.icon.ink(in: environment)) { amount in
@@ -67,6 +59,28 @@ struct HabitStatisticsView: View {
         .sheet(item: $editingHabit) { habit in
             HabitCreationDialog(store: store, today: today, habit: habit)
         }
+    }
+    private func heading(for habit: Habit) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: habit.icon.rawValue).font(.system(size: 21)).foregroundStyle(habit.icon.ink(in: environment))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(habit.name).font(KeepTheme.headingFont(size: 22)).fixedSize(horizontal: false, vertical: true)
+                Text(habit.goal.summary + " · " + habit.frequencySummary(calendar: store.calendar))
+                    .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+    private func actions(for habit: Habit) -> some View {
+        HStack(spacing: 8) {
+            Button { editingHabit = habit } label: { Label("Edit", systemImage: "pencil") }
+                .disabled(!store.canEdit)
+                .accessibilityLabel("Edit \(habit.name)")
+                .help("Edit habit name, icon, days and weekly targets")
+            Button(role: .destructive) { onDelete(habit) } label: { Label("Delete", systemImage: "trash") }
+                .disabled(!store.canEdit || !canDelete)
+                .accessibilityLabel("Delete \(habit.name)")
+                .help("Delete habit…")
+        }.buttonStyle(KeepButtonStyle(emphasis: .quiet)).fixedSize()
     }
     private func metric(_ title: String, value: String, suffix: String, symbol: String, accent: FocusProject.Accent, background: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {

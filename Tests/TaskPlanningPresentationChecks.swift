@@ -107,7 +107,7 @@ private struct PlanningInteractiveFixture: View {
                 TasksCard(store: tasks, workspace: workspace) { task, timers in workspace.startTask(task, on: TaskDay.id(for: workspace.today, calendar: tasks.calendar), timers: timers) }
             } else if page == "Timers" {
                 ScrollView { TimerWorkspaceCard(workspace: workspace, isCompact: compact, preferences: preferences) }
-            } else { HabitTrackerView(store: habits) }
+            } else { HabitTrackerView(store: habits, canDeleteHabit: workspace.canTrack, onDeleteHabit: { workspace.deleteHabit($0) }) }
         }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity).background(KeepTheme.paper).keepAppearance(appearance)
     }
 }

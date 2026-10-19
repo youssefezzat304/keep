@@ -3,10 +3,13 @@ import SwiftUI
 struct HabitTrackerView: View {
     let store: HabitStore
     var today: Date = .now
+    let canDeleteHabit: Bool
+    let onDeleteHabit: (Habit) -> Void
     @State private var showsCreation = false
     @State private var selectedHabitID: UUID?
     @State private var weekSelection = TaskDaySelection()
     @State private var logSelection: HabitLogSelection?
+    @State private var deletion: Habit?
     private var selectedHabit: Habit? { store.habits.first { $0.id == selectedHabitID } ?? store.habits.first }
     private var days: [Date] { HabitDates.weekDays(containing: weekSelection.date(today: today, calendar: store.calendar), calendar: store.calendar) }
 
@@ -60,13 +63,21 @@ struct HabitTrackerView: View {
         .foregroundStyle(KeepTheme.ink).tint(KeepTheme.accentStrong)
         .sheet(isPresented: $showsCreation) { HabitCreationDialog(store: store, today: today) }
         .sheet(item: $logSelection) { selection in HabitAmountDialog(selection: selection, store: store, today: today) }
+        .sheet(item: $deletion) { habit in
+            HabitDeletionDialog(habit: habit, canDelete: canDeleteHabit && store.canEdit && store.habits.contains(where: { $0.id == habit.id })) {
+                onDeleteHabit(habit)
+            }
+        }
     }
     private var weekProgress: some View {
         HabitWeekProgress(store: store, days: days, today: today, selectedID: selectedHabit?.id, onSelect: { selectedHabitID = $0.id },
             onLogAmount: { logSelection = $0 }, previousWeek: { weekSelection.move(by: -7, today: today, calendar: store.calendar) },
             nextWeek: { weekSelection.move(by: 7, today: today, calendar: store.calendar) }, goToToday: { weekSelection.goToToday() })
     }
-    private var statistics: some View { HabitStatisticsView(store: store, habit: selectedHabit, today: today, onLogAmount: { logSelection = $0 }) }
+    private var statistics: some View {
+        HabitStatisticsView(store: store, habit: selectedHabit, today: today, onLogAmount: { logSelection = $0 },
+                            canDelete: canDeleteHabit, onDelete: { deletion = $0 })
+    }
 }
 
 #Preview("Habit tracker") {

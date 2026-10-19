@@ -171,6 +171,15 @@ struct HabitStatistics {
         save()
     }
 
+    func delete(habitID: UUID) {
+        guard canEdit, habits.contains(where: { $0.id == habitID }) else { return }
+        archive.habits.removeAll { $0.id == habitID }
+        archive.logs.removeAll { $0.habitID == habitID }
+        archive.consumedTimerGoals?[habitID] = nil
+        rebuildProgressIndex()
+        save()
+    }
+
     func weeklyAmount(for habit: Habit, today: Date = .now) -> Int {
         TimesheetWeek(containing: today, calendar: calendar).days.filter { $0.date <= today }.reduce(0) {
             $0 + amount(for: habit, on: $1.id)

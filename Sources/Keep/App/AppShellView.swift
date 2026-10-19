@@ -78,7 +78,7 @@ struct AppShellView: View {
                             .allowsHitTesting(selectedTab == .dashboard)
                             .accessibilityHidden(selectedTab != .dashboard)
 
-                        HabitTrackerView(store: habits, today: workspace.today)
+                        HabitTrackerView(store: habits, today: workspace.today, canDeleteHabit: workspace.canTrack, onDeleteHabit: { workspace.deleteHabit($0) })
                             .opacity(selectedTab == .habits ? 1 : 0)
                             .allowsHitTesting(selectedTab == .habits)
                             .accessibilityHidden(selectedTab != .habits)

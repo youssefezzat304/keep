@@ -307,6 +307,19 @@ final class WorkspaceModel {
         save(at: instant)
     }
 
+    func deleteHabit(_ habit: Habit, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
+        guard canTrack, let habits, habits.canEdit, habits.habits.contains(where: { $0.id == habit.id }) else { return }
+        synchronize(at: instant, date: date)
+        if taskReference == .habit(id: habit.id) {
+            taskName = activeTaskName
+            taskReference = nil
+            habitNameExtension = nil
+        }
+        habits.delete(habitID: habit.id)
+        if isRecording(at: instant) { rememberCurrentTask(on: date) }
+        save(at: instant)
+    }
+
     private func linkedTitle(_ reference: TaskReference?) -> String? {
         switch reference {
         case .task(let id, let day): tasks?.archive.days[day]?.first { $0.id == id }?.title

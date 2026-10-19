@@ -75,6 +75,7 @@ final class WallpaperLibrary {
     private(set) var isLoading = false
     private(set) var error: String?
     @ObservationIgnored private var configuration: WallpaperConfiguration?
+    @ObservationIgnored private weak var preferences: AppPreferences?
     @ObservationIgnored private var folder: URL?
     @ObservationIgnored private var files: [URL] = []
     @ObservationIgnored private var cycle = WallpaperCycle()
@@ -119,6 +120,7 @@ final class WallpaperLibrary {
     }
 
     func configure(_ newValue: WallpaperConfiguration, preferences: AppPreferences) {
+        self.preferences = preferences
         guard configuration != newValue else { return }
         let needsReload = configuration?.bookmark != newValue.bookmark || configuration?.source != newValue.source
         let orderChanged = configuration?.order != newValue.order
@@ -241,7 +243,7 @@ final class WallpaperLibrary {
                     defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
                     let fresh = try folder.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
                                                        includingResourceValuesForKeys: nil, relativeTo: nil)
-                    preferences.setFolder(bookmark: fresh, name: folder.lastPathComponent)
+                    preferences.setFolder(bookmark: fresh, name: folder.lastPathComponent, preservingSelection: true)
                     // Retain the refreshed identity so the shell does not restart this load.
                     self?.configuration = preferences.snapshot.wallpaperConfiguration
                 }
@@ -253,6 +255,11 @@ final class WallpaperLibrary {
                 guard let self, self.generation == token else { return }
                 self.folder = folder; self.files = files; self.count = files.count
                 self.cycle.reset(count: files.count, shuffled: self.configuration?.order == .shuffle)
+                // Match an enumerated file rather than trusting a saved name as a path.
+                if let name = preferences.snapshot.selectedWallpaperName,
+                   let index = files.firstIndex(where: { $0.lastPathComponent == name }) {
+                    self.cycle.select(index)
+                }
                 guard let index = self.cycle.current else {
                     self.isLoading = false
                     self.error = "No wallpapers found. Choose a folder containing images or MP4 videos."
@@ -287,6 +294,7 @@ final class WallpaperLibrary {
                 self.image = image; self.decodedBackdrop = NSImage(data: data.artwork.wash)
                 self.decodedPalette = data.artwork.palette
                 self.isLoading = false; self.error = nil
+                self.preferences?.rememberWallpaper(named: data.url.lastPathComponent, bookmark: self.configuration?.bookmark)
                 self.armRotation()
             } catch {
                 guard !Task.isCancelled, let self, self.generation == token else { return }

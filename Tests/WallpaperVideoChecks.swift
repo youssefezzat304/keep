@@ -48,6 +48,11 @@ private final class VideoFixtureWindow: NSWindow {
         try await waitUntil { !library.isLoading }
         expect(library.error == nil && library.count == 3 && library.video?.url.resolvingSymlinksInPath() == videoURL.resolvingSymlinksInPath() && library.image != nil, "MP4 selection creates a poster and a video resource")
         expect(library.backdrop(for: .folder) != nil && library.palette(for: .folder) != nil, "Video poster feeds existing wash/palette pipeline")
+        let restored = WallpaperLibrary()
+        restored.configure(preferences.snapshot.wallpaperConfiguration, preferences: preferences)
+        try await waitUntil { !restored.isLoading }
+        expect(restored.video?.url == library.video?.url && restored.image != nil, "Reload restores the selected video and its poster")
+        restored.shutdown()
         guard let video = library.video else { preconditionFailure("No video selected") }
         let playback = WallpaperVideoPlayback()
         playback.configure(video, active: true) { _ in preconditionFailure("Valid video failed") }
@@ -91,7 +96,7 @@ private final class VideoFixtureWindow: NSWindow {
         expect(library.video == nil && library.image == nil && library.error == nil, "Switching sources fences an in-flight video/poster load")
         preferences.wallpaperSource = .folder; library.configure(preferences.snapshot.wallpaperConfiguration, preferences: preferences)
         try await waitUntil { !library.isLoading }
-        expect(library.video != nil, "Returning to the selected folder reloads video")
+        expect(library.video == nil && library.image != nil && preferences.snapshot.selectedWallpaperName == "02-still.png", "Returning to the folder restores the last successful still rather than the cancelled video selection")
         library.shutdown(); try await Task.sleep(for: .milliseconds(50))
         expect(library.video == nil, "Shutdown releases selected video access")
         let broken = root.appendingPathComponent("broken-only", isDirectory: true)

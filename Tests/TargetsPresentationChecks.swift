@@ -53,7 +53,7 @@ import SwiftUI
                 try await render(ProjectGoalsDialog(workspace: workspace, project: project).keepAppearance(appearance), size: NSSize(width: 478, height: 450), to: output.appendingPathComponent("project-goals-\(appearance.rawValue).png"))
             }
             try await render(DashboardProjectsView(workspace: workspace).keepAppearance(appearance), size: NSSize(width: 580, height: 430), to: output.appendingPathComponent("projects-narrow-\(appearance.rawValue).png"))
-            try await render(HabitStatisticsView(store: habits, habit: reading, today: .now, onLogAmount: { _ in }).padding(20).background(KeepTheme.paper).keepAppearance(appearance), size: NSSize(width: 450, height: 650), to: output.appendingPathComponent("habit-progress-\(appearance.rawValue).png"))
+            try await render(HabitStatisticsView(store: habits, habit: reading, today: .now, onLogAmount: { _ in }, onDelete: { _ in }).padding(20).background(KeepTheme.paper).keepAppearance(appearance), size: NSSize(width: 450, height: 650), to: output.appendingPathComponent("habit-progress-\(appearance.rawValue).png"))
         }
         workspace.shutdown()
         print("Rendered \(rendered) native target/Stats layouts in \(output.path)")
