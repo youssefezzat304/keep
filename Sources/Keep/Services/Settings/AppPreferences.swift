@@ -76,6 +76,7 @@ nonisolated enum MenuBarTimer: String, Codable, CaseIterable, Identifiable {
 }
 
 nonisolated struct SettingsArchive: Codable, Equatable {
+    var dashboardPage: DashboardPage?
     var appearance: AppAppearance = .light
     var wallpaperSource: WallpaperSource = .cozy
     var folderBookmark: Data?
@@ -165,6 +166,10 @@ final class AppPreferences {
         reload()
     }
 
+    var dashboardPage: DashboardPage {
+        get { snapshot.dashboardPage ?? .timesheet }
+        set { update { $0.dashboardPage = newValue } }
+    }
     var appearance: AppAppearance {
         get { snapshot.appearance }
         set { update { $0.appearance = newValue } }

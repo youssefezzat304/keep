@@ -2,13 +2,6 @@
 
 Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` for documentation ownership and retention rules.
 
-### D090 — Project-stacked trend and today’s hourly focus (2026-10-13)
-
-- [USER] Stack Your focus over time bars by project using the saved project colors, keep Focus by weekday unchanged, and make Focus by hour always show the current day independently of the selected week.
-- [CODE] Direct and cached Stats aggregation retain per-project seconds in every daily/weekly/monthly trend bucket. Segments use project identity and current catalog names/accents; a wrapping legend and hover/keyboard breakdown expose names, durations and shares. Date/project/task filters and recorded-session totals retain their existing scope.
-- [CODE] A separate today-only hour series follows the workspace’s current civil-day key, retains recorded local-hour attribution and project/task filters, clips unfinished records to now, and advances at midnight through the existing refresh/cache lifecycle. The hourly chart labels Today and its date and shows an explicit empty state without falling back to yesterday. Period hourly totals remain available to existing CSV exports.
-- [TOOL] Ad hoc Xcode build and 423 aggregation, cache, graph, export and native viewport checks passed. Eight default/narrow light/dark graph renders were inspected. Focused checks cover grouped buckets, same-name projects, filters, live corrections/removal, future clipping, DST and midnight/no-session days. Native keyboard/accessible selection, its focus ring and the visible per-project duration/share breakdown were inspected. macOS 15 execution and distribution signing were not validated.
-
 ### D091 — Calendar project blocks and shaded gaps (2026-10-15)
 
 - [USER] Display consecutive entries from the same project in one Calendar block, shade gaps grey, and keep different projects separate.
@@ -65,3 +58,10 @@ Only the ten most recent decisions are retained, oldest first. See `AGENTS.md` f
 - [USER] Add a habit delete button and a warning before deletion.
 - [CODE] The selected habit overview exposes Delete beside Edit with a responsive action row. A themed confirmation names the habit, warns that its check-ins/streaks and recurring task rows are removed permanently, and offers Cancel/Escape. Recorded focus time remains in Timesheet/Calendar. WorkspaceModel settles recording before deleting; an active habit becomes an unlinked task with its displayed name preserved, and timers continue. HabitStore removes the definition, manual logs and consumed completion markers, invalidates progress/activity caches and persists through the existing protected store.
 - [TOOL] Ad hoc Xcode build and 188 deletion, habit and task-integration checks passed, including persistence, protected corrupt archives, cache invalidation, concurrent timers and preserved historical recording. Ten native layouts rendered across default/narrow/wide and light/dark. Inspected default/narrow tracker layouts and both warning appearances; an isolated app verified the Delete route and Escape cancellation without touching live data. macOS 15 execution and distribution signing were not exercised.
+
+### D100 — Shared Calendar block editing and remembered Dashboard view (2026-10-22)
+
+- [USER] Thin the menu-bar scrollbar, tint Quit reddish, edit Timesheet time through Calendar blocks instead of daily duration entry, remove the duration-format helper, and persist the last Dashboard view. Preserve older untimed adjustments separately.
+- [CODE] Timesheet cells now open the day's project runs, grouped from the whole day using Calendar's rules before filtering by project. Blocks share Calendar's individual session editor/delete action; new entries preselect the cell's project/date. Older untimed positive/negative corrections remain visible separately and retain the existing delta semantics. No timestamps are inferred or saved time discarded.
+- [CODE] Dashboard page is an optional validated local preference shared across windows and reloads; older settings default to Timesheet. Navigation remains device-local through portable backup restore. Menu-bar lists use a three-point indicator over native SwiftUI scrolling, with a wider drag target and accessibility adjustment; the Quit icon uses the existing warm red accent.
+- [TOOL] Ad hoc Xcode build and 308 focused/regression checks passed across shared day blocks, session edits/deletion/addition, preserved positive/negative adjustments, reload, navigation migration/new-process persistence, corrected goals, Calendar grouping and menu-bar sizing/preferences. Forty-four native layouts rendered, including default/narrow and light/dark. Native input verified Timesheet-to-session editing and saved totals, plus Calendar selection after Dashboard recreation. Inspected the slim indicator and its exposed accessibility actions. Drag scrolling, macOS 15 execution and distribution signing were not exercised.

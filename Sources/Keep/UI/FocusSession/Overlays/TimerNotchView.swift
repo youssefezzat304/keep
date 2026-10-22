@@ -48,10 +48,16 @@ struct TimerNotchView: View {
     private func timerIcon(_ timer: FocusTimer) -> some View {
         Image(systemName: timer.phase(at: instant) == .stopped ? "pause.fill" : timer.mode == .flow ? "infinity" : timer.interval == .rest ? "cup.and.saucer" : "timer")
             .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(timerColor(timer))
     }
     private func timerText(_ timer: FocusTimer) -> some View {
         Text(TimerNotchFormat.display(timer, at: instant)).font(.system(size: 14, weight: .medium)).monospacedDigit()
             .lineLimit(1).fixedSize()
+            .foregroundStyle(timerColor(timer))
+    }
+    private func timerColor(_ timer: FocusTimer) -> Color {
+        if timer.phase(at: instant) == .stopped { return .white }
+        return timer.mode == .flow ? KeepTheme.flowNotchInk : KeepTheme.accentStrong
     }
     private func readout(_ timer: FocusTimer) -> some View {
         HStack(spacing: 8) { timerIcon(timer); timerText(timer) }

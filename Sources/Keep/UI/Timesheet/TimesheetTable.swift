@@ -52,7 +52,7 @@ struct TimesheetTable: View {
                 .strokeBorder(KeepTheme.border, lineWidth: 1)
                 .allowsHitTesting(false)
         }
-        .accessibilityLabel("Weekly timesheet. Click a time to edit hours, minutes, and seconds. Scroll horizontally for all seven days on smaller windows.")
+        .accessibilityLabel("Weekly timesheet. Click a time to edit its recorded Calendar blocks. Scroll horizontally for all seven days on smaller windows.")
     }
 
     private func header(dayWidth: CGFloat) -> some View {
@@ -113,13 +113,12 @@ struct TimesheetTable: View {
             ForEach(week.days) { day in
                 TimesheetTimeCell(
                     seconds: projection.seconds(projectID: project.id, dayID: day.id),
-                    projectName: project.name,
+                    workspace: workspace,
+                    project: project,
                     day: day,
                     color: project.accentColor,
                     canEdit: workspace.canTrack
-                ) { seconds in
-                    workspace.edit(seconds: seconds, project: project, dayID: day.id)
-                }
+                )
                 .frame(width: dayWidth - 16)
                 .frame(width: dayWidth, height: rowHeight)
                 .background { Rectangle().fill(day.isWeekend ? KeepTheme.paper : .clear) }

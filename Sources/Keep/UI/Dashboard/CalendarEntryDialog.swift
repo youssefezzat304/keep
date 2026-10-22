@@ -14,10 +14,10 @@ struct CalendarEntryDialog: View {
     @Environment(\.self) private var environment
     private enum Field: Hashable { case project, task, date }
 
-    init(workspace: WorkspaceModel, initialDate: Date, onAdded: @escaping (RecordedSession) -> Void = { _ in }) {
+    init(workspace: WorkspaceModel, initialDate: Date, initialProjectID: String? = nil, onAdded: @escaping (RecordedSession) -> Void = { _ in }) {
         self.workspace = workspace
         self.onAdded = onAdded
-        _draft = State(initialValue: CalendarEntryDraft(projectID: workspace.selectedProject?.id ?? FocusProject.unassigned.id, date: initialDate))
+        _draft = State(initialValue: CalendarEntryDraft(projectID: initialProjectID ?? workspace.selectedProject?.id ?? FocusProject.unassigned.id, date: initialDate))
     }
     private var validName: Bool { draft.task.trimmingCharacters(in: .whitespacesAndNewlines).count <= 200 }
     private var project: FocusProject { workspace.projects.first { $0.id == draft.projectID } ?? .unassigned }

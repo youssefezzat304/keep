@@ -39,7 +39,7 @@ struct MenuBarTargetPicker: View {
                 .onSubmit(submit)
                 .disabled(!workspace.canTrack)
 
-            KeepScrollView {
+            KeepSlimScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     heading("Recent tasks")
                     ForEach(recentTasks) { task in

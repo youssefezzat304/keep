@@ -32,7 +32,7 @@ struct TimesheetView: View {
             HStack(spacing: 6) {
                 Image(systemName: "clock")
                     .accessibilityHidden(true)
-                Text("Click any time to edit · h:mm:ss")
+                Text("Click any time to edit its Calendar blocks")
                 Spacer()
             }
             .font(.system(size: 11))

@@ -1,33 +1,23 @@
 import SwiftUI
 
-enum DashboardPage: String, CaseIterable, Identifiable {
-    case timesheet, calendar, projects
-    var id: String { rawValue }
-    var title: String { rawValue.capitalized }
-    var symbol: String {
-        switch self {
-        case .timesheet: "tablecells"
-        case .calendar: "calendar"
-        case .projects: "folder"
-        }
-    }
-}
-
 /// A shared browsed week and mounted Timesheet, Calendar, and Projects viewports.
 struct DashboardView: View {
     let workspace: WorkspaceModel
     let isVisible: Bool
     @State private var model = DashboardQueryModel()
-    @State private var page: DashboardPage
+    private let preferences: AppPreferences?
+    @State private var localPage: DashboardPage
+    private var page: DashboardPage { preferences?.dashboardPage ?? localPage }
     @State private var weekOffset = 0
     @State private var showsProjectCreation = false
     @State private var showsProjectPicker = false
     @State private var showsEntryCreation = false
 
-    init(workspace: WorkspaceModel, initialPage: DashboardPage = .timesheet, isVisible: Bool = true) {
+    init(workspace: WorkspaceModel, preferences: AppPreferences? = nil, initialPage: DashboardPage = .timesheet, isVisible: Bool = true) {
         self.workspace = workspace
         self.isVisible = isVisible
-        _page = State(initialValue: initialPage)
+        self.preferences = preferences
+        _localPage = State(initialValue: initialPage)
     }
 
     private var week: TimesheetWeek {
@@ -168,7 +158,10 @@ struct DashboardView: View {
     private var pagePicker: some View {
         HStack(spacing: 4) {
             ForEach(DashboardPage.allCases) { destination in
-                Button { page = destination } label: {
+                Button {
+                    if let preferences { preferences.dashboardPage = destination }
+                    else { localPage = destination }
+                } label: {
                     Label(destination.title, systemImage: destination.symbol)
                 }
                 .buttonStyle(KeepButtonStyle(emphasis: page == destination ? .primary : .quiet))

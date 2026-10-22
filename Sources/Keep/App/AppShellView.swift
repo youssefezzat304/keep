@@ -73,7 +73,7 @@ struct AppShellView: View {
                         .allowsHitTesting(selectedTab == .focus)
                         .accessibilityHidden(selectedTab != .focus)
 
-                        DashboardView(workspace: workspace, isVisible: selectedTab == .dashboard && !zen.isPresented)
+                        DashboardView(workspace: workspace, preferences: preferences, isVisible: selectedTab == .dashboard && !zen.isPresented)
                             .opacity(selectedTab == .dashboard ? 1 : 0)
                             .allowsHitTesting(selectedTab == .dashboard)
                             .accessibilityHidden(selectedTab != .dashboard)

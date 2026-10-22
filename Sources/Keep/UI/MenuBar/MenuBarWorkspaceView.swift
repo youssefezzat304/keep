@@ -57,7 +57,7 @@ struct MenuBarWorkspaceView: View {
                         .popover(isPresented: $showsIssues) { issues }
                 }
                 Button("Open Keep") { showWorkspace() }.buttonStyle(KeepButtonStyle(emphasis: .quiet))
-                Button { NSApplication.shared.terminate(nil) } label: { Image(systemName: "power").frame(width: 12) }
+                Button { NSApplication.shared.terminate(nil) } label: { Image(systemName: "power").foregroundStyle(KeepTheme.accentStrong).frame(width: 12) }
                     .buttonStyle(KeepButtonStyle(emphasis: .quiet))
                     .accessibilityLabel("Quit Keep").help("Quit Keep")
             }
@@ -218,7 +218,7 @@ struct MenuBarWorkspaceView: View {
             if rows.isEmpty && !tasks.loadFailed {
                 Text("No tasks planned for today.").font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk)
             } else {
-                KeepScrollView {
+                KeepSlimScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(rows, id: \.listID) { task in
                             Toggle(isOn: completionBinding(for: task, on: day)) {
@@ -288,7 +288,7 @@ struct MenuBarWorkspaceView: View {
     }
 
     private var issues: some View {
-        KeepScrollView {
+        KeepSlimScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let error = workspace.persistenceError {
                     errorMessage(error) { workspace.retryPersistence() }
