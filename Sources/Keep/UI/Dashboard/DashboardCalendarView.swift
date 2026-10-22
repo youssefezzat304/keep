@@ -239,7 +239,9 @@ struct CalendarSessionDetail: View {
                 .font(.system(size: 11)).foregroundStyle(KeepTheme.mutedInk)
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(KeepTheme.accentStrong).fixedSize(horizontal: false, vertical: true) }
             HStack {
-                Button("Delete…") { confirmingDelete = true }
+                Button(role: .destructive) { confirmingDelete = true } label: {
+                    Text("Delete…").foregroundStyle(KeepTheme.accentStrong)
+                }
                     .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!workspace.canTrack)
                 Spacer()
                 Button("Cancel") { dismiss() }.buttonStyle(KeepButtonStyle(emphasis: .quiet)).keyboardShortcut(.cancelAction)
@@ -251,13 +253,13 @@ struct CalendarSessionDetail: View {
         .padding(28).frame(width: 420)
         .background(KeepTheme.surface).foregroundStyle(KeepTheme.ink)
         .environment(\.calendar, calendar).environment(\.timeZone, calendar.timeZone)
-        .alert("Delete this session?", isPresented: $confirmingDelete) {
-            Button("Delete", role: .destructive) {
-                do { try workspace.deleteSession(id: session.id); dismiss() }
-                catch { self.error = error.localizedDescription }
+        .sheet(isPresented: $confirmingDelete, onDismiss: {
+            if workspace.readIndex.sessions[selectedSession.id] == nil { dismiss() }
+        }) {
+            SessionDeletionDialog(session: session, canDelete: workspace.canTrack && workspace.readIndex.sessions[session.id] != nil) {
+                try workspace.deleteSession(id: session.id)
             }
-            Button("Cancel", role: .cancel) {}
-        } message: { Text("This also subtracts its recorded time from Timesheet.") }
+        }
     }
 
     @Environment(\.self) private var environment
