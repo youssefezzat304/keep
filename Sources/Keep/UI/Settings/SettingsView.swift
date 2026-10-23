@@ -10,6 +10,7 @@ struct SettingsView: View {
     var updater = AppUpdater()
     var backup: BackupModel?
     var exportCapture: SnapshotCapture?
+    var importer: ImportCoordinator?
     var isVisible = true
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFolder = false
@@ -200,6 +201,7 @@ struct SettingsView: View {
             }
 
             if let exportCapture { ExportSettingsView(capture: exportCapture) }
+            if let importer { ImportSettingsView(model: importer) }
             if let backup { BackupSettingsView(backup: backup) }
 
             updates

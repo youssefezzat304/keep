@@ -309,7 +309,7 @@ nonisolated struct StatsSnapshot: Sendable {
         }
         return StatsSnapshot(range: range, total: total, previousTotal: previousTotal, activeDays: selectedDaily.count,
             pomodoros: completed,
-            pomodorosAvailable: input.historyStartedAt.map { dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
+            pomodorosAvailable: completed > 0 || (input.historyStartedAt.map { dayID($0, calendar: calendar) <= effectiveEnd } ?? false),
             adjustedTotal: adjusted, dailyFocus: selectedDaily, focusActivity: FocusActivitySnapshot(range: range, now: now, calendar: calendar).filling(daily), buckets: buckets,
             distribution: distribution.values.sorted { $0.seconds == $1.seconds ? $0.name.localizedStandardCompare($1.name) == .orderedAscending : $0.seconds > $1.seconds },
             weekdays: weekdays, hours: hours, todayID: todayID, todayHours: todayHours, tasksCompleted: taskDays.reduce(0) { $0 + $1.completed }, tasksTotal: taskDays.reduce(0) { $0 + $1.total },

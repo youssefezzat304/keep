@@ -20,9 +20,11 @@ struct ExportSettingsView: View {
                 row("Data") {
                     KeepSelectionMenu(label: "Export data", selection: $model.data, options: ExportData.allCases, title: { $0.rawValue }).frame(width: 180)
                 }
-                dateField("From", date: $model.from)
-                dateField("Through", date: $model.through)
-                if model.data != .taskEstimates {
+                if model.data != .all {
+                    dateField("From", date: $model.from)
+                    dateField("Through", date: $model.through)
+                }
+                if model.data != .taskEstimates, model.data != .all {
                 row("Project") {
                     Button { showingProjects = true } label: {
                         Text(projectTitle).lineLimit(1)
@@ -32,7 +34,7 @@ struct ExportSettingsView: View {
                     StatsProjectPicker(options: model.projects, selection: model.projectID) { model.projectID = $0; model.taskKeys = nil }
                 }
                 }
-                if model.data != .taskEstimates, model.data != .timesheet, model.projectID != nil {
+                if model.data != .all, model.data != .taskEstimates, model.data != .timesheet, model.projectID != nil {
                     row("Tasks") {
                         Button { showingTasks = true } label: { Text(taskTitle) }
                             .buttonStyle(KeepButtonStyle()).accessibilityLabel("Export tasks").accessibilityValue(taskTitle)

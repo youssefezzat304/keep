@@ -3,6 +3,12 @@ import Foundation
 nonisolated enum ExportReports {
     static func make(_ request: ExportRequest, snapshot s: PersistentSnapshot) throws -> [ExportReport] {
         try request.validate(now: s.capturedAt, calendar: s.calendar)
+        if request.data == .all {
+            let payload = try KeepDataPayload(s)
+            let envelope = try KeepDataEnvelope(payload, date: s.capturedAt, appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+            return [ExportReport(filename: request.filename(calendar: s.calendar), contents: try encoder.encode(envelope))]
+        }
         try TimesheetPersistence.validate(s.workspace)
         if request.data == .stats || request.data == .taskEstimates { try s.backupPayload().validate() }
         let calendar = s.calendar
@@ -54,7 +60,7 @@ nonisolated enum ExportReports {
         let coverage: String
         if let since = input.historyStartedAt, since < stats.range.end && since <= s.capturedAt {
             coverage = since <= stats.range.start ? "tracked" : "partial"
-        } else { coverage = "unavailable" }
+        } else { coverage = stats.pomodoros > 0 ? "partial" : "unavailable" }
         let since = input.historyStartedAt.map { timestamp($0, zone: "UTC") } ?? ""
         let previous = StatsSnapshot.comparisonRange(query: input.query, range: stats.range, now: s.capturedAt, calendar: calendar)
         var reports: [ExportReport] = []

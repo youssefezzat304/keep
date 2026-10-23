@@ -370,7 +370,7 @@ actor StatsCache {
                 stackedBuckets[index].projects = StatsSnapshot.projectSegments(bucketProjects[index, default: [:]], projects: projectMap)
             }
             return StatsSnapshot(range: range, total: max(0, total), previousTotal: max(0, previousTotal), activeDays: activeDays,
-                pomodoros: pomodoros, pomodorosAvailable: historyStartedAt.map { StatsSnapshot.dayID($0, calendar: calendar) <= effectiveEnd } ?? false,
+                pomodoros: pomodoros, pomodorosAvailable: pomodoros > 0 || (historyStartedAt.map { StatsSnapshot.dayID($0, calendar: calendar) <= effectiveEnd } ?? false),
                 adjustedTotal: max(0, adjusted), dailyFocus: activityDaily, focusActivity: activityLayout.filling(annualDaily), buckets: stackedBuckets, distribution: distribution, weekdays: weekdays, hours: hours,
                 todayID: today, todayHours: todayHours.map { max(0, $0) },
                 tasksCompleted: summary.tasksCompleted, tasksTotal: summary.tasksTotal, habits: summary.habits, weeklyGoalSeconds: max(0, weeklyGoal),

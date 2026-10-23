@@ -76,6 +76,13 @@ struct HabitStatistics {
         onReload?()
     }
 
+    /// Import publishes only after every store has installed the committed values.
+    func installImportedData(_ value: HabitArchive) {
+        archive = value; loadFailed = false; persistenceError = nil; needsSave = false
+        recordedSeconds = [:]; revision &+= 1
+        rebuildProgressIndex()
+    }
+
     func activity(today: Date) -> HabitActivitySnapshot {
         _ = archive // Observe manual changes even when the prepared snapshot is cached.
         _ = revision // Automatic progress and corrections also invalidate cached consumers.

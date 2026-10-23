@@ -1,7 +1,7 @@
 import Foundation
 
 /// A real focus completion, independent of recording segments and subsequent time edits.
-nonisolated struct CompletedPomodoro: Identifiable, Codable, Sendable {
+nonisolated struct CompletedPomodoro: Identifiable, Codable, Sendable, Equatable {
     let id: UUID
     let project: FocusProject
     let task: String
@@ -11,7 +11,7 @@ nonisolated struct CompletedPomodoro: Identifiable, Codable, Sendable {
     let focusDuration: TimeInterval
 }
 
-nonisolated struct TaskActivity: Identifiable, Codable, Sendable {
+nonisolated struct TaskActivity: Identifiable, Codable, Sendable, Equatable {
     let id: UUID
     var title: String
     var project: FocusProject
@@ -21,7 +21,7 @@ nonisolated struct TaskActivity: Identifiable, Codable, Sendable {
     var habitNameExtension: String? = nil
 }
 
-nonisolated struct TimesheetEntry: Identifiable, Codable, Sendable {
+nonisolated struct TimesheetEntry: Identifiable, Codable, Sendable, Equatable {
     var id: String { "\(project.id)/\(dayID)" }
     var project: FocusProject
     let dayID: String
@@ -65,6 +65,15 @@ nonisolated struct TimesheetLedger: Codable {
     }
 
     init() {}
+
+    /// Import owns tracked data only. Timer configuration always comes from this Mac.
+    init(tracked data: TrackedWorkspace, configuration: TimesheetLedger = TimesheetLedger()) {
+        entries = data.entries; customProjects = data.customProjects; projectOverrides = data.projectOverrides
+        projectTargets = data.projectTargets; deletedProjectIDs = data.deletedProjectIDs
+        sessions = data.sessions; taskActivities = data.taskActivities; completedPomodoros = data.completedPomodoros
+        pomodoroHistoryStartedAt = data.pomodoroHistoryStartedAt
+        pomodoroSettings = configuration.pomodoroSettings; pomodoroPresets = configuration.pomodoroPresets
+    }
 
     private enum CodingKeys: String, CodingKey { case entries, customProjects, projectOverrides, projectTargets, deletedProjectIDs, pomodoroSettings, pomodoroPresets, sessions, taskActivities, completedPomodoros, pomodoroHistoryStartedAt }
 

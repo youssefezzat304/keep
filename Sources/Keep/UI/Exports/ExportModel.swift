@@ -41,7 +41,7 @@ import Observation
         through = calendar.startOfDay(for: date)
     }
     var calendar: Calendar { StatsSnapshot.calendar(capture.workspace.calendar) }
-    var request: ExportRequest { .init(data: data, from: from, through: through, projectID: data == .taskEstimates ? nil : projectID, taskKeys: data == .timesheet || data == .taskEstimates ? nil : taskKeys) }
+    var request: ExportRequest { .init(data: data, from: from, through: through, projectID: data == .taskEstimates || data == .all ? nil : projectID, taskKeys: data == .timesheet || data == .taskEstimates || data == .all ? nil : taskKeys) }
     var valid: Bool { (try? request.validate(now: now(), calendar: calendar)) != nil }
     var projects: [StatsInput.Project] {
         _ = capture.workspace.readIndex.metadataRevision
@@ -62,7 +62,7 @@ import Observation
         let snapshot: PersistentSnapshot
         do {
             try request.validate(now: date, calendar: calendar)
-            snapshot = try capture.capture(request.data == .stats || request.data == .taskEstimates ? .stats : .workspace, at: checkpoint, date: date)
+            snapshot = try capture.capture(request.data == .stats || request.data == .taskEstimates || request.data == .all ? .stats : .workspace, at: checkpoint, date: date)
         } catch { status = .error(error.localizedDescription); return }
         let id = UUID(); token = id; status = .preparing
         operation = Task { [weak self, files, panel] in

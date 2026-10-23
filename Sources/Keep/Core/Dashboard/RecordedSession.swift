@@ -1,7 +1,7 @@
 import Foundation
 
 /// Actual timer intervals, saved alongside daily totals. Manual totals have no timestamps.
-nonisolated struct RecordedSession: Identifiable, Codable, Sendable {
+nonisolated struct RecordedSession: Identifiable, Codable, Sendable, Equatable {
     enum Source: String, Codable, Sendable {
         case pomodoro, flow, manual
         var title: String {

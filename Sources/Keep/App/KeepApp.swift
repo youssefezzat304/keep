@@ -13,6 +13,7 @@ struct keepApp: App {
     @State private var tasks: DailyTaskStore
     @State private var habits: HabitStore
     @State private var backup: BackupModel
+    @State private var importer: ImportCoordinator
     @State private var loginItem = LoginItemModel()
     init() {
         let gate = BackupRestoreGate()
@@ -40,13 +41,15 @@ struct keepApp: App {
         music.selectChannel(preferences.selectedChannel)
         _preferences = State(initialValue: preferences)
         _music = State(initialValue: music)
-        _backup = State(initialValue: BackupModel(workspace: workspace, tasks: tasks, habits: habits, preferences: preferences, music: music, gate: gate, transaction: transaction))
+        let backup = BackupModel(workspace: workspace, tasks: tasks, habits: habits, preferences: preferences, music: music, gate: gate, transaction: transaction)
+        _backup = State(initialValue: backup)
+        _importer = State(initialValue: ImportCoordinator(capture: SnapshotCapture(workspace: workspace, tasks: tasks, habits: habits, preferences: preferences, gate: gate), gate: gate, transaction: transaction, backup: backup))
         _updater = State(initialValue: AppUpdater(workspace: workspace, preferences: preferences))
     }
 
     var body: some Scene {
         WindowGroup("Keep", id: "workspace") {
-            AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers, loginItem: loginItem, updater: updater, backup: backup)
+            AppShellView(workspace: workspace, music: music, tasks: tasks, habits: habits, preferences: preferences, wallpapers: wallpapers, loginItem: loginItem, updater: updater, backup: backup, importer: importer)
                 .environment(timerSounds)
                 .id(backup.gate.generation)
                 .disabled(backup.gate.isLocked)

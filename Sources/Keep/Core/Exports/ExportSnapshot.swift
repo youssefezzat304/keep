@@ -17,9 +17,9 @@ nonisolated struct PersistentSnapshot: Sendable {
 }
 
 nonisolated enum ExportData: String, CaseIterable, Sendable {
-    case calendar = "Calendar", timesheet = "Timesheet", stats = "Stats", taskEstimates = "Task estimates"
-    var format: String { self == .stats ? "CSV reports (.zip)" : "CSV (.csv)" }
-    var fileExtension: String { self == .stats ? "zip" : "csv" }
+    case calendar = "Calendar", timesheet = "Timesheet", stats = "Stats", taskEstimates = "Task estimates", all = "Export all"
+    var format: String { self == .all ? "Keep data archive (.keepdata) · configuration excluded" : self == .stats ? "CSV reports (.zip)" : "CSV (.csv)" }
+    var fileExtension: String { self == .all ? "keepdata" : self == .stats ? "zip" : "csv" }
 }
 
 nonisolated struct ExportRequest: Sendable {
@@ -34,6 +34,7 @@ nonisolated struct ExportRequest: Sendable {
                    projectID: projectID, taskKeys: data == .timesheet ? nil : taskKeys)
     }
     func validate(now: Date, calendar: Calendar) throws {
+        if data == .all { return }
         guard from.timeIntervalSince1970.isFinite, through.timeIntervalSince1970.isFinite,
               calendar.startOfDay(for: from) <= calendar.startOfDay(for: through),
               (data == .taskEstimates || calendar.startOfDay(for: through) <= calendar.startOfDay(for: now)),
@@ -41,7 +42,8 @@ nonisolated struct ExportRequest: Sendable {
               taskKeys == nil || (data != .timesheet && projectID != nil && taskKeys?.isEmpty == false) else { throw ExportFailure.invalidRequest }
     }
     func filename(calendar: Calendar) -> String {
-        "Keep-\(data.rawValue)-\(StatsSnapshot.dayID(from, calendar: calendar))-to-\(StatsSnapshot.dayID(through, calendar: calendar)).\(data.fileExtension)"
+        if data == .all { return "Keep-All-\(StatsSnapshot.dayID(through, calendar: calendar)).keepdata" }
+        return "Keep-\(data.rawValue)-\(StatsSnapshot.dayID(from, calendar: calendar))-to-\(StatsSnapshot.dayID(through, calendar: calendar)).\(data.fileExtension)"
     }
 }
 

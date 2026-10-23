@@ -110,6 +110,15 @@ struct BackupLocalState: Codable {
         }
     }
     func stop() { loop?.cancel(); loop = nil }
+
+    func dataDidImport() {
+        // Existing outbox versions remain valid historical backups. The next automatic
+        // checkpoint must compare the newly committed data, and no old preview may restore.
+        cancelPreview()
+        localState.lastChecksum = nil; localState.lastCreated = nil
+        do { if configurationError == nil { try saveState() } }
+        catch { status = .error("Imported data is saved, but backup status couldn’t be saved. Retry backup. " + error.localizedDescription) }
+    }
     private func saveState() throws {
         guard configurationError == nil else { throw BackupFailure.localDataUnavailable }
         defaults.set(try JSONEncoder().encode(localState), forKey: Self.stateKey)
