@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RemoveRowButton: View {
     let label: String
+    var destructive = false
     let action: () -> Void
     @State private var hovered = false
     @FocusState private var focused: Bool
@@ -10,7 +11,7 @@ struct RemoveRowButton: View {
         Button(action: action) {
             Image(systemName: "xmark")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(hovered ? KeepTheme.accentStrong : KeepTheme.mutedInk)
+                .foregroundStyle(destructive ? KeepTheme.danger : hovered ? KeepTheme.accentStrong : KeepTheme.mutedInk)
                 .frame(width: 28, height: 28)
                 .background(KeepTheme.mutedWarm.opacity(hovered ? 0.7 : 0.3), in: RoundedRectangle(cornerRadius: 7))
                 .contentShape(RoundedRectangle(cornerRadius: 7))

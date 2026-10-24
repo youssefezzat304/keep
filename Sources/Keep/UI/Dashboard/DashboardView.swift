@@ -82,8 +82,8 @@ struct DashboardView: View {
         .foregroundStyle(KeepTheme.ink)
         .tint(KeepTheme.accentStrong)
         .sheet(isPresented: $showsProjectCreation) {
-            ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
-                let project = try workspace.createProject(name: name, accent: accent)
+            ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent, rate in
+                let project = try workspace.createProject(name: name, accent: accent, hourlyRate: rate)
                 if page == .timesheet { workspace.addProject(project, on: week.days.first?.date ?? workspace.today) }
             }
         }
@@ -123,12 +123,13 @@ struct DashboardView: View {
                 Button { if page == .timesheet { showsProjectPicker = true } else { showsProjectCreation = true } } label: {
                     Label("Add project", systemImage: "plus")
                 }
-                .buttonStyle(KeepButtonStyle(emphasis: .primary)).disabled(!workspace.canTrack)
+                .buttonStyle(KeepButtonStyle(emphasis: .primary)).disabled(!workspace.canTrack || (page == .projects && !workspace.canCreateProject))
+                .help(workspace.canCreateProject ? "Add project" : "All 30 project colors are assigned")
                 .popover(isPresented: $showsProjectPicker, arrowEdge: .bottom) {
-                    ProjectPicker(projects: workspace.projects, selectedProject: nil, onCreate: {
+                    ProjectPicker(projects: workspace.projects, selectedProject: nil, onCreate: workspace.canCreateProject ? {
                         showsProjectPicker = false
                         showsProjectCreation = true
-                    }) { project in
+                    } : nil) { project in
                         workspace.addProject(project ?? .unassigned, on: week.days.first?.date ?? workspace.today)
                         showsProjectPicker = false
                     }

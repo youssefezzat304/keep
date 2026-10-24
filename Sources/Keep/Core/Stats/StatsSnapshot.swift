@@ -70,6 +70,7 @@ nonisolated struct StatsInput: Sendable {
         let name: String
         let accent: String
         let deleted: Bool
+        var hourlyRate: ProjectHourlyRate? = nil
     }
     struct Session: Sendable {
         let projectID: String

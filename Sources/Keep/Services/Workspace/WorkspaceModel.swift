@@ -43,7 +43,8 @@ final class WorkspaceModel {
     }
 
     func installBackup(_ value: TimesheetLedger) {
-        ledger = value; _ = ledger.takeChanges()
+        ledger = value; ledger.normalizeProjectCatalog()
+        let catalogMigrated = !ledger.takeChanges().isEmpty
         readIndex.rebuild(ledger)
         pomodoroCompletion = nil
         pomodoro = FocusTimer(mode: .pomodoro); flow = FocusTimer(mode: .flow)
@@ -51,7 +52,7 @@ final class WorkspaceModel {
         selectedProject = nil; taskName = ""; taskReference = nil; lastTimesheetRemoval = nil
         habitNameExtension = nil
         recordingContext = nil; recordingSessionID = UUID(); checkpoint = nil; checkpointDate = nil
-        ledgerDirty = false; loadFailed = false; persistenceError = nil; lastSave = nil
+        ledgerDirty = catalogMigrated; loadFailed = false; persistenceError = nil; lastSave = nil
         refreshHabitProgress()
     }
 
@@ -111,7 +112,8 @@ final class WorkspaceModel {
             do { initialLedger = try persistence.load() }
             catch { failed = true }
         }
-        _ = initialLedger.takeChanges()
+        if !failed { initialLedger.normalizeProjectCatalog() }
+        let catalogMigrated = !initialLedger.takeChanges().isEmpty
         self.ledger = initialLedger
         readIndex = WorkspaceReadIndex(ledger: initialLedger)
         self.persistence = persistence
@@ -128,6 +130,7 @@ final class WorkspaceModel {
         loadFailed = failed
         if failed { persistenceError = "Couldn’t load your saved workspace. Retry before recording, editing time, or changing projects." }
         if let settings = self.ledger.pomodoroSettings { pomodoro.configure(settings) }
+        ledgerDirty = catalogMigrated
         reconcileProjectSelection()
         habits?.beforeManualEdit = { [weak self] in self?.synchronize() }
         habits?.onReload = { [weak self] in self?.refreshHabitProgress() }
@@ -136,8 +139,8 @@ final class WorkspaceModel {
         if !loadFailed, self.ledger.pomodoroHistoryStartedAt == nil {
             self.ledger.beginPomodoroHistory(at: date)
             ledgerDirty = true
-            save()
         }
+        if !loadFailed { save() }
     }
 
     func selectProject(_ project: FocusProject?, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
@@ -174,16 +177,19 @@ final class WorkspaceModel {
     }
 
     /// Catalog registration does not invent a Timesheet entry or change the active project.
-    func createProject(name: String, accent: FocusProject.Accent, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws -> FocusProject {
+    func createProject(name: String, accent: FocusProject.Accent, hourlyRate: ProjectHourlyRate? = nil, at instant: ContinuousClock.Instant = .now, date: Date = .now) throws -> FocusProject {
         guard canTrack else { throw ProjectCreationError.unavailable }
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 80 else { throw ProjectCreationError.invalidName }
-        guard accent != .neutral else { throw ProjectCreationError.invalidColor }
+        guard FocusProject.Accent.projectColors.contains(accent) else { throw ProjectCreationError.invalidColor }
         guard !(projects + [.unassigned]).contains(where: { $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) else {
             throw ProjectCreationError.duplicateName
         }
+        guard projects.count < 31 else { throw ProjectCreationError.projectLimit }
+        guard !projects.contains(where: { $0.accent == accent }) else { throw ProjectCreationError.colorInUse }
+        guard hourlyRate?.isValid != false else { throw ProjectHourlyRateError.invalid }
         synchronize(at: instant, date: date)
-        let project = FocusProject(id: UUID().uuidString, name: name, accent: accent, category: "Personal project")
+        let project = FocusProject(id: UUID().uuidString, name: name, accent: accent, category: "Personal project", hourlyRate: hourlyRate)
         ledger.registerProject(project)
         ledgerDirty = true
         save(at: instant)
@@ -193,16 +199,24 @@ final class WorkspaceModel {
     /// Rename/recolor in place. Settle the finishing target before changing its metadata.
     func updateProject(_ project: FocusProject, name: String, accent: FocusProject.Accent,
                        at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
+        let rate = projects.first { $0.id == project.id }?.hourlyRate
+        try updateProject(project, name: name, accent: accent, hourlyRate: rate, at: instant, date: date)
+    }
+
+    func updateProject(_ project: FocusProject, name: String, accent: FocusProject.Accent, hourlyRate: ProjectHourlyRate?,
+                       at instant: ContinuousClock.Instant = .now, date: Date = .now) throws {
         guard canTrack else { throw ProjectCreationError.unavailable }
         guard let current = projects.first(where: { $0.id == project.id }) else { throw ProjectCreationError.missing }
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 80 else { throw ProjectCreationError.invalidName }
-        guard accent != .neutral else { throw ProjectCreationError.invalidColor }
+        guard current.isHabitsProject ? accent == .habits : FocusProject.Accent.projectColors.contains(accent) else { throw ProjectCreationError.invalidColor }
         guard !(projects + [.unassigned]).contains(where: {
             $0.id != current.id && $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
         }) else { throw ProjectCreationError.duplicateName }
+        guard hourlyRate?.isValid != false else { throw ProjectHourlyRateError.invalid }
+        guard !projects.contains(where: { $0.id != current.id && $0.accent == accent }) else { throw ProjectCreationError.colorInUse }
         synchronize(at: instant, date: date)
-        let edited = FocusProject(id: current.id, name: name, accent: accent, category: current.category)
+        let edited = FocusProject(id: current.id, name: name, accent: accent, category: current.category, hourlyRate: hourlyRate)
         ledger.updateProject(edited)
         reconcileProjectSelection()
         if let removal = lastTimesheetRemoval, removal.project.id == edited.id {
@@ -211,6 +225,8 @@ final class WorkspaceModel {
         ledgerDirty = true
         save(at: instant)
     }
+
+    var canCreateProject: Bool { canTrack && projects.count < 31 }
 
     var projectTargets: [String: WeeklyTargets] { ledger.projectTargets }
 
@@ -232,7 +248,7 @@ final class WorkspaceModel {
 
     /// Removing a catalog project never erases time. Running timers continue unassigned.
     func deleteProject(_ project: FocusProject, at instant: ContinuousClock.Instant = .now, date: Date = .now) {
-        guard canTrack, projects.contains(where: { $0.id == project.id }) else { return }
+        guard canTrack, projects.contains(where: { $0.id == project.id && !$0.isHabitsProject }) else { return }
         synchronize(at: instant, date: date)
         ledger.deleteProject(id: project.id)
         reconcileProjectSelection()
@@ -641,7 +657,8 @@ final class WorkspaceModel {
         if loadFailed, let persistence {
             do {
                 ledger = try persistence.load()
-                _ = ledger.takeChanges()
+                ledger.normalizeProjectCatalog()
+                ledgerDirty = !ledger.takeChanges().isEmpty
                 readIndex.rebuild(ledger)
                 reconcileProjectSelection()
                 if let settings = ledger.pomodoroSettings { pomodoro.configure(settings) }

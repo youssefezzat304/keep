@@ -14,6 +14,8 @@ enum KeepTheme {
     static let sage = Color("Sage")
     static let sageInk = Color("SageForeground")
     static let flowNotchInk = Color("FlowNotchForeground")
+    static let danger = Color("Danger")
+    static let informationInk = Color("InformationForeground")
     static let mistBlue = Color("MistBlue")
     static let border = Color("Border")
     static let projectUsedColorRing = Color("ProjectUsedColorRing")

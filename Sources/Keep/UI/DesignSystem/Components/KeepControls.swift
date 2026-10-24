@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Shared warm controls, with native button/menu behavior and visible keyboard focus.
 struct KeepButtonStyle: ButtonStyle {
-    enum Emphasis { case primary, secondary, quiet }
+    enum Emphasis { case primary, secondary, quiet, informational, success }
     var emphasis: Emphasis = .secondary
     @Environment(\.isEnabled) private var enabled
     @Environment(\.isFocused) private var focused
@@ -11,7 +11,7 @@ struct KeepButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(emphasis == .primary ? KeepTheme.surface : KeepTheme.ink)
+            .foregroundStyle(ink)
             .padding(.horizontal, 14)
             .frame(minHeight: 36)
             .background(fill, in: RoundedRectangle(cornerRadius: 10))
@@ -25,7 +25,18 @@ struct KeepButtonStyle: ButtonStyle {
             .onHover { hovered = $0 }
     }
 
+    private var ink: Color {
+        switch emphasis {
+        case .primary: KeepTheme.surface
+        case .informational: KeepTheme.informationInk
+        case .success: KeepTheme.sageInk
+        case .secondary, .quiet: KeepTheme.ink
+        }
+    }
+
     private var fill: Color {
+        if emphasis == .informational { return KeepTheme.mistBlue }
+        if emphasis == .success { return KeepTheme.sage }
         if emphasis == .primary { return KeepTheme.accentStrong }
         if emphasis == .quiet { return KeepTheme.mutedWarm.opacity(hovered ? 0.6 : 0.25) }
         return hovered ? KeepTheme.mutedWarm : KeepTheme.paper

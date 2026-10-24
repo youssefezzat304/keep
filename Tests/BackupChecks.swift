@@ -102,7 +102,7 @@ private final class Fixture {
         let f = try Fixture()
         expect(!f.backup.automatic && f.backup.lastUploadConfirmed == nil, "Opt in only; no invented success")
         let day = TaskDay.id(for: .now, calendar: f.tasks.calendar)
-        let project = try f.workspace.createProject(name: "Backup project", accent: .sage)
+        let project = try f.workspace.createProject(name: "Backup project", accent: .olive)
         f.workspace.selectProject(project); f.workspace.setTaskName("Saved suggestion")
         f.workspace.play(.flow); try await Task.sleep(for: .milliseconds(15)); f.workspace.stop(.flow)
         f.workspace.edit(seconds: 1234, project: project, dayID: day)

@@ -42,8 +42,8 @@ struct ActiveTargetHeader: View {
         }
         .onDisappear { finishEditing() }
         .sheet(isPresented: $showsProjectCreation, onDismiss: { focusedField = nil }) {
-            ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
-                let project = try workspace.createProject(name: name, accent: accent)
+            ProjectEditorDialog(usedColors: Set(workspace.projects.map(\.accent))) { name, accent, rate in
+                let project = try workspace.createProject(name: name, accent: accent, hourlyRate: rate)
                 workspace.selectProject(project)
             }
         }
@@ -88,7 +88,7 @@ struct ActiveTargetHeader: View {
             .accessibilityLabel("Select project. Current project: \(selectedProject?.name ?? "No project")")
             .help("Select a project")
             .popover(isPresented: $showsProjectPicker) {
-                ProjectPicker(projects: workspace.projects, selectedProject: selectedProject, onCreate: workspace.canTrack ? {
+                ProjectPicker(projects: workspace.projects, selectedProject: selectedProject, onCreate: workspace.canCreateProject ? {
                     showsProjectPicker = false
                     showsProjectCreation = true
                 } : nil) { project in

@@ -16,7 +16,7 @@ import Foundation
         func wall(_ seconds: Int) -> Date { date.addingTimeInterval(Double(seconds)) }
         let workspace = WorkspaceModel(persistence: persistence, calendar: calendar, focusDuration: 10, date: date)
         let original = FocusProject.defaults[0]
-        let custom = try workspace.createProject(name: "Study", accent: .sage, at: instant, date: date)
+        let custom = try workspace.createProject(name: "Study", accent: .olive, at: instant, date: date)
         workspace.startTask("Read", timers: .both, at: instant, date: date)
         workspace.synchronize(at: time(5), date: wall(5))
         let session = workspace.ledger.sessions[0]
@@ -28,9 +28,9 @@ import Foundation
         let supplement = StatsSupplement(taskRevision: 0, habitRevision: 0, tasks: [], habits: [])
         let batch = workspace.readIndex.batch(since: nil, epoch: nil)
         _ = try await cache.snapshot(batch: batch, query: StatsQuery(), supplement: supplement, now: wall(5), calendar: calendar)
-        try workspace.updateProject(original, name: "  My focus  ", accent: .sage, at: time(10), date: wall(10))
+        try workspace.updateProject(original, name: "  My focus  ", accent: .teal, at: time(10), date: wall(10))
         guard let edited = workspace.projects.first(where: { $0.id == original.id }) else { preconditionFailure("Missing edited project") }
-        expect(edited.name == "My focus" && edited.accent == .sage && edited.category == original.category, "Trimmed edits preserve identity/category and allow a used color")
+        expect(edited.name == "My focus" && edited.accent == .teal && edited.category == original.category, "Trimmed edits preserve identity/category and use an available color")
         expect(workspace.selectedProject == edited && workspace.taskName == "Read", "Active target reflects the edit without changing its task")
         expect(workspace.flow.phase(at: time(10)) == .running && workspace.pomodoro.phase(at: time(10)) == .completed, "Running Flow and completed Pomodoro retain their phases")
         expect(workspace.ledger.sessions[0].id == session.id && workspace.ledger.sessions[0].project == edited && workspace.ledger.sessions[0].seconds == 10, "Settled session retains identity/duration and gets edited display metadata")
@@ -58,7 +58,7 @@ import Foundation
         expect(workspace.ledger.sessions.allSatisfy { $0.project == renamed } && workspace.ledger.total(dayIDs: [day]) == 15, "Undo restores current metadata without changing time")
         workspace.edit(seconds: 20, project: original, dayID: day, at: time(15), date: wall(15))
         expect(workspace.ledger.entries.first?.project == renamed, "Stale Timesheet editors cannot revert project metadata")
-        try workspace.updateProject(custom, name: "Research", accent: .butter, at: time(15), date: wall(15))
+        try workspace.updateProject(custom, name: "Research", accent: .honey, at: time(15), date: wall(15))
         expect(try persistence.load().customProjects.first?.name == "Research", "Custom project edits persist")
         for (name, accent, expected) in [("", FocusProject.Accent.sage, ProjectCreationError.invalidName), (String(repeating: "a", count: 81), .sage, .invalidName), ("research", .sage, .duplicateName), ("No project", .sage, .duplicateName), ("Valid", .neutral, .invalidColor)] {
             let bytes = defaults.data(forKey: persistence.key)

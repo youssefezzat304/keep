@@ -21,6 +21,8 @@ struct TimesheetPersistence {
     }
 
     nonisolated static func validate(_ ledger: TimesheetLedger) throws {
+        let projects = ledger.customProjects + ledger.projectOverrides + ledger.entries.map(\.project) + ledger.sessions.map(\.project) + ledger.taskActivities.map(\.project) + ledger.completedPomodoros.map(\.project)
+        guard projects.allSatisfy({ $0.hourlyRate?.isValid != false }) else { throw CocoaError(.coderReadCorrupt) }
         guard ledger.pomodoroSettings?.isValid != false else { throw CocoaError(.coderReadCorrupt) }
         var presetIDs: Set<UUID> = []
         var presetNames: Set<String> = []
@@ -32,6 +34,7 @@ struct TimesheetPersistence {
             !project.id.isEmpty && !project.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             project.name.count <= 80 && project.accent != .neutral && projectIDs.insert(project.id).inserted
         }) else { throw CocoaError(.coderReadCorrupt) }
+        guard ledger.customProjects.filter({ $0.accent == .habits }).count <= 1 else { throw CocoaError(.coderReadCorrupt) }
         let builtInIDs = Set(FocusProject.defaults.map(\.id))
         var overrideIDs: Set<String> = []
         guard ledger.projectOverrides.allSatisfy({ project in

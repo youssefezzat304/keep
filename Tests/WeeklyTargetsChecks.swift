@@ -32,7 +32,7 @@ import Foundation
         defer { defaults.removePersistentDomain(forName: suite) }
         let workspacePersistence = TimesheetPersistence(defaults: defaults)
         let workspace = WorkspaceModel(persistence: workspacePersistence, calendar: calendar, focusDuration: 60, date: now)
-        let project = try workspace.createProject(name: "Practice", accent: .sage, at: clock, date: now)
+        let project = try workspace.createProject(name: "Practice", accent: .olive, at: clock, date: now)
         let targets = WeeklyTargets(goal: 600, minimum: 120)
         workspace.selectProject(project, at: clock, date: now)
         workspace.startBothTimers(at: clock, date: now)

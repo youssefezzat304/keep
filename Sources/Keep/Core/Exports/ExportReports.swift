@@ -70,6 +70,7 @@ nonisolated enum ExportReports {
             ("project_id", request.projectID ?? "all"), ("project_name", request.projectID.flatMap { projects[$0]?.name } ?? "All projects"),
             ("task_keys", request.taskKeys.map { $0.sorted().joined(separator: " | ") } ?? "all"),
             ("time_units", "seconds except task_estimates.csv, which uses minutes; habit targets use their stated units; rates are fractions 0 to 1"),
+            ("project_cost_scope", "selected recorded sessions at current project hourly rates; currencies are never converted or combined"),
             ("task_scope", "all tasks; date scope only; projected habit rows excluded"),
             ("habit_scope", "all habits; date scope only"),
             ("task_estimates_scope", "ordinary task planned dates with all linked focus time; timed habits by recorded civil day; manual minutes excluded from focused minutes"),
@@ -89,6 +90,10 @@ nonisolated enum ExportReports {
             .integer(stats.currentStreak), .integer(stats.bestStreak), .value(coverage == "unavailable" ? "" : String(stats.pomodoros)), .value(since), .value(coverage),
             .number(stats.adjustedTotal), .integer(stats.tasksTotal), .integer(stats.tasksCompleted), .value("all tasks; date scope only"), .value("all habits; date scope only")
         ]]))
+        let costs = stats.projectCosts(projects: s.projects)
+        reports.append(try report("project_costs.csv", ["project_id", "project_name", "currency", "hourly_rate", "recorded_focus_seconds", "estimated_cost"], costs.map {
+            [.text($0.id), .text($0.name), .value($0.rate.currency), .value(NSDecimalNumber(decimal: $0.rate.amount).stringValue), .number($0.seconds), .value(NSDecimalNumber(decimal: $0.amount).stringValue)]
+        }))
         let days = try dayIDs(from: request.from, through: request.through, calendar: calendar)
         reports.append(try report("focus_daily.csv", ["civil_day", "recorded_focus_seconds"], days.map { [.value($0), .number(stats.dailyFocus[$0, default: 0])] }))
         reports.append(try report("focus_buckets.csv", ["bucket_id", "bucket_start", "recorded_focus_seconds"], stats.buckets.map { [.value($0.id), .value(StatsSnapshot.dayID($0.date, calendar: calendar)), .number($0.seconds)] }))

@@ -102,7 +102,7 @@ struct ProjectPicker: View {
 
                 HStack {
                     Button { onCreate?() } label: {
-                        Label("Create a new project", systemImage: "plus")
+                        Label(projects.filter { !$0.isHabitsProject }.count >= 30 ? "30-project limit reached" : "Create a new project", systemImage: "plus")
                             .font(.system(size: 13, weight: .medium))
                     }
                     .buttonStyle(.plain)

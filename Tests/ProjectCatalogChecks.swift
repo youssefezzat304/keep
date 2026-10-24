@@ -19,12 +19,12 @@ import Foundation
         func time(_ seconds: Int) -> ContinuousClock.Instant { instant.advanced(by: .seconds(seconds)) }
         func wall(_ seconds: Int) -> Date { date.addingTimeInterval(Double(seconds)) }
         let workspace = WorkspaceModel(persistence: persistence, calendar: calendar, focusDuration: 100, date: date)
-        let project = try workspace.createProject(name: "  Study  ", accent: .sage, at: instant, date: date)
+        let project = try workspace.createProject(name: "  Study  ", accent: .olive, at: instant, date: date)
         expect(project.name == "Study" && workspace.projects.contains(project), "Creation trims and registers the project")
         expect(workspace.selectedProject == FocusProject.defaults.first && workspace.ledger.entries.isEmpty, "Creation alone changes neither selection nor recorded time")
         expect(tryLoad(persistence).customProjects.contains(project), "An unused project persists")
         do {
-            _ = try workspace.createProject(name: "study", accent: .sage, at: instant, date: date)
+            _ = try workspace.createProject(name: "study", accent: .olive, at: instant, date: date)
             preconditionFailure("Duplicate accepted")
         } catch ProjectCreationError.duplicateName { checks += 1 }
         workspace.selectProject(project, at: instant, date: date)
@@ -41,7 +41,7 @@ import Foundation
         expect(workspace.selectedProject == nil, "A stale picker cannot reselect a deleted project")
         let restored = WorkspaceModel(persistence: persistence, calendar: calendar, date: date)
         expect(!restored.projects.contains(project) && restored.ledger.sessions.map(\.project) == workspace.ledger.sessions.map(\.project) && restored.ledger.sessions.map(\.seconds) == [10, 5], "Reload keeps deletion and historical project metadata/duration")
-        let replacement = try workspace.createProject(name: "Study", accent: .sage, at: time(15), date: wall(15))
+        let replacement = try workspace.createProject(name: "Study", accent: .olive, at: time(15), date: wall(15))
         expect(replacement.id != project.id && workspace.projects.contains(replacement), "A reused name gets a new identity")
         let dayID = TimesheetWeek.dayID(for: date, calendar: calendar)
         workspace.removeTimesheetProject(project, dayIDs: [dayID], at: time(15), date: wall(15))
@@ -50,7 +50,7 @@ import Foundation
         for builtIn in FocusProject.defaults { workspace.deleteProject(builtIn, at: time(15), date: wall(15)) }
         workspace.deleteProject(replacement, at: time(15), date: wall(15))
         let empty = WorkspaceModel(persistence: persistence, calendar: calendar, date: date)
-        expect(empty.projects.isEmpty && empty.selectedProject == nil, "Deleting every project survives reload without reseeding defaults")
+        expect(empty.projects == [.habits] && empty.selectedProject == nil, "Habits remains after deleting all ordinary projects")
         let saved = defaults.data(forKey: persistence.key)
         empty.deleteProject(.unassigned)
         empty.deleteProject(project)

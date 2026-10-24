@@ -37,6 +37,7 @@ struct StatsView: View {
                         if let snapshot = model.snapshot {
                             if workspace.canTrack {
                                 focusContent(snapshot, contentWidth: viewport.size.width)
+                                projectCosts(snapshot)
                                 goal(snapshot)
                             } else {
                                 issue("Your focus history couldn’t be loaded.") { workspace.retryPersistence(); refresh() }
@@ -222,6 +223,47 @@ struct StatsView: View {
             if let key = row.taskKey { model.query.taskKeys = [key] }
             else { model.query.projectID = row.projectID; model.query.taskKeys = nil }
         }, compact: compact)
+    }
+
+    private func projectCosts(_ snapshot: StatsSnapshot) -> some View {
+        let costs = snapshot.projectCosts(projects: model.projects)
+        let totals = Dictionary(grouping: costs, by: { $0.rate.currency })
+        return card {
+            Text("Estimated project cost").font(KeepTheme.headingFont(size: 23))
+            Text("Selected recorded sessions at each project’s current hourly rate. Currencies are totaled separately.")
+                .font(.system(size: 13)).foregroundStyle(KeepTheme.secondaryInk).fixedSize(horizontal: false, vertical: true)
+            if costs.isEmpty {
+                Text("Add an optional hourly rate in Edit project to see costs here.")
+                    .font(.system(size: 14)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(totals.keys.sorted(), id: \.self) { currency in
+                    let amount = totals[currency, default: []].reduce(Decimal.zero) { $0 + $1.amount }
+                    Text("\(currency) · \(ProjectHourlyRate.formatted(amount, currency: currency))")
+                        .font(KeepTheme.headingFont(size: 26)).monospacedDigit().textSelection(.enabled)
+                }
+                ForEach(costs) { cost in
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline) {
+                            costLabel(cost); Spacer(minLength: 16); costAmount(cost)
+                        }
+                        VStack(alignment: .leading, spacing: 6) { costLabel(cost); costAmount(cost) }
+                    }.padding(.vertical, 6).accessibilityElement(children: .combine)
+                }
+            }
+        }
+    }
+
+    private func costLabel(_ cost: ProjectCost) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(cost.name).font(.system(size: 15, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+            Text("\(TimesheetDuration.total(cost.seconds)) × \(ProjectHourlyRate.formatted(cost.rate.amount, currency: cost.rate.currency))/hour")
+                .font(.system(size: 12)).foregroundStyle(KeepTheme.mutedInk).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func costAmount(_ cost: ProjectCost) -> some View {
+        Text("\(cost.rate.currency) \(ProjectHourlyRate.formatted(cost.amount, currency: cost.rate.currency))")
+            .font(.system(size: 16, weight: .medium)).monospacedDigit().textSelection(.enabled)
     }
 
     private func goal(_ snapshot: StatsSnapshot) -> some View {

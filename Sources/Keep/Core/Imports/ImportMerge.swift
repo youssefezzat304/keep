@@ -151,8 +151,8 @@ nonisolated enum ImportMerge {
                     if choice == .both {
                         let name = (decisions.names[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                         if name.isEmpty || name.count > 80 || occupiedProjects.contains(where: { nameKey($0.name) == nameKey(name) }) { blockers.append("Enter a unique name for project ‘\(value.name)’.") }
-                        else { value = FocusProject(id: value.id, name: name, accent: value.accent, category: value.category) }
-                    } else { value = FocusProject(id: match.id, name: match.name, accent: value.accent, category: value.category) }
+                        else { value = FocusProject(id: value.id, name: name, accent: value.accent, category: value.category, hourlyRate: value.hourlyRate) }
+                    } else { value = FocusProject(id: match.id, name: match.name, accent: value.accent, category: value.category, hourlyRate: value.hourlyRate) }
                 }
                 projectMap[definition.id] = value
                 if !occupiedProjects.contains(where: { $0.id == value.id }) { occupiedProjects.append(value) }
@@ -189,7 +189,7 @@ nonisolated enum ImportMerge {
             for definition in projectDefinitions {
                 guard let value = projectMap[definition.id], !(definition.id == value.id && foreignTargets.contains(value.id)) else { continue }
                 var definitions = result.workspace.projects
-                merge([value], into: &definitions, key: \.id, category: "Projects", label: { "\($0.name) · \($0.accent.name)" })
+                merge([value], into: &definitions, key: \.id, category: "Projects", label: { "\($0.name) · \($0.accent.name) · \($0.hourlyRate.map { "\($0.currency) \($0.amount)/hour" } ?? "no hourly rate")" })
                 let builtIn = FocusProject.defaults.contains { $0.id == value.id }
                 if let chosen = definitions.first(where: { $0.id == value.id }) {
                     if builtIn {
@@ -343,6 +343,16 @@ nonisolated enum ImportMerge {
             result.workspace.entries = result.workspace.entries.map { var value = $0; value.project = metadata[value.project.id] ?? value.project; return value }
             result.workspace.sessions = result.workspace.sessions.map { var value = $0; value.project = metadata[value.project.id] ?? value.project; return value }
             result.workspace.taskActivities = result.workspace.taskActivities.map { var value = $0; value.project = metadata[value.project.id] ?? value.project; return value }
+            var normalized = TimesheetLedger(tracked: result.workspace)
+            normalized.normalizeProjectCatalog()
+            let normalizedData = TrackedWorkspace(normalized)
+            if normalizedData != result.workspace {
+                result.workspace = normalizedData
+                changed("project-colors", "Project colors", "Reserve Habits’ color and assign available colors to imported projects", .addition)
+            }
+            let projectCount = normalized.catalogProjects.filter { !normalized.deletedProjectIDs.contains($0.id) }.count - 1
+            let localCount = TimesheetLedger(tracked: original.workspace).catalogProjects.filter { !original.workspace.deletedProjectIDs.contains($0.id) }.count - 1
+            if projectCount > max(30, localCount) { blockers.append("This import exceeds the 30-project limit. Delete unused projects or import fewer projects.") }
             // Never manufacture continuity for a partial import; retain the local marker.
             result.reportingTimeZone = original.reportingTimeZone
             do { try result.validate() }

@@ -33,15 +33,17 @@ struct DashboardProjectsView: View {
                                     .lineLimit(1).help(project.name)
                                 Spacer(minLength: 12)
                                 Button { goalProject = project } label: { Label(workspace.projectTargets[project.id] == nil ? "Set goals" : "Goals", systemImage: "target") }
-                                    .buttonStyle(KeepButtonStyle(emphasis: .quiet)).disabled(!workspace.canTrack)
+                                    .buttonStyle(KeepButtonStyle(emphasis: workspace.projectTargets[project.id] == nil ? .informational : .success)).disabled(!workspace.canTrack)
                                     .accessibilityLabel("Weekly targets for \(project.name)")
                                 Button { editing = project } label: { Image(systemName: "pencil") }
                                     .buttonStyle(KeepButtonStyle(emphasis: .quiet))
                                     .accessibilityLabel("Edit project: \(project.name)")
                                     .help("Edit project")
                                     .disabled(!workspace.canTrack)
-                                RemoveRowButton(label: "Delete project: \(project.name)") { deletion = project }
-                                    .disabled(!workspace.canTrack)
+                                if !project.isHabitsProject {
+                                    RemoveRowButton(label: "Delete project: \(project.name)", destructive: true) { deletion = project }
+                                        .disabled(!workspace.canTrack)
+                                }
                             }
                             .foregroundStyle(project.labelColor(in: environment))
                             .padding(.horizontal, 20).frame(height: 64)
@@ -56,8 +58,8 @@ struct DashboardProjectsView: View {
         .clipShape(RoundedRectangle(cornerRadius: KeepTheme.cardRadius))
         .overlay { RoundedRectangle(cornerRadius: KeepTheme.cardRadius).strokeBorder(KeepTheme.border, lineWidth: 1).allowsHitTesting(false) }
         .sheet(item: $editing) { project in
-            ProjectEditorDialog(project: project, usedColors: Set(workspace.projects.map(\.accent))) { name, accent in
-                try workspace.updateProject(project, name: name, accent: accent)
+            ProjectEditorDialog(project: project, usedColors: Set(workspace.projects.map(\.accent))) { name, accent, rate in
+                try workspace.updateProject(project, name: name, accent: accent, hourlyRate: rate)
             }
         }
         .sheet(item: $goalProject) { project in

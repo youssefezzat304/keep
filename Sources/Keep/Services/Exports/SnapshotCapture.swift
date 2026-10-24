@@ -30,7 +30,7 @@ struct SnapshotCapture {
         var catalog = Dictionary(uniqueKeysWithValues: workspace.readIndex.statsProjects.map { ($0.id, $0) })
         for project in workspace.ledger.catalogProjects + [.unassigned] {
             catalog[project.id] = .init(id: project.id, name: project.name, accent: project.accent.rawValue,
-                                      deleted: workspace.ledger.deletedProjectIDs.contains(project.id))
+                                      deleted: workspace.ledger.deletedProjectIDs.contains(project.id), hourlyRate: project.hourlyRate)
         }
         return catalog.values.sorted { $0.name == $1.name ? $0.id < $1.id : $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }

@@ -26,7 +26,7 @@ import SwiftUI
         }
         precondition(music.state == .playing, "Silent fixture should show current track metadata")
         let workspace = WorkspaceModel()
-        let project = try workspace.createProject(name: "German", accent: .sage)
+        let project = try workspace.createProject(name: "German", accent: .olive)
         workspace.selectProject(project)
         workspace.startTask("hören", timers: .both)
         workspace.startTask("lesen", timers: .both)

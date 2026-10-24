@@ -139,7 +139,7 @@ nonisolated struct WorkspaceMutation: Sendable {
             for project in ledger.projectOverrides + ledger.customProjects where catalog[project.id] != nil {
                 catalog[project.id] = project
             }
-            let updatedProjects: [StatsInput.Project] = catalog.values.map { .init(id: $0.id, name: $0.name, accent: $0.accent.rawValue, deleted: ledger.deletedProjectIDs.contains($0.id)) }
+            let updatedProjects: [StatsInput.Project] = catalog.values.map { .init(id: $0.id, name: $0.name, accent: $0.accent.rawValue, deleted: ledger.deletedProjectIDs.contains($0.id), hourlyRate: $0.hourlyRate) }
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             if updatedProjects != statsProjects { catalogRevision &+= 1; statsProjects = updatedProjects }
             let ids = Set((activeProjects + [.unassigned]).map(\.id))

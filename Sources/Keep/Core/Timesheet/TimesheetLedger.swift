@@ -155,16 +155,37 @@ nonisolated struct TimesheetLedger: Codable {
     var catalogProjects: [FocusProject] {
         let builtIns = FocusProject.defaults.map { original in projectOverrides.first { $0.id == original.id } ?? original }
         // Reuse an existing user-created Habits project rather than showing duplicate defaults.
-        let existingHabits = customProjects.contains { !deletedProjectIDs.contains($0.id) && $0.name.compare(FocusProject.habits.name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
+        let existingHabits = customProjects.contains { !deletedProjectIDs.contains($0.id) && ($0.isHabitsProject || $0.name.compare(FocusProject.habits.name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame) }
         return builtIns.filter { !($0.id == FocusProject.habits.id && $0.name == FocusProject.habits.name && existingHabits) } + customProjects
     }
 
+    mutating func normalizeProjectCatalog() {
+        let habit = catalogProjects.first { !deletedProjectIDs.contains($0.id) && ($0.isHabitsProject || $0.name.compare("Habits", options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame) } ?? .habits
+        if deletedProjectIDs.remove(habit.id) != nil { changes.append(.catalog) }
+        var reserved = Set<FocusProject.Accent>()
+        let active = catalogProjects.filter { !deletedProjectIDs.contains($0.id) }
+        // Preserve unique saved choices first, then assign unused colors to collisions.
+        var recolor: [FocusProject] = []
+        for project in active {
+            if project.id == habit.id {
+                if project.accent != .habits {
+                    updateProject(FocusProject(id: project.id, name: project.name, accent: .habits, category: project.category, hourlyRate: project.hourlyRate))
+                }
+            } else if !FocusProject.Accent.projectColors.contains(project.accent) || !reserved.insert(project.accent).inserted {
+                recolor.append(project)
+            }
+        }
+        for project in recolor {
+            guard let color = FocusProject.Accent.projectColors.first(where: { !reserved.contains($0) }) else { break }
+            reserved.insert(color)
+            updateProject(FocusProject(id: project.id, name: project.name, accent: color, category: project.category, hourlyRate: project.hourlyRate))
+        }
+    }
+
     mutating func ensureHabitsProject() -> FocusProject {
-        if let existing = catalogProjects.first(where: {
-            !deletedProjectIDs.contains($0.id) && $0.name.compare(FocusProject.habits.name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
-        }) { return existing }
-        if deletedProjectIDs.remove(FocusProject.habits.id) != nil { changes.append(.catalog) }
-        return projectMetadata(for: .habits)
+        if let existing = catalogProjects.first(where: { !deletedProjectIDs.contains($0.id) && $0.isHabitsProject && $0.accent == .habits }) { return existing }
+        normalizeProjectCatalog()
+        return catalogProjects.first { !deletedProjectIDs.contains($0.id) && $0.isHabitsProject } ?? .habits
     }
 
     func projectMetadata(for project: FocusProject) -> FocusProject {
@@ -196,7 +217,10 @@ nonisolated struct TimesheetLedger: Codable {
     }
 
     /// Delete from the active catalog, preserving metadata and all recorded history.
-    mutating func deleteProject(id: String) { deletedProjectIDs.insert(id); changes.append(.catalog) }
+    mutating func deleteProject(id: String) {
+        guard catalogProjects.first(where: { $0.id == id })?.isHabitsProject != true else { return }
+        deletedProjectIDs.insert(id); changes.append(.catalog)
+    }
 
     func seconds(projectID: String, dayID: String) -> TimeInterval {
         entries.first { $0.project.id == projectID && $0.dayID == dayID }?.seconds ?? 0
